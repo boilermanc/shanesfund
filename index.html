@@ -1,0 +1,105 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shane’s Retirement Fund</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-alice-blue: #EDF6F9;
+            --primary-teal: #006D77;
+            --secondary-aqua: #83C5BE;
+            --highlight-silk: #FFDDD2;
+            --action-tangerine: #E29578;
+            --mascot-green: #4A5D4E;
+            --logo-cream: #F2E9D4;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-alice-blue);
+            color: var(--primary-teal);
+            margin: 0;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .shane-serif {
+            font-family: 'Fraunces', serif;
+        }
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        .glass {
+            background: rgba(131, 197, 190, 0.4);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 109, 119, 0.1);
+        }
+        .glass-pearl {
+            background: rgba(131, 197, 190, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+        .warm-shadow {
+            box-shadow: 0 15px 40px -10px rgba(255, 221, 210, 0.8);
+        }
+        .mascot-shadow {
+            box-shadow: 0 10px 30px -5px rgba(74, 93, 78, 0.3);
+        }
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .btn-shimmer {
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-shimmer::after {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
+            transform: rotate(45deg);
+            animation: btn-shimmer 3s infinite;
+        }
+        @keyframes btn-shimmer {
+            0% { transform: translate(-100%, -100%) rotate(45deg); }
+            100% { transform: translate(100%, 100%) rotate(45deg); }
+        }
+        /* Fix for mobile height issues */
+        #root {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "zustand": "https://esm.sh/zustand@^5.0.10",
+    "lucide-react": "https://esm.sh/lucide-react@^0.463.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.93.3",
+    "framer-motion": "https://esm.sh/framer-motion@^12.29.2"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+</body>
+</html>

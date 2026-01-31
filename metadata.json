@@ -1,0 +1,7 @@
+{
+  "name": "Shane’s Retirement Fund",
+  "description": "A high-end lottery pool management app with a premium fintech aesthetic, featuring sleek dark mode, glassmorphism, and animated financial insights.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
