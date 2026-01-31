@@ -1,16 +1,13 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User as UserIcon, ArrowRight } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import ShaneMascot from './ShaneMascot';
 
 const AuthScreen: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const { setAuthenticated, setUser } = useStore();
 
   const handleAuth = (e: React.FormEvent) => {
@@ -27,7 +24,7 @@ const AuthScreen: React.FC = () => {
   };
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -36,22 +33,13 @@ const AuthScreen: React.FC = () => {
       <div className="flex-1 flex flex-col max-w-sm mx-auto w-full">
         {/* Logo Area */}
         <div className="flex flex-col items-center mb-10">
-          <motion.div 
+          <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ 
-              scale: 1, 
-              opacity: 1,
-              rotate: isPasswordFocused ? [0, -5, 5, 0] : 0 
-            }}
+            animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', damping: 12 }}
-            className="mb-4"
           >
-            <ShaneMascot size="lg" animate={!isPasswordFocused} />
+            <img src="/logo.png" alt="Shane's Retirement Fund" className="h-40 w-auto" />
           </motion.div>
-          <div className="text-center">
-            <h1 className="shane-serif text-4xl font-black text-[#4A5D4E] tracking-tight">Shane’s</h1>
-            <h2 className="text-[11px] font-black text-[#006D77] uppercase tracking-[0.4em] mt-1">Retirement Fund</h2>
-          </div>
         </div>
 
         {/* Title */}
@@ -113,8 +101,6 @@ const AuthScreen: React.FC = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                onFocus={() => setIsPasswordFocused(true)}
-                onBlur={() => setIsPasswordFocused(false)}
                 placeholder="••••••••"
                 className="w-full bg-white border border-transparent focus:border-[#006D77] rounded-[1.8rem] py-4 pl-14 pr-6 text-[#006D77] font-bold outline-none warm-shadow transition-all placeholder:text-[#83C5BE]/40"
                 required
@@ -122,7 +108,7 @@ const AuthScreen: React.FC = () => {
             </div>
           </div>
 
-          <button 
+          <button
             type="submit"
             className="w-full py-5 rounded-[2.2rem] bg-[#E29578] text-white font-black text-lg shadow-xl shadow-[#E29578]/20 btn-shimmer flex items-center justify-center gap-3 active:scale-[0.98] transition-all mt-4"
           >
@@ -134,7 +120,7 @@ const AuthScreen: React.FC = () => {
         <div className="mt-auto pt-10 text-center">
           <p className="text-sm font-bold text-[#83C5BE]">
             {isLogin ? "Don't have an account?" : "Already a member?"}{' '}
-            <button 
+            <button
               onClick={() => setIsLogin(!isLogin)}
               className="text-[#006D77] underline decoration-[#006D77]/30 font-black hover:decoration-[#006D77] transition-all"
             >

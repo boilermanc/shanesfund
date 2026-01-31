@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -76,7 +75,7 @@ const ProfileView: React.FC = () => {
       {/* Header Section */}
       <motion.section variants={itemVariants} className="flex flex-col items-center">
         <div className="relative">
-          <ShaneMascot size="lg" animate />
+          <ShaneMascot size="lg" expression="normal" animate />
           {/* Pro Badge */}
           <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#E29578] px-4 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg shadow-[#FFDDD2] z-10">
             <Star size={12} className="text-white fill-white" />

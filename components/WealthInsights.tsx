@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Info, TrendingUp, DollarSign, Target, X, Calendar, Ticket, Star } from 'lucide-react';
@@ -9,25 +8,25 @@ const ProgressGauge: React.FC<{ percentage: number; goal: string; label: string 
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
   return (
-    <div className="relative flex flex-col items-center justify-center py-6">
-      <svg className="w-48 h-48 transform -rotate-90">
+    <div className="relative flex flex-col items-center justify-center py-4 sm:py-6">
+      <svg className="w-40 h-40 sm:w-48 sm:h-48 transform -rotate-90">
         {/* Background Ring */}
         <circle
-          cx="96"
-          cy="96"
+          cx="50%"
+          cy="50%"
           r={radius}
           stroke="#83C5BE"
-          strokeWidth="12"
+          strokeWidth="10"
           fill="transparent"
           className="opacity-20"
         />
         {/* Indicator Ring */}
         <motion.circle
-          cx="96"
-          cy="96"
+          cx="50%"
+          cy="50%"
           r={radius}
           stroke="#E29578"
-          strokeWidth="12"
+          strokeWidth="10"
           fill="transparent"
           strokeDasharray={circumference}
           initial={{ strokeDashoffset: circumference }}
@@ -37,15 +36,15 @@ const ProgressGauge: React.FC<{ percentage: number; goal: string; label: string 
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center pt-2">
-        <span className="text-3xl font-black text-[#006D77] tracking-tighter">{percentage}%</span>
-        <span className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mt-1">to Goal</span>
+        <span className="text-2xl sm:text-3xl font-black text-[#006D77] tracking-tighter">{percentage}%</span>
+        <span className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mt-1">to Goal</span>
       </div>
-      <div className="mt-6 flex items-center gap-2 group cursor-help relative">
-        <p className="text-sm font-bold text-[#006D77]">{label}: <span className="font-black">{goal}</span></p>
+      <div className="mt-4 sm:mt-6 flex items-center gap-2 group cursor-help relative">
+        <p className="text-xs sm:text-sm font-bold text-[#006D77]">{label}: <span className="font-black">{goal}</span></p>
         <div className="p-1 rounded-full bg-[#EDF6F9] text-[#83C5BE]">
-          <Info size={14} />
+          <Info size={12} />
         </div>
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#006D77] text-white text-[10px] rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap font-bold uppercase tracking-wider shadow-lg">
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#006D77] text-white text-[9px] sm:text-[10px] rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap font-bold uppercase tracking-wider shadow-lg">
           Based on current winning trends
         </div>
       </div>
@@ -58,35 +57,35 @@ const BarChart: React.FC<{ onBarClick: (month: string) => void }> = ({ onBarClic
     { label: 'Oct', value: 120 },
     { label: 'Nov', value: 250 },
     { label: 'Dec', value: 180 },
-    { label: 'Jan', value: 420 }, // Tallest - Tangerine
+    { label: 'Jan', value: 420 },
   ];
 
   const maxValue = Math.max(...data.map(d => d.value));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex justify-between items-center px-2">
-        <h3 className="text-lg font-black text-[#006D77] tracking-tight flex items-center gap-2">
-          <TrendingUp size={20} className="text-[#83C5BE]" />
+        <h3 className="text-base sm:text-lg font-black text-[#006D77] tracking-tight flex items-center gap-2">
+          <TrendingUp size={18} className="text-[#83C5BE]" />
           Winning Trends
         </h3>
-        <p className="text-[9px] font-black text-[#83C5BE] uppercase tracking-widest">Tap bars for details</p>
+        <p className="text-[8px] sm:text-[9px] font-black text-[#83C5BE] uppercase tracking-widest">Tap bars for details</p>
       </div>
-      <div className="bg-white rounded-[2.5rem] p-8 border border-[#FFDDD2] warm-shadow flex flex-col gap-6">
-        <div className="flex items-end justify-between h-40 px-2">
+      <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 border border-[#FFDDD2] warm-shadow flex flex-col gap-4 sm:gap-6">
+        <div className="flex items-end justify-between h-32 sm:h-40 px-2">
           {data.map((item, i) => (
-            <div key={i} className="flex flex-col items-center gap-3 flex-1 group cursor-pointer" onClick={() => onBarClick(item.label)}>
+            <div key={i} className="flex flex-col items-center gap-2 sm:gap-3 flex-1 group cursor-pointer" onClick={() => onBarClick(item.label)}>
               <div className="relative w-full flex justify-center items-end h-full">
                 <motion.div
                   initial={{ height: 0 }}
                   animate={{ height: `${(item.value / maxValue) * 100}%` }}
                   transition={{ duration: 1, delay: i * 0.1, ease: "easeOut" }}
-                  className={`w-10 rounded-t-2xl shadow-sm group-hover:brightness-110 transition-all ${
+                  className={`w-8 sm:w-10 rounded-t-xl sm:rounded-t-2xl shadow-sm group-hover:brightness-110 transition-all ${
                     item.value === maxValue ? 'bg-[#E29578]' : 'bg-[#83C5BE]'
                   }`}
                 />
               </div>
-              <span className="text-xs font-black text-[#006D77] uppercase tracking-wider group-hover:text-[#E29578] transition-colors">{item.label}</span>
+              <span className="text-[10px] sm:text-xs font-black text-[#006D77] uppercase tracking-wider group-hover:text-[#E29578] transition-colors">{item.label}</span>
             </div>
           ))}
         </div>
@@ -109,64 +108,64 @@ const WinningTicketsModal: React.FC<{ month: string; tickets: WinningTicket[]; o
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[600] flex items-center justify-center p-6"
+      className="fixed inset-0 z-[600] flex items-center justify-center p-4 sm:p-6"
     >
       <div className="absolute inset-0 bg-[#006D77]/40 backdrop-blur-xl" onClick={onClose} />
       <motion.div
         initial={{ y: 50, scale: 0.9, opacity: 0 }}
         animate={{ y: 0, scale: 1, opacity: 1 }}
         exit={{ y: 50, scale: 0.9, opacity: 0 }}
-        className="relative w-full max-w-sm bg-[#EDF6F9] rounded-[3rem] p-8 border border-[#FFDDD2] warm-shadow max-h-[80vh] overflow-y-auto"
+        className="relative w-full max-w-sm bg-[#EDF6F9] rounded-[2.5rem] sm:rounded-[3rem] p-6 sm:p-8 border border-[#FFDDD2] warm-shadow max-h-[80vh] overflow-y-auto"
       >
-        <div className="flex justify-between items-start mb-8">
+        <div className="flex justify-between items-start mb-6 sm:mb-8">
           <div>
-            <h2 className="text-2xl font-black text-[#006D77] tracking-tighter">{month} Winnings</h2>
-            <p className="text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.2em] mt-1">Syndicate Results</p>
+            <h2 className="text-xl sm:text-2xl font-black text-[#006D77] tracking-tighter">{month} Winnings</h2>
+            <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.15em] sm:tracking-[0.2em] mt-1">Syndicate Results</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-2xl bg-white text-[#006D77] shadow-sm">
-            <X size={20} />
+          <button onClick={onClose} className="p-2 rounded-xl sm:rounded-2xl bg-white text-[#006D77] shadow-sm">
+            <X size={18} />
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {tickets.length > 0 ? (
             tickets.map((ticket, i) => (
-              <div key={i} className="bg-white p-5 rounded-[2rem] border border-[#FFDDD2] space-y-4">
+              <div key={i} className="bg-white p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[#FFDDD2] space-y-3 sm:space-y-4">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-[#EDF6F9] flex items-center justify-center text-[#E29578]">
-                      <Trophy size={16} />
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-[#EDF6F9] flex items-center justify-center text-[#E29578]">
+                      <Trophy size={14} />
                     </div>
                     <div>
-                      <p className="text-xs font-black text-[#006D77] leading-none">{ticket.game}</p>
-                      <p className="text-[9px] font-bold text-[#83C5BE] uppercase mt-1">{ticket.date}</p>
+                      <p className="text-[11px] sm:text-xs font-black text-[#006D77] leading-none">{ticket.game}</p>
+                      <p className="text-[8px] sm:text-[9px] font-bold text-[#83C5BE] uppercase mt-1">{ticket.date}</p>
                     </div>
                   </div>
-                  <p className="text-sm font-black text-[#E29578]">{ticket.prize}</p>
+                  <p className="text-xs sm:text-sm font-black text-[#E29578]">{ticket.prize}</p>
                 </div>
-                <div className="flex gap-1.5 justify-center">
+                <div className="flex gap-1 sm:gap-1.5 justify-center">
                   {ticket.numbers.map((n, idx) => (
-                    <div key={idx} className="w-7 h-7 rounded-full bg-[#006D77]/5 border border-[#006D77]/10 flex items-center justify-center text-[9px] font-black text-[#006D77]">
+                    <div key={idx} className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#006D77]/5 border border-[#006D77]/10 flex items-center justify-center text-[8px] sm:text-[9px] font-black text-[#006D77]">
                       {n}
                     </div>
                   ))}
-                  <div className="w-7 h-7 rounded-full bg-[#E29578] flex items-center justify-center text-[9px] font-black text-white">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#E29578] flex items-center justify-center text-[8px] sm:text-[9px] font-black text-white">
                     {ticket.bonus}
                   </div>
                 </div>
               </div>
             ))
           ) : (
-            <div className="text-center py-12 opacity-50">
-              <Ticket size={40} className="mx-auto text-[#83C5BE] mb-2" />
-              <p className="text-xs font-black text-[#83C5BE] uppercase tracking-widest">No major wins recorded</p>
+            <div className="text-center py-10 sm:py-12 opacity-50">
+              <Ticket size={36} className="mx-auto text-[#83C5BE] mb-2" />
+              <p className="text-[10px] sm:text-xs font-black text-[#83C5BE] uppercase tracking-widest">No major wins recorded</p>
             </div>
           )}
         </div>
 
         <button
           onClick={onClose}
-          className="w-full mt-8 py-4 bg-[#006D77] text-white font-black text-xs uppercase tracking-[0.3em] rounded-[1.8rem] shadow-lg shadow-[#006D77]/20"
+          className="w-full mt-6 sm:mt-8 py-3 sm:py-4 bg-[#006D77] text-white font-black text-[10px] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.3em] rounded-[1.5rem] sm:rounded-[1.8rem] shadow-lg shadow-[#006D77]/20"
         >
           Close Report
         </button>
@@ -221,7 +220,7 @@ const WealthInsights: React.FC = () => {
       variants={{
         visible: { transition: { staggerChildren: 0.1 } }
       }}
-      className="space-y-12 pt-12 pb-32"
+      className="space-y-8 sm:space-y-12 pt-8 sm:pt-12 pb-32"
     >
       <AnimatePresence>
         {selectedMonth && (
@@ -235,9 +234,9 @@ const WealthInsights: React.FC = () => {
 
       {/* Header Section */}
       <motion.section variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="text-center px-4">
-        <h2 className="text-[11px] font-black text-[#83C5BE] uppercase tracking-[0.4em] mb-4">Wealth Insights</h2>
-        <h1 className="text-5xl font-black text-[#006D77] tracking-tighter">$1,240.50</h1>
-        <p className="text-sm font-bold text-[#83C5BE] mt-2">Your Personal Share: <span className="text-[#006D77]">$248.10</span></p>
+        <h2 className="text-[10px] sm:text-[11px] font-black text-[#83C5BE] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-3 sm:mb-4">Wealth Insights</h2>
+        <h1 className="text-4xl sm:text-5xl font-black text-[#006D77] tracking-tighter">$1,240.50</h1>
+        <p className="text-xs sm:text-sm font-bold text-[#83C5BE] mt-2">Your Personal Share: <span className="text-[#006D77]">$248.10</span></p>
       </motion.section>
 
       {/* Progress Section */}
@@ -250,24 +249,24 @@ const WealthInsights: React.FC = () => {
         <BarChart onBarClick={(month) => setSelectedMonth(month)} />
       </motion.section>
 
-      {/* ROI ROI ROI */}
+      {/* ROI Section */}
       <motion.section 
         variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
         className="px-2"
       >
-        <div className="rounded-[2.5rem] overflow-hidden warm-shadow border border-[#FFDDD2] bg-white">
+        <div className="rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden warm-shadow border border-[#FFDDD2] bg-white">
           <div className="flex divide-x divide-[#FFDDD2]">
-            <div className="flex-1 p-8 bg-[#EDF6F9]/50">
-              <p className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-1">Total Contributed</p>
-              <p className="text-xl font-black text-[#006D77]">$40.00</p>
+            <div className="flex-1 p-5 sm:p-8 bg-[#EDF6F9]/50">
+              <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-1">Total Contributed</p>
+              <p className="text-lg sm:text-xl font-black text-[#006D77]">$40.00</p>
             </div>
-            <div className="flex-1 p-8 bg-[#EDF6F9]/50">
-              <p className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-1">Total Returns</p>
-              <p className="text-xl font-black text-[#006D77]">$248.10</p>
+            <div className="flex-1 p-5 sm:p-8 bg-[#EDF6F9]/50">
+              <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-1">Total Returns</p>
+              <p className="text-lg sm:text-xl font-black text-[#006D77]">$248.10</p>
             </div>
           </div>
-          <div className="bg-[#E29578] py-3 text-center">
-            <p className="text-[11px] font-black text-white uppercase tracking-[0.3em]">
+          <div className="bg-[#E29578] py-2.5 sm:py-3 text-center">
+            <p className="text-[10px] sm:text-[11px] font-black text-white uppercase tracking-[0.2em] sm:tracking-[0.3em]">
               Profit: +$208.10 (520%)
             </p>
           </div>
@@ -275,31 +274,31 @@ const WealthInsights: React.FC = () => {
       </motion.section>
 
       {/* Luckiest Pools */}
-      <motion.section variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="space-y-6">
-        <h3 className="text-lg font-black text-[#006D77] tracking-tight px-2 flex items-center gap-2">
-          <Target size={20} className="text-[#83C5BE]" />
+      <motion.section variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="space-y-4 sm:space-y-6">
+        <h3 className="text-base sm:text-lg font-black text-[#006D77] tracking-tight px-2 flex items-center gap-2">
+          <Target size={18} className="text-[#83C5BE]" />
           Luckiest Pools
         </h3>
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {luckyPools.map((pool, idx) => (
             <div 
               key={idx} 
-              className="bg-white p-5 rounded-[2rem] border border-[#FFDDD2] flex items-center justify-between warm-shadow group hover:border-[#83C5BE] transition-colors"
+              className="bg-white p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[#FFDDD2] flex items-center justify-between warm-shadow group hover:border-[#83C5BE] transition-colors"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-2xl bg-[#EDF6F9] flex items-center justify-center text-[#E29578] border border-[#FFDDD2]">
-                  <Trophy size={18} />
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-[#EDF6F9] flex items-center justify-center text-[#E29578] border border-[#FFDDD2]">
+                  <Trophy size={16} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-black text-[#006D77] group-hover:translate-x-1 transition-transform">{pool.name}</h4>
+                    <h4 className="text-xs sm:text-sm font-black text-[#006D77] group-hover:translate-x-1 transition-transform">{pool.name}</h4>
                     <PoolTypeIcon type={pool.type} />
                   </div>
-                  <p className="text-[10px] text-[#83C5BE] font-black uppercase tracking-widest">{pool.rate} Success Rate</p>
+                  <p className="text-[9px] sm:text-[10px] text-[#83C5BE] font-black uppercase tracking-widest">{pool.rate} Success Rate</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-sm font-black text-[#83C5BE]">{pool.wins} won</p>
+                <p className="text-xs sm:text-sm font-black text-[#83C5BE]">{pool.wins} won</p>
               </div>
             </div>
           ))}

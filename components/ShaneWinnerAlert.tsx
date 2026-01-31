@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, X } from 'lucide-react';
@@ -18,23 +17,23 @@ const ShaneWinnerAlert: React.FC<ShaneWinnerAlertProps> = ({ isVisible, onClose 
           animate={{ x: 0, opacity: 1, scale: 1 }}
           exit={{ x: 300, opacity: 0, scale: 0.8 }}
           transition={{ type: 'spring', damping: 20, stiffness: 120 }}
-          className="fixed bottom-32 right-6 z-[1000] flex items-end gap-3 pointer-events-none"
+          className="fixed bottom-28 sm:bottom-32 right-4 sm:right-6 z-[1000] flex items-end gap-2 sm:gap-3 pointer-events-none"
         >
           {/* Speech Bubble */}
           <motion.div
             initial={{ opacity: 0, scale: 0.5, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-[#006D77] p-4 rounded-[2rem] rounded-br-none shadow-2xl border border-white/20 relative mb-4 pointer-events-auto"
+            className="bg-[#006D77] p-3 sm:p-4 rounded-[1.5rem] sm:rounded-[2rem] rounded-br-none shadow-2xl border border-white/20 relative mb-3 sm:mb-4 pointer-events-auto"
           >
-            <div className="flex items-center gap-2">
-              <Sparkles size={14} className="text-[#E29578] fill-[#E29578]" />
-              <p className="text-white text-xs font-black uppercase tracking-widest whitespace-nowrap">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Sparkles size={12} className="text-[#E29578] fill-[#E29578]" />
+              <p className="text-white text-[10px] sm:text-xs font-black uppercase tracking-widest whitespace-nowrap">
                 We got a winner!
               </p>
             </div>
             {/* Pointer */}
-            <div className="absolute -bottom-2 right-0 w-4 h-4 bg-[#006D77] rotate-45 border-r border-b border-white/20" />
+            <div className="absolute -bottom-2 right-0 w-3 h-3 sm:w-4 sm:h-4 bg-[#006D77] rotate-45 border-r border-b border-white/20" />
             
             <button 
               onClick={onClose}
@@ -45,8 +44,8 @@ const ShaneWinnerAlert: React.FC<ShaneWinnerAlertProps> = ({ isVisible, onClose 
           </motion.div>
 
           {/* Animated Shane */}
-          <div className="pointer-events-auto">
-            <ShaneMascot size="sm" animate />
+          <div className="pointer-events-auto scale-75 sm:scale-100">
+            <ShaneMascot size="sm" expression="excited" animate />
           </div>
         </motion.div>
       )}

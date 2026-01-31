@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from './store/useStore';
@@ -29,14 +28,14 @@ import NotificationsCenter from './components/NotificationsCenter';
 import SkeletonLoader from './components/SkeletonLoader';
 
 const App: React.FC = () => {
-  const { 
-    user, 
-    pools, 
-    isLoading, 
-    isOnboarded, 
+  const {
+    user,
+    pools,
+    isLoading,
+    isOnboarded,
     isAuthenticated,
     showWinnerAlert,
-    setPools, 
+    setPools,
     setLoading,
     setWinnerAlert
   } = useStore();
@@ -55,7 +54,7 @@ const App: React.FC = () => {
       setLoading(true);
       const mockPools = getMockPools();
       setPools(mockPools);
-      
+
       // Simulate network delay
       setTimeout(() => {
         setLoading(false);
@@ -90,14 +89,14 @@ const App: React.FC = () => {
                   <h3 className="text-xl font-black text-[#006D77] tracking-tight">Active Pools</h3>
                   <p className="text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.2em]">Draws happening soon</p>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowProUpgrade(true)}
                   className="text-[10px] font-black text-[#E29578] uppercase tracking-widest border-b border-[#E29578]/30 pb-1"
                 >
                   Go Pro
                 </button>
               </div>
-              
+
               {isLoading ? (
                 <SkeletonLoader type="carousel" />
               ) : (
@@ -120,13 +119,13 @@ const App: React.FC = () => {
         );
       case 'friends':
         return (
-          <FriendsView 
-            onOpenProfile={() => {}} 
-            onOpenRequests={() => {}} 
+          <FriendsView
+            onOpenProfile={() => {}}
+            onOpenRequests={() => {}}
             onOpenPool={(id) => {
               const pool = pools.find(p => p.id === id);
               if (pool) setSelectedPoolForLedger(pool);
-            }} 
+            }}
           />
         );
       case 'results':
@@ -148,6 +147,9 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen max-w-md mx-auto relative shadow-2xl bg-[#EDF6F9]">
       <div className="px-6 relative z-10">
+        <div className="flex justify-center pt-6 pb-4">
+          <img src="/logo.png" alt="Shane's Retirement Fund" className="h-24 w-auto" />
+        </div>
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -161,7 +163,7 @@ const App: React.FC = () => {
         </AnimatePresence>
       </div>
 
-      <QuickActions 
+      <QuickActions
         onScanTicket={() => setShowScanner(true)}
         onCreatePool={() => setShowCreatePool(true)}
         onJoinPool={() => setShowJoinPool(true)}
@@ -174,18 +176,18 @@ const App: React.FC = () => {
         {showScanner && (
           <TicketScanner onClose={() => setShowScanner(false)} />
         )}
-        
+
         {showCreatePool && (
-          <CreatePoolWizard 
-            onClose={() => setShowCreatePool(false)} 
-            onComplete={() => setShowCreatePool(false)} 
+          <CreatePoolWizard
+            onClose={() => setShowCreatePool(false)}
+            onComplete={() => setShowCreatePool(false)}
           />
         )}
 
         {showJoinPool && (
-          <JoinPoolScreen 
-            onClose={() => setShowJoinPool(false)} 
-            onJoinSuccess={() => setShowJoinPool(false)} 
+          <JoinPoolScreen
+            onClose={() => setShowJoinPool(false)}
+            onJoinSuccess={() => setShowJoinPool(false)}
           />
         )}
 
@@ -198,16 +200,16 @@ const App: React.FC = () => {
         )}
 
         {selectedPoolForLedger && (
-          <ContributionLedger 
-            pool={selectedPoolForLedger} 
-            onClose={() => setSelectedPoolForLedger(null)} 
+          <ContributionLedger
+            pool={selectedPoolForLedger}
+            onClose={() => setSelectedPoolForLedger(null)}
           />
         )}
       </AnimatePresence>
 
-      <ShaneWinnerAlert 
-        isVisible={showWinnerAlert} 
-        onClose={() => setWinnerAlert(false)} 
+      <ShaneWinnerAlert
+        isVisible={showWinnerAlert}
+        onClose={() => setWinnerAlert(false)}
       />
     </div>
   );

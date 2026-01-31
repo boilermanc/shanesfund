@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Trophy, Calendar, ChevronRight, Zap, Star, ArrowRight } from 'lucide-react';
@@ -16,11 +15,10 @@ const Ball: React.FC<{ number: number; isBonus?: boolean; isMatched?: boolean }>
       backgroundColor: isMatched ? '#E29578' : (isBonus ? '#E29578' : '#006D77')
     }}
     transition={{ type: 'spring', damping: 12, stiffness: 200 }}
-    className={`relative w-11 h-11 rounded-full flex items-center justify-center font-black text-white text-sm shadow-lg border border-white/20 overflow-hidden`}
+    className={`relative w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center font-black text-white text-xs sm:text-sm shadow-lg border border-white/20 overflow-hidden`}
   >
-    {/* 3D Glassy Effect Overlay */}
     <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-black/20 pointer-events-none" />
-    <div className="absolute top-1 left-2 w-3 h-3 bg-white/40 rounded-full blur-[2px] pointer-events-none" />
+    <div className="absolute top-1 left-1.5 sm:left-2 w-2 h-2 sm:w-3 sm:h-3 bg-white/40 rounded-full blur-[2px] pointer-events-none" />
     <span className="relative z-10">{number}</span>
   </motion.div>
 );
@@ -28,16 +26,17 @@ const Ball: React.FC<{ number: number; isBonus?: boolean; isMatched?: boolean }>
 const GameLogo: React.FC<{ game: string }> = ({ game }) => {
   if (game.toLowerCase().includes('powerball')) {
     return (
-      <div className="w-12 h-12 rounded-2xl bg-[#E29578] flex items-center justify-center border-2 border-white shadow-md relative overflow-hidden group-hover:scale-110 transition-transform">
+      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#E29578] flex items-center justify-center border-2 border-white shadow-md relative overflow-hidden group-hover:scale-110 transition-transform">
         <div className="absolute inset-0 bg-gradient-to-tr from-black/10 to-white/20" />
-        <span className="text-white font-black text-xl italic tracking-tighter relative z-10">P</span>
+        <span className="text-white font-black text-lg sm:text-xl italic tracking-tighter relative z-10">P</span>
       </div>
     );
   }
   return (
-    <div className="w-12 h-12 rounded-2xl bg-[#83C5BE] flex items-center justify-center border-2 border-white shadow-md relative overflow-hidden group-hover:scale-110 transition-transform">
+    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#83C5BE] flex items-center justify-center border-2 border-white shadow-md relative overflow-hidden group-hover:scale-110 transition-transform">
       <div className="absolute inset-0 bg-gradient-to-tr from-black/10 to-white/20" />
-      <Star size={24} className="text-white fill-white relative z-10" />
+      <Star size={20} className="text-white fill-white relative z-10 sm:hidden" />
+      <Star size={24} className="text-white fill-white relative z-10 hidden sm:block" />
     </div>
   );
 };
@@ -58,39 +57,39 @@ const GameCard: React.FC<{
       visible: { y: 0, opacity: 1 }
     }}
     onClick={onClick}
-    className="bg-white rounded-[2.5rem] p-7 border border-[#83C5BE]/30 warm-shadow relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all"
+    className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-7 border border-[#83C5BE]/30 warm-shadow relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all"
   >
-    <div className="flex justify-between items-start mb-6">
-      <div className="flex items-center gap-4">
+    <div className="flex justify-between items-start mb-4 sm:mb-6">
+      <div className="flex items-center gap-3 sm:gap-4">
         <GameLogo game={game} />
         <div>
-          <h3 className="text-lg font-black text-[#006D77] tracking-tight">{game}</h3>
-          <p className="text-[9px] font-black text-[#83C5BE] uppercase tracking-widest leading-none mt-0.5">Official Result</p>
+          <h3 className="text-base sm:text-lg font-black text-[#006D77] tracking-tight">{game}</h3>
+          <p className="text-[8px] sm:text-[9px] font-black text-[#83C5BE] uppercase tracking-widest leading-none mt-0.5">Official Result</p>
         </div>
       </div>
       <div className="flex flex-col items-end gap-1">
-        <p className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest">{date}</p>
+        <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-widest">{date}</p>
         <div className="flex items-center gap-1 text-[#E29578] opacity-0 group-hover:opacity-100 transition-opacity">
-          <span className="text-[8px] font-black uppercase tracking-tighter">Manage Pool</span>
+          <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-tighter">Manage Pool</span>
           <ArrowRight size={10} />
         </div>
       </div>
     </div>
 
-    <div className="text-center mb-8">
+    <div className="text-center mb-6 sm:mb-8">
       <motion.p 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.5 }}
-        className="text-4xl font-black text-[#E29578] tracking-tighter"
+        className="text-3xl sm:text-4xl font-black text-[#E29578] tracking-tighter"
       >
         {jackpot}
       </motion.p>
-      <p className="text-[9px] font-black text-[#83C5BE] uppercase tracking-[0.3em] mt-1">Estimated Jackpot</p>
+      <p className="text-[8px] sm:text-[9px] font-black text-[#83C5BE] uppercase tracking-[0.2em] sm:tracking-[0.3em] mt-1">Estimated Jackpot</p>
     </div>
 
     <div className="relative">
-      <div className="flex justify-center gap-2 mb-2">
+      <div className="flex justify-center gap-1.5 sm:gap-2 mb-2">
         {numbers.map((n, i) => (
           <div key={i} className="relative">
             <Ball number={n} isMatched={showMatch && i === 2} />
@@ -102,8 +101,8 @@ const GameCard: React.FC<{
                   exit={{ opacity: 0, scale: 0.5 }}
                   className="absolute -top-4 left-1/2 -translate-x-1/2 z-30"
                 >
-                  <div className="bg-[#E29578] px-3 py-1 rounded-full shadow-lg border-2 border-white">
-                    <span className="text-[8px] font-black text-white uppercase tracking-tighter">MATCH!</span>
+                  <div className="bg-[#E29578] px-2 sm:px-3 py-1 rounded-full shadow-lg border-2 border-white">
+                    <span className="text-[7px] sm:text-[8px] font-black text-white uppercase tracking-tighter">MATCH!</span>
                   </div>
                 </motion.div>
               )}
@@ -113,7 +112,6 @@ const GameCard: React.FC<{
         <Ball number={bonus} isBonus />
       </div>
 
-      {/* Scanning Animation Overlay */}
       <AnimatePresence>
         {isScanning && (
           <motion.div
@@ -137,7 +135,6 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool }) => {
     setIsChecking(true);
     setShowMatch(false);
     
-    // Trigger the match effect halfway through the first scan
     setTimeout(() => {
       setShowMatch(true);
     }, 1200);
@@ -160,16 +157,16 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool }) => {
       variants={{
         visible: { transition: { staggerChildren: 0.15 } }
       }}
-      className="space-y-10 pt-12 pb-32"
+      className="space-y-8 sm:space-y-10 pt-8 sm:pt-12 pb-32"
     >
       {/* Header */}
       <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="px-2">
-        <h2 className="text-4xl font-black tracking-tighter text-[#006D77]">The Board</h2>
-        <p className="text-sm font-bold text-[#83C5BE] mt-1">Draws updated in real-time</p>
+        <h2 className="text-3xl sm:text-4xl font-black tracking-tighter text-[#006D77]">The Board</h2>
+        <p className="text-xs sm:text-sm font-bold text-[#83C5BE] mt-1">Draws updated in real-time</p>
       </motion.div>
 
       {/* Featured Cards */}
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         <GameCard 
           game="Powerball"
           date="Friday, Jan 30"
@@ -178,7 +175,7 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool }) => {
           bonus={15}
           isScanning={isChecking}
           showMatch={showMatch}
-          onClick={() => onOpenPool?.('2')} // Links to Powerball High Rollers mock
+          onClick={() => onOpenPool?.('2')}
         />
 
         {/* Check My Tickets Button */}
@@ -186,9 +183,9 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool }) => {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handleCheckTickets}
-          className="w-full py-5 rounded-[2.5rem] bg-[#006D77] text-white font-black text-sm uppercase tracking-[0.2em] shadow-xl shadow-[#83C5BE]/20 flex items-center justify-center gap-3"
+          className="w-full py-4 sm:py-5 rounded-[2rem] sm:rounded-[2.5rem] bg-[#006D77] text-white font-black text-xs sm:text-sm uppercase tracking-[0.15em] sm:tracking-[0.2em] shadow-xl shadow-[#83C5BE]/20 flex items-center justify-center gap-2 sm:gap-3"
         >
-          <Search size={20} strokeWidth={3} />
+          <Search size={18} strokeWidth={3} />
           {isChecking ? 'Checking Syndicate Tickets...' : "Check My Pool's Tickets"}
         </motion.button>
 
@@ -200,39 +197,39 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool }) => {
           bonus={7}
           isScanning={isChecking}
           showMatch={showMatch}
-          onClick={() => onOpenPool?.('1')} // Links to Mega Millions Syndicate mock
+          onClick={() => onOpenPool?.('1')}
         />
       </div>
 
       {/* History Section */}
-      <motion.section variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="space-y-6">
-        <h3 className="text-lg font-black text-[#006D77] tracking-tight ml-2">Recent History</h3>
-        <div className="space-y-4">
+      <motion.section variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="space-y-4 sm:space-y-6">
+        <h3 className="text-base sm:text-lg font-black text-[#006D77] tracking-tight ml-2">Recent History</h3>
+        <div className="space-y-3 sm:space-y-4">
           {history.map((item, idx) => (
             <div 
               key={idx} 
               onClick={() => onOpenPool?.(item.id)}
-              className="bg-white p-5 rounded-[2rem] border border-[#FFDDD2] flex items-center justify-between group cursor-pointer active:scale-95 transition-all"
+              className="bg-white p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[#FFDDD2] flex items-center justify-between group cursor-pointer active:scale-95 transition-all"
             >
               <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest">{item.date}</span>
-                <div className="flex gap-1.5 mt-1">
+                <span className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-widest">{item.date}</span>
+                <div className="flex gap-1 sm:gap-1.5 mt-1">
                   {item.numbers.map((n, i) => (
-                    <div key={i} className="w-6 h-6 rounded-full bg-[#EDF6F9] border border-[#FFDDD2] flex items-center justify-center text-[10px] font-bold text-[#006D77]">
+                    <div key={i} className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#EDF6F9] border border-[#FFDDD2] flex items-center justify-center text-[9px] sm:text-[10px] font-bold text-[#006D77]">
                       {n}
                     </div>
                   ))}
-                  <div className="w-6 h-6 rounded-full bg-[#FFDDD2] flex items-center justify-center text-[10px] font-bold text-[#E29578]">
+                  <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#FFDDD2] flex items-center justify-center text-[9px] sm:text-[10px] font-bold text-[#E29578]">
                     {item.bonus}
                   </div>
                 </div>
               </div>
               <div className="text-right">
-                <p className={`text-sm font-black text-[#83C5BE]`}>
+                <p className="text-xs sm:text-sm font-black text-[#83C5BE]">
                   Won: <span className="text-[#006D77]">{item.prize}</span>
                 </p>
                 <div className="flex items-center gap-1 justify-end mt-1">
-                  <span className="text-[8px] font-black text-[#83C5BE] uppercase tracking-widest">Office Pool</span>
+                  <span className="text-[7px] sm:text-[8px] font-black text-[#83C5BE] uppercase tracking-widest">Office Pool</span>
                   <ChevronRight size={12} className="text-[#83C5BE]" />
                 </div>
               </div>

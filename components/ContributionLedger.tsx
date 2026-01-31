@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Bell, User as UserIcon, AlertCircle, ArrowLeft, Send } from 'lucide-react';
@@ -34,7 +33,6 @@ const ContributionLedger: React.FC<ContributionLedgerProps> = ({ pool, onClose }
   const handleRequestReminders = () => {
     if (remindersSent) return;
     setRemindersSent(true);
-    // Simulate pinging members
     setTimeout(() => {
       setRemindersSent(false);
     }, 3000);
@@ -53,42 +51,42 @@ const ContributionLedger: React.FC<ContributionLedgerProps> = ({ pool, onClose }
       className="fixed inset-0 z-[550] bg-[#EDF6F9] flex flex-col"
     >
       {/* Header */}
-      <header className="px-6 pt-14 pb-6 flex items-center justify-between bg-white/40 backdrop-blur-md border-b border-[#FFDDD2]">
+      <header className="px-4 sm:px-6 pt-10 sm:pt-14 pb-4 sm:pb-6 flex items-center justify-between bg-white/40 backdrop-blur-md border-b border-[#FFDDD2]">
         <button 
           onClick={onClose}
-          className="p-2.5 rounded-2xl glass border border-white text-[#006D77] hover:bg-white transition-colors"
+          className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl glass border border-white text-[#006D77] hover:bg-white transition-colors"
         >
-          <ArrowLeft size={22} />
+          <ArrowLeft size={20} />
         </button>
         <div className="text-center">
-          <p className="text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.2em]">Syndicate Ledger</p>
-          <h2 className="text-lg font-black text-[#006D77] tracking-tight">Draw: Friday, Jan 30</h2>
+          <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.15em] sm:tracking-[0.2em]">Syndicate Ledger</p>
+          <h2 className="text-base sm:text-lg font-black text-[#006D77] tracking-tight">Draw: Friday, Jan 30</h2>
         </div>
-        <div className="w-10" /> {/* Spacer */}
+        <div className="w-9 sm:w-10" />
       </header>
 
-      <main className="flex-1 overflow-y-auto px-6 pt-8 pb-32">
+      <main className="flex-1 overflow-y-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-28 sm:pb-32">
         {/* Summary Card */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass-pearl rounded-[2.5rem] p-8 warm-shadow border border-white/60 mb-10 relative overflow-hidden"
+          className="glass-pearl rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 warm-shadow border border-white/60 mb-8 sm:mb-10 relative overflow-hidden"
         >
-          <div className="absolute -top-12 -right-12 w-32 h-32 bg-white/20 rounded-full blur-2xl" />
+          <div className="absolute -top-12 -right-12 w-24 sm:w-32 h-24 sm:h-32 bg-white/20 rounded-full blur-2xl" />
           
-          <div className="relative z-10 flex flex-col gap-6">
+          <div className="relative z-10 flex flex-col gap-4 sm:gap-6">
             <div className="flex justify-between items-end">
               <div>
-                <p className="text-[10px] font-black text-[#006D77]/60 uppercase tracking-[0.2em] mb-1">Collected</p>
-                <h3 className="text-4xl font-black text-[#006D77] tracking-tighter">${totalCollected.toFixed(2)}</h3>
+                <p className="text-[9px] sm:text-[10px] font-black text-[#006D77]/60 uppercase tracking-[0.15em] sm:tracking-[0.2em] mb-1">Collected</p>
+                <h3 className="text-3xl sm:text-4xl font-black text-[#006D77] tracking-tighter">${totalCollected.toFixed(2)}</h3>
               </div>
               <div className="text-right">
-                <p className="text-[10px] font-black text-[#006D77]/60 uppercase tracking-[0.2em] mb-1">Goal</p>
-                <p className="text-xl font-black text-[#006D77]/40 tracking-tight">${totalNeeded.toFixed(2)}</p>
+                <p className="text-[9px] sm:text-[10px] font-black text-[#006D77]/60 uppercase tracking-[0.15em] sm:tracking-[0.2em] mb-1">Goal</p>
+                <p className="text-lg sm:text-xl font-black text-[#006D77]/40 tracking-tight">${totalNeeded.toFixed(2)}</p>
               </div>
             </div>
 
-            <div className="h-4 w-full bg-white/30 rounded-full overflow-hidden border border-white/50">
+            <div className="h-3 sm:h-4 w-full bg-white/30 rounded-full overflow-hidden border border-white/50">
               <motion.div 
                 initial={{ width: 0 }}
                 animate={{ width: `${(totalCollected / totalNeeded) * 100}%` }}
@@ -97,52 +95,52 @@ const ContributionLedger: React.FC<ContributionLedgerProps> = ({ pool, onClose }
             </div>
             
             <div className="flex items-center gap-2">
-               <AlertCircle size={14} className="text-[#E29578]" />
-               <p className="text-[10px] font-bold text-[#006D77] uppercase tracking-wider">
-                 {pendingCount} Members Pending Contribution
-               </p>
+              <AlertCircle size={12} className="text-[#E29578]" />
+              <p className="text-[9px] sm:text-[10px] font-bold text-[#006D77] uppercase tracking-wider">
+                {pendingCount} Members Pending Contribution
+              </p>
             </div>
           </div>
         </motion.div>
 
         {/* Member List */}
-        <div className="space-y-4">
-          <h3 className="text-[11px] font-black text-[#83C5BE] uppercase tracking-[0.4em] ml-2 mb-2">Member Status</h3>
+        <div className="space-y-3 sm:space-y-4">
+          <h3 className="text-[10px] sm:text-[11px] font-black text-[#83C5BE] uppercase tracking-[0.3em] sm:tracking-[0.4em] ml-2 mb-2">Member Status</h3>
           {members.map((member, i) => (
             <motion.div
               key={member.id}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="bg-white rounded-[1.8rem] p-4 flex items-center justify-between border border-[#FFDDD2] warm-shadow"
+              className="bg-white rounded-[1.5rem] sm:rounded-[1.8rem] p-3 sm:p-4 flex items-center justify-between border border-[#FFDDD2] warm-shadow gap-2"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-[#EDF6F9] p-0.5 border border-[#FFDDD2]">
-                  <img src={member.avatar} className="w-full h-full rounded-2xl object-cover" alt="" />
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#EDF6F9] p-0.5 border border-[#FFDDD2] shrink-0">
+                  <img src={member.avatar} className="w-full h-full rounded-xl sm:rounded-2xl object-cover" alt="" />
                 </div>
-                <div>
-                  <p className="font-black text-[#006D77] text-sm">{member.name}</p>
-                  <p className="text-[10px] text-[#83C5BE] font-bold uppercase tracking-wider">${member.amount.toFixed(2)} Due</p>
+                <div className="min-w-0">
+                  <p className="font-black text-[#006D77] text-xs sm:text-sm truncate">{member.name}</p>
+                  <p className="text-[9px] sm:text-[10px] text-[#83C5BE] font-bold uppercase tracking-wider">${member.amount.toFixed(2)} Due</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                 <AnimatePresence mode="wait">
                   {member.paid ? (
                     <motion.div
                       key="paid"
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="bg-[#006D77] text-white p-1.5 rounded-full"
+                      className="bg-[#006D77] text-white p-1 sm:p-1.5 rounded-full"
                     >
-                      <Check size={16} strokeWidth={4} />
+                      <Check size={14} strokeWidth={4} />
                     </motion.div>
                   ) : (
                     <motion.div
                       key="pending"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="bg-[#FFDDD2] text-[#E29578] px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest"
+                      className="bg-[#FFDDD2] text-[#E29578] px-2 sm:px-3 py-1 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-widest"
                     >
                       Pending
                     </motion.div>
@@ -151,13 +149,13 @@ const ContributionLedger: React.FC<ContributionLedgerProps> = ({ pool, onClose }
                 
                 <button
                   onClick={() => togglePaid(member.id)}
-                  className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all border ${
+                  className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all border ${
                     member.paid 
                       ? 'bg-[#EDF6F9] border-[#83C5BE]/20 text-[#83C5BE]' 
                       : 'bg-[#006D77] border-transparent text-white shadow-lg shadow-[#006D77]/20'
                   }`}
                 >
-                  {member.paid ? <X size={20} /> : <Check size={20} strokeWidth={3} />}
+                  {member.paid ? <X size={18} /> : <Check size={18} strokeWidth={3} />}
                 </button>
               </div>
             </motion.div>
@@ -166,12 +164,12 @@ const ContributionLedger: React.FC<ContributionLedgerProps> = ({ pool, onClose }
       </main>
 
       {/* Footer Action */}
-      <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-[#EDF6F9] to-transparent pointer-events-none">
+      <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-8 bg-gradient-to-t from-[#EDF6F9] to-transparent pointer-events-none">
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handleRequestReminders}
-          className={`w-full py-5 rounded-[2.5rem] ${remindersSent ? 'bg-[#83C5BE]' : 'bg-[#E29578]'} text-white font-black text-lg shadow-xl shadow-[#FFDDD2] flex items-center justify-center gap-3 pointer-events-auto btn-shimmer transition-colors duration-500`}
+          className={`w-full py-4 sm:py-5 rounded-[2rem] sm:rounded-[2.5rem] ${remindersSent ? 'bg-[#83C5BE]' : 'bg-[#E29578]'} text-white font-black text-base sm:text-lg shadow-xl shadow-[#FFDDD2] flex items-center justify-center gap-2 sm:gap-3 pointer-events-auto btn-shimmer transition-colors duration-500`}
         >
           <AnimatePresence mode="wait">
             {remindersSent ? (
@@ -180,9 +178,9 @@ const ContributionLedger: React.FC<ContributionLedgerProps> = ({ pool, onClose }
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="flex items-center gap-3"
+                className="flex items-center gap-2 sm:gap-3"
               >
-                <Check size={22} strokeWidth={4} />
+                <Check size={20} strokeWidth={4} />
                 Reminders Sent!
               </motion.div>
             ) : (
@@ -191,9 +189,9 @@ const ContributionLedger: React.FC<ContributionLedgerProps> = ({ pool, onClose }
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="flex items-center gap-3"
+                className="flex items-center gap-2 sm:gap-3"
               >
-                <Bell size={22} />
+                <Bell size={20} />
                 Request Reminders
               </motion.div>
             )}
