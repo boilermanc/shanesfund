@@ -68,7 +68,7 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
         initial={{ y: 100, scale: 0.9, opacity: 0 }}
         animate={{ y: 0, scale: 1, opacity: 1 }}
         exit={{ y: 100, scale: 0.9, opacity: 0 }}
-        className="relative w-full max-w-md bg-white rounded-[2rem] sm:rounded-[3.5rem] p-5 sm:p-8 border border-[#FFDDD2] warm-shadow overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[90vh]"
+        className="relative w-full max-w-md bg-white rounded-[2rem] sm:rounded-[3.5rem] p-5 sm:p-8 border border-[#FFDDD2] warm-shadow overflow-hidden flex flex-col modal-max-height"
       >
         {/* Progress Bar */}
         {step < 4 && (

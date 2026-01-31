@@ -26,6 +26,7 @@ import ShaneWinnerAlert from './components/ShaneWinnerAlert';
 import ContributionLedger from './components/ContributionLedger';
 import NotificationsCenter from './components/NotificationsCenter';
 import SkeletonLoader from './components/SkeletonLoader';
+import LandingPage from './components/landing/LandingPage';
 
 const App: React.FC = () => {
   const {
@@ -65,7 +66,7 @@ const App: React.FC = () => {
   }, [setPools, setLoading]);
 
   if (!isAuthenticated) {
-    return <AuthScreen />;
+    return <LandingPage />;
   }
 
   if (!isOnboarded) {
@@ -145,10 +146,10 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen max-w-md mx-auto relative shadow-2xl bg-[#EDF6F9]">
-      <div className="px-6 relative z-10">
-        <div className="flex justify-center pt-6 pb-4">
-          <img src="/logo.png" alt="Shane's Retirement Fund" className="h-24 w-auto" />
+    <div className="min-h-screen max-w-md mx-auto relative shadow-2xl bg-[#EDF6F9]" style={{ minHeight: '100dvh' }}>
+      <div className="px-4 sm:px-6 relative z-10 safe-area-top">
+        <div className="flex justify-center pt-4 sm:pt-6 pb-3 sm:pb-4">
+          <img src="/logo.png" alt="Shane's Retirement Fund" className="h-16 sm:h-24 w-auto" />
         </div>
         <AnimatePresence mode="wait">
           <motion.div

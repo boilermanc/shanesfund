@@ -45,7 +45,7 @@ const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ onClose }) => {
         animate={{ y: 0, scale: 1 }}
         exit={{ y: '100%', scale: 0.95 }}
         transition={{ type: 'spring', damping: 25, stiffness: 150 }}
-        className="relative w-full max-w-sm bg-white p-6 sm:p-8 rounded-[2.5rem] sm:rounded-[3.5rem] border border-[#FFDDD2] overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto"
+        className="relative w-full max-w-sm bg-white p-6 sm:p-8 rounded-[2.5rem] sm:rounded-[3.5rem] border border-[#FFDDD2] overflow-hidden shadow-2xl modal-max-height overflow-y-auto"
       >
         {/* Decorative Top Bar */}
         <div className="absolute top-0 left-0 w-full h-1.5 sm:h-2 bg-gradient-to-r from-[#E29578] via-[#83C5BE] to-[#E29578] opacity-80" />

@@ -125,7 +125,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose }) => {
       </div>
 
       {/* Header UI */}
-      <div className="absolute top-10 sm:top-14 left-0 right-0 px-4 sm:px-8 flex justify-between items-center z-[410]">
+      <div className="absolute left-0 right-0 px-4 sm:px-8 flex justify-between items-center z-[410]" style={{ top: 'max(2.5rem, env(safe-area-inset-top, 2.5rem))' }}>
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={onClose}
@@ -151,7 +151,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose }) => {
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 150 }}
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] sm:rounded-t-[32px] border-t-4 sm:border-t-8 border-[#83C5BE] p-5 sm:p-8 shadow-[0_-15px_50px_rgba(0,0,0,0.2)] z-[420]"
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] sm:rounded-t-[32px] border-t-4 sm:border-t-8 border-[#83C5BE] p-5 sm:p-8 shadow-[0_-15px_50px_rgba(0,0,0,0.2)] z-[420] safe-area-bottom"
           >
             <div className="flex justify-between items-start mb-4 sm:mb-6">
               <div>

@@ -142,7 +142,7 @@ const JoinPoolScreen: React.FC<JoinPoolScreenProps> = ({ onClose, onJoinSuccess 
       )}
 
       {/* Header UI */}
-      <div className="absolute top-10 sm:top-14 left-0 right-0 px-6 sm:px-8 flex justify-between items-center z-[760]">
+      <div className="absolute left-0 right-0 px-6 sm:px-8 flex justify-between items-center z-[760] safe-area-top" style={{ top: 'max(2.5rem, env(safe-area-inset-top, 2.5rem))' }}>
         <button 
           onClick={onClose}
           className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-white text-[#006D77] shadow-xl border border-[#FFDDD2]"

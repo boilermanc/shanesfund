@@ -78,7 +78,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 100, opacity: 0 }}
-        className="relative w-full h-full max-w-md bg-[#EDF6F9] overflow-y-auto px-4 sm:px-6 pt-12 sm:pt-20 pb-12 sm:pb-16"
+        className="relative w-full h-full max-w-md bg-[#EDF6F9] overflow-y-auto px-4 sm:px-6 pb-12 sm:pb-16 safe-area-top safe-area-bottom" style={{ paddingTop: 'max(3rem, calc(env(safe-area-inset-top, 0px) + 1rem))' }}
       >
         <div className="flex justify-between items-center mb-8 sm:mb-12 px-2">
           <h2 className="text-3xl sm:text-4xl font-black tracking-tighter text-[#006D77]">Account</h2>

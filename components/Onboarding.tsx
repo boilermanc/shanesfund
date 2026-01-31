@@ -29,7 +29,7 @@ const Onboarding: React.FC = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[500] bg-gradient-to-b from-[#F2E9D4] to-[#83C5BE]/30 flex flex-col px-6 py-8 overflow-y-auto"
+      className="fixed inset-0 z-[500] bg-gradient-to-b from-[#F2E9D4] to-[#83C5BE]/30 flex flex-col px-6 overflow-y-auto full-screen-safe"
     >
       <div className="absolute top-[-10%] left-[-20%] w-[80%] h-[40%] bg-[#FFDDD2]/40 rounded-full blur-[100px] pointer-events-none" />
       

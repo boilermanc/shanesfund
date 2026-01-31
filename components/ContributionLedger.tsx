@@ -51,7 +51,7 @@ const ContributionLedger: React.FC<ContributionLedgerProps> = ({ pool, onClose }
       className="fixed inset-0 z-[550] bg-[#EDF6F9] flex flex-col"
     >
       {/* Header */}
-      <header className="px-4 sm:px-6 pt-10 sm:pt-14 pb-4 sm:pb-6 flex items-center justify-between bg-white/40 backdrop-blur-md border-b border-[#FFDDD2]">
+      <header className="px-4 sm:px-6 pb-4 sm:pb-6 flex items-center justify-between bg-white/40 backdrop-blur-md border-b border-[#FFDDD2] safe-area-top" style={{ paddingTop: 'max(2.5rem, calc(env(safe-area-inset-top, 0px) + 1rem))' }}>
         <button 
           onClick={onClose}
           className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl glass border border-white text-[#006D77] hover:bg-white transition-colors"

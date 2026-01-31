@@ -28,17 +28,17 @@ const AuthScreen: React.FC = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[1000] bg-[#F2E9D4] flex flex-col px-8 pt-16 pb-12 overflow-y-auto"
+      className="fixed inset-0 z-[1000] bg-[#F2E9D4] flex flex-col px-6 sm:px-8 overflow-y-auto full-screen-safe"
     >
-      <div className="flex-1 flex flex-col max-w-sm mx-auto w-full">
+      <div className="flex-1 flex flex-col max-w-sm mx-auto w-full py-6 sm:py-12">
         {/* Logo Area */}
-        <div className="flex flex-col items-center mb-10">
+        <div className="flex flex-col items-center mb-6 sm:mb-10">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', damping: 12 }}
           >
-            <img src="/logo.png" alt="Shane's Retirement Fund" className="h-40 w-auto" />
+            <img src="/logo.png" alt="Shane's Retirement Fund" className="h-28 sm:h-40 w-auto" />
           </motion.div>
         </div>
 

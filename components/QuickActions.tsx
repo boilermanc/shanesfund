@@ -26,7 +26,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({ onScanTicket, onCreatePool,
   ];
 
   return (
-    <div className="fixed bottom-8 sm:bottom-10 left-1/2 -translate-x-1/2 z-[50]">
+    <div className="fixed left-1/2 -translate-x-1/2 z-[50]" style={{ bottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))' }}>
       <AnimatePresence>
         {isOpen && (
           <motion.div
