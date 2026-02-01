@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 interface ShaneMascotProps {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   animate?: boolean;
-  expression?: 'normal' | 'confident' | 'excited' | 'thoughtful' | 'sad';
+  expression?: 'normal' | 'confident' | 'excited' | 'thoughtful' | 'sad' | 'happy';
 }
 
 const ShaneMascot: React.FC<ShaneMascotProps> = ({ size = 'md', animate = false, expression = 'normal' }) => {

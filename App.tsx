@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from './store/useStore';
-import { getMockPools } from './lib/supabase';
-import { Pool } from './types';
-
+import { useAuth } from './hooks/useAuth';
+import { getUserPools } from './services/pools';
 // Components
 import DashboardHeader from './components/DashboardHeader';
 import PoolCarousel from './components/PoolCarousel';
@@ -27,8 +26,21 @@ import ContributionLedger from './components/ContributionLedger';
 import NotificationsCenter from './components/NotificationsCenter';
 import SkeletonLoader from './components/SkeletonLoader';
 import LandingPage from './components/landing/LandingPage';
-
+// Temporary type for pool display until components are updated
+interface DisplayPool {
+  id: string;
+  name: string;
+  total_jackpot?: number;
+  current_pool_value?: number;
+  participants_count?: number;
+  draw_date?: string;
+  status?: string;
+  game_type?: string;
+  contribution_amount?: number;
+  members_count?: number;
+}
 const App: React.FC = () => {
+  const { user: authUser, session, loading: authLoading } = useAuth();
   const {
     user,
     pools,
@@ -36,43 +48,73 @@ const App: React.FC = () => {
     isOnboarded,
     isAuthenticated,
     showWinnerAlert,
+    setUser,
     setPools,
     setLoading,
+    setAuthenticated,
     setWinnerAlert
   } = useStore();
-
   const [activeTab, setActiveTab] = useState('home');
   const [showScanner, setShowScanner] = useState(false);
   const [showCreatePool, setShowCreatePool] = useState(false);
   const [showJoinPool, setShowJoinPool] = useState(false);
   const [showProUpgrade, setShowProUpgrade] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [selectedPoolForLedger, setSelectedPoolForLedger] = useState<Pool | null>(null);
-
+  const [selectedPoolForLedger, setSelectedPoolForLedger] = useState<DisplayPool | null>(null);
+  // Sync auth state with store
   useEffect(() => {
-    // Initial data load
-    const loadData = async () => {
-      setLoading(true);
-      const mockPools = getMockPools();
-      setPools(mockPools);
-
-      // Simulate network delay
-      setTimeout(() => {
+    if (!authLoading) {
+      setUser(authUser);
+      setAuthenticated(!!authUser);
+      setLoading(false);
+    }
+  }, [authUser, authLoading, setUser, setAuthenticated, setLoading]);
+  // Load pools when authenticated
+  useEffect(() => {
+    const loadPools = async () => {
+      if (user?.id) {
+        setLoading(true);
+        const { data, error } = await getUserPools(user.id);
+        if (data && !error) {
+          setPools(data);
+        }
         setLoading(false);
-      }, 1500);
+      }
     };
-
-    loadData();
-  }, [setPools, setLoading]);
-
+    if (isAuthenticated && user?.id) {
+      loadPools();
+    }
+  }, [isAuthenticated, user?.id, setPools, setLoading]);
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen max-w-md mx-auto flex items-center justify-center bg-[#EDF6F9]">
+        <div className="text-center">
+          <img src="/logo.png" alt="Shane's Retirement Fund" className="h-24 w-auto mx-auto mb-4" />
+          <div className="animate-pulse text-[#006D77] font-medium">Loading...</div>
+        </div>
+      </div>
+    );
+  }
   if (!isAuthenticated) {
     return <LandingPage />;
   }
-
   if (!isOnboarded) {
     return <Onboarding />;
   }
-
+  // Transform pools for display components (bridge between old and new types)
+  const displayPools: DisplayPool[] = pools.map(pool => ({
+    id: pool.id,
+    name: pool.name,
+    total_jackpot: 0, // Will come from lottery_draws later
+    current_pool_value: Number(pool.total_collected) || 0,
+    participants_count: (pool as any).members_count || 0,
+    draw_date: new Date().toISOString().split('T')[0],
+    status: pool.status,
+    game_type: pool.game_type,
+    contribution_amount: Number(pool.contribution_amount) || 5,
+    members_count: (pool as any).members_count || 0,
+  }));
   const renderTabContent = () => {
     switch (activeTab) {
       case 'home':
@@ -81,9 +123,8 @@ const App: React.FC = () => {
             {isLoading ? (
               <SkeletonLoader type="header" />
             ) : (
-              <DashboardHeader user={user} totalPoolValue={46550} />
+              <DashboardHeader user={user as any} totalPoolValue={displayPools.reduce((sum, p) => sum + (p.current_pool_value || 0), 0)} />
             )}
-
             <section className="space-y-4">
               <div className="flex justify-between items-end px-2">
                 <div>
@@ -97,14 +138,12 @@ const App: React.FC = () => {
                   Go Pro
                 </button>
               </div>
-
               {isLoading ? (
                 <SkeletonLoader type="carousel" />
               ) : (
-                <PoolCarousel pools={pools} onJoin={() => setShowJoinPool(true)} />
+                <PoolCarousel pools={displayPools as any} onJoin={() => setShowJoinPool(true)} />
               )}
             </section>
-
             <section className="space-y-4 px-2">
               <h3 className="text-xl font-black text-[#006D77] tracking-tight">Syndicates</h3>
               {isLoading ? (
@@ -113,7 +152,7 @@ const App: React.FC = () => {
                   <SkeletonLoader type="card" />
                 </>
               ) : (
-                <PoolList pools={pools} onJoin={(pool) => setSelectedPoolForLedger(pool)} />
+                <PoolList pools={displayPools as any} onJoin={(pool) => setSelectedPoolForLedger(pool)} />
               )}
             </section>
           </div>
@@ -124,7 +163,7 @@ const App: React.FC = () => {
             onOpenProfile={() => {}}
             onOpenRequests={() => {}}
             onOpenPool={(id) => {
-              const pool = pools.find(p => p.id === id);
+              const pool = displayPools.find(p => p.id === id);
               if (pool) setSelectedPoolForLedger(pool);
             }}
           />
@@ -132,7 +171,7 @@ const App: React.FC = () => {
       case 'results':
         return (
           <TheBoard onOpenPool={(id) => {
-            const pool = pools.find(p => p.id === id);
+            const pool = displayPools.find(p => p.id === id);
             if (pool) setSelectedPoolForLedger(pool);
           }} />
         );
@@ -144,7 +183,6 @@ const App: React.FC = () => {
         return null;
     }
   };
-
   return (
     <div className="min-h-screen max-w-md mx-auto relative shadow-2xl bg-[#EDF6F9]" style={{ minHeight: '100dvh' }}>
       <div className="px-4 sm:px-6 relative z-10 safe-area-top">
@@ -163,51 +201,42 @@ const App: React.FC = () => {
           </motion.div>
         </AnimatePresence>
       </div>
-
       <QuickActions
         onScanTicket={() => setShowScanner(true)}
         onCreatePool={() => setShowCreatePool(true)}
         onJoinPool={() => setShowJoinPool(true)}
       />
-
       <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
-
       {/* Modals & Overlays */}
       <AnimatePresence>
         {showScanner && (
           <TicketScanner onClose={() => setShowScanner(false)} />
         )}
-
         {showCreatePool && (
           <CreatePoolWizard
             onClose={() => setShowCreatePool(false)}
             onComplete={() => setShowCreatePool(false)}
           />
         )}
-
         {showJoinPool && (
           <JoinPoolScreen
             onClose={() => setShowJoinPool(false)}
             onJoinSuccess={() => setShowJoinPool(false)}
           />
         )}
-
         {showProUpgrade && (
           <ProUpgradeModal onClose={() => setShowProUpgrade(false)} />
         )}
-
         {showSettings && (
           <SettingsModal onClose={() => setShowSettings(false)} />
         )}
-
         {selectedPoolForLedger && (
           <ContributionLedger
-            pool={selectedPoolForLedger}
+            pool={selectedPoolForLedger as any}
             onClose={() => setSelectedPoolForLedger(null)}
           />
         )}
       </AnimatePresence>
-
       <ShaneWinnerAlert
         isVisible={showWinnerAlert}
         onClose={() => setWinnerAlert(false)}
@@ -215,5 +244,4 @@ const App: React.FC = () => {
     </div>
   );
 };
-
 export default App;

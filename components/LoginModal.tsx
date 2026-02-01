@@ -1,49 +1,76 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, X, ArrowRight, Loader2 } from 'lucide-react';
+import { Mail, Lock, X, ArrowRight, Loader2, User as UserIcon, Eye, EyeOff } from 'lucide-react';
 import { useStore } from '../store/useStore';
-
+import { signIn, signUp } from '../services/auth';
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
-
 const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
+  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { setAuthenticated, setUser } = useStore();
-
-  const handleLogin = (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setIsLoading(true);
-
-    // Dummy auth - accepts any email/password
-    setTimeout(() => {
-      const mockUser = {
-        id: 'user_1',
-        email: email,
-        full_name: email.split('@')[0],
-        balance: 2450.75,
-        avatar_url: 'https://picsum.photos/seed/user/200'
-      };
-
-      // Store in localStorage for persistence
-      localStorage.setItem('user', JSON.stringify(mockUser));
-
-      setUser(mockUser);
-      setAuthenticated(true);
+    try {
+      if (isLogin) {
+        const { user, error } = await signIn(email, password);
+        if (error) {
+          setError(error.message);
+          setIsLoading(false);
+          return;
+        }
+        if (user) {
+          setUser(user);
+          setAuthenticated(true);
+          onClose();
+        }
+      } else {
+        if (password.length < 6) {
+          setError('Password must be at least 6 characters');
+          setIsLoading(false);
+          return;
+        }
+        const { user, error } = await signUp(email, password, fullName);
+        if (error) {
+          setError(error.message);
+          setIsLoading(false);
+          return;
+        }
+        if (user) {
+          setUser(user);
+          setAuthenticated(true);
+          onClose();
+        } else {
+          setError('Please check your email to confirm your account');
+        }
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
       setIsLoading(false);
-      onClose();
-    }, 800);
+    }
   };
-
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
       onClose();
     }
   };
-
+  const resetForm = () => {
+    setEmail('');
+    setPassword('');
+    setFullName('');
+    setError(null);
+    setShowPassword(false);
+  };
   return (
     <AnimatePresence>
       {isOpen && (
@@ -57,7 +84,6 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
             onClick={handleOverlayClick}
             className="fixed inset-0 z-[100] bg-[#006D77]/60 backdrop-blur-sm"
           />
-
           {/* Modal */}
           <motion.div
             initial={{ y: '-100%', opacity: 0 }}
@@ -71,10 +97,10 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-2xl sm:text-3xl font-black text-[#006D77] tracking-tight">
-                    Welcome Back
+                    {isLogin ? 'Welcome Back' : 'Join the Syndicate'}
                   </h2>
                   <p className="text-sm text-[#83C5BE] font-semibold mt-1">
-                    Sign in to your account
+                    {isLogin ? 'Sign in to your account' : 'Create your account'}
                   </p>
                 </div>
                 <button
@@ -84,9 +110,48 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                   <X size={20} strokeWidth={2.5} />
                 </button>
               </div>
-
+              {/* Error Message */}
+              <AnimatePresence>
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl"
+                  >
+                    <p className="text-red-600 text-sm font-bold text-center">{error}</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               {/* Form */}
-              <form onSubmit={handleLogin} className="space-y-4">
+              <form onSubmit={handleAuth} className="space-y-4">
+                {/* Full Name - Only for signup */}
+                <AnimatePresence>
+                  {!isLogin && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="space-y-2 overflow-hidden"
+                    >
+                      <label className="text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-4">
+                        Full Name
+                      </label>
+                      <div className="relative">
+                        <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-[#83C5BE]" size={18} />
+                        <input
+                          type="text"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          placeholder="Shane Miller"
+                          required={!isLogin}
+                          disabled={isLoading}
+                          className="w-full bg-white border border-transparent focus:border-[#006D77] rounded-[1.5rem] py-4 pl-14 pr-6 text-[#006D77] font-bold outline-none warm-shadow transition-all placeholder:text-[#83C5BE]/40 disabled:opacity-50"
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 <div className="space-y-2">
                   <label className="text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-4">
                     Email Address
@@ -99,11 +164,11 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="your@email.com"
                       required
-                      className="w-full bg-white border border-transparent focus:border-[#006D77] rounded-[1.5rem] py-4 pl-14 pr-6 text-[#006D77] font-bold outline-none warm-shadow transition-all placeholder:text-[#83C5BE]/40"
+                      disabled={isLoading}
+                      className="w-full bg-white border border-transparent focus:border-[#006D77] rounded-[1.5rem] py-4 pl-14 pr-6 text-[#006D77] font-bold outline-none warm-shadow transition-all placeholder:text-[#83C5BE]/40 disabled:opacity-50"
                     />
                   </div>
                 </div>
-
                 <div className="space-y-2">
                   <label className="text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-4">
                     Password
@@ -111,21 +176,33 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                   <div className="relative">
                     <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-[#83C5BE]" size={18} />
                     <input
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
                       required
-                      className="w-full bg-white border border-transparent focus:border-[#006D77] rounded-[1.5rem] py-4 pl-14 pr-6 text-[#006D77] font-bold outline-none warm-shadow transition-all placeholder:text-[#83C5BE]/40"
+                      minLength={6}
+                      disabled={isLoading}
+                      className="w-full bg-white border border-transparent focus:border-[#006D77] rounded-[1.5rem] py-4 pl-14 pr-14 text-[#006D77] font-bold outline-none warm-shadow transition-all placeholder:text-[#83C5BE]/40 disabled:opacity-50"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-5 top-1/2 -translate-y-1/2 text-[#83C5BE] hover:text-[#006D77] transition-colors"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
                   </div>
+                  {!isLogin && (
+                    <p className="text-[10px] text-[#83C5BE] ml-4">Must be at least 6 characters</p>
+                  )}
                 </div>
-
                 <div className="flex gap-3 pt-2">
                   <button
                     type="button"
                     onClick={onClose}
-                    className="flex-1 py-4 rounded-[1.5rem] bg-[#006D77]/10 text-[#006D77] font-bold transition-all hover:bg-[#006D77]/20 active:scale-[0.98]"
+                    disabled={isLoading}
+                    className="flex-1 py-4 rounded-[1.5rem] bg-[#006D77]/10 text-[#006D77] font-bold transition-all hover:bg-[#006D77]/20 active:scale-[0.98] disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -143,13 +220,29 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                       </motion.div>
                     ) : (
                       <>
-                        Login
+                        {isLogin ? 'Login' : 'Sign Up'}
                         <ArrowRight size={18} strokeWidth={3} />
                       </>
                     )}
                   </button>
                 </div>
               </form>
+              {/* Toggle Login/Signup */}
+              <div className="mt-4 text-center">
+                <p className="text-sm text-[#83C5BE] font-semibold">
+                  {isLogin ? "Don't have an account?" : 'Already a member?'}{' '}
+                  <button
+                    onClick={() => {
+                      setIsLogin(!isLogin);
+                      setError(null);
+                    }}
+                    disabled={isLoading}
+                    className="text-[#006D77] font-black underline decoration-[#006D77]/30 hover:decoration-[#006D77] transition-all disabled:opacity-50"
+                  >
+                    {isLogin ? 'Sign Up' : 'Log In'}
+                  </button>
+                </p>
+              </div>
             </div>
           </motion.div>
         </>
@@ -157,5 +250,4 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     </AnimatePresence>
   );
 };
-
 export default LoginModal;

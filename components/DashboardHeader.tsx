@@ -1,27 +1,27 @@
 import React, { useEffect } from 'react';
 import { motion, useSpring, useTransform } from 'framer-motion';
-import { User } from '../types';
 import ShaneMascot from './ShaneMascot';
-
 interface DashboardHeaderProps {
-  user: User | null;
+  user: {
+    display_name?: string | null;
+    avatar_url?: string | null;
+  } | null;
   totalPoolValue: number;
 }
-
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue }) => {
   const springValue = useSpring(0, { stiffness: 45, damping: 20 });
-  const displayValue = useTransform(springValue, (latest) => 
+  const displayValue = useTransform(springValue, (latest) =>
     new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       maximumFractionDigits: 0
     }).format(latest)
   );
-
   useEffect(() => {
     springValue.set(totalPoolValue);
   }, [totalPoolValue, springValue]);
-
+  // Get first name safely
+  const firstName = user?.display_name?.split(' ')[0] || 'Friend';
   return (
     <div className="space-y-4 sm:space-y-6 pt-4 sm:pt-6">
       {/* Greeting Header */}
@@ -35,21 +35,26 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue 
               Shane's Fund
             </h2>
             <h1 className="text-[10px] sm:text-xs font-black text-[#006D77] tracking-tight opacity-60">
-              Good Morning, {user?.full_name.split(' ')[0]}
+              Good Morning, {firstName}
             </h1>
           </div>
         </div>
-        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full p-0.5 border-2 border-[#83C5BE] shadow-lg warm-shadow bg-white">
-          <img 
-            src={user?.avatar_url} 
-            className="w-full h-full rounded-full object-cover" 
-            alt="Profile" 
-          />
+        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full p-0.5 border-2 border-[#83C5BE] shadow-lg warm-shadow bg-white overflow-hidden">
+          {user?.avatar_url ? (
+            <img
+              src={user.avatar_url}
+              className="w-full h-full rounded-full object-cover"
+              alt="Profile"
+            />
+          ) : (
+            <div className="w-full h-full rounded-full bg-gradient-to-br from-[#83C5BE] to-[#006D77] flex items-center justify-center text-white font-bold text-sm">
+              {firstName.charAt(0).toUpperCase()}
+            </div>
+          )}
         </div>
       </div>
-
       {/* Total Fund Card */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="glass-pearl rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 warm-shadow border border-white/40 overflow-hidden relative"
@@ -57,7 +62,6 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue 
         {/* Decorative elements */}
         <div className="absolute -top-12 -right-12 w-24 sm:w-32 h-24 sm:h-32 bg-white/20 rounded-full blur-2xl" />
         <div className="absolute -bottom-8 -left-8 w-20 sm:w-24 h-20 sm:h-24 bg-[#006D77]/5 rounded-full blur-xl" />
-        
         <div className="relative z-10 flex flex-col items-center">
           <p className="text-[9px] sm:text-[11px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-[#006D77]/60 mb-2 sm:mb-3">
             Current Pool Value
@@ -65,7 +69,6 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue 
           <motion.div className="text-4xl sm:text-5xl font-black text-[#006D77] tracking-tighter">
             {displayValue}
           </motion.div>
-          
           <div className="mt-4 sm:mt-6 flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-white/40 border border-white/60">
             <span className="flex h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-[#E29578] animate-pulse" />
             <p className="text-[9px] sm:text-[10px] text-[#006D77] font-black uppercase tracking-widest">
@@ -77,5 +80,4 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue 
     </div>
   );
 };
-
 export default DashboardHeader;

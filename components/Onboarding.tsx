@@ -14,7 +14,7 @@ const Onboarding: React.FC = () => {
     "I'll even scan your tickets for you using my smart OCR lens."
   ];
 
-  const expressions: Array<'excited' | 'confident' | 'thoughtful'> = ['excited', 'confident', 'thoughtful'];
+  const expressions: Array<'excited' | 'confident' | 'happy'> = ['excited', 'confident', 'happy'];
 
   const handleNext = () => {
     if (step < hints.length - 1) {
