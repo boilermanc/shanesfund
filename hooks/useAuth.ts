@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { getCurrentUser, onAuthStateChange } from '../services/auth';
+import { getCurrentUser, onAuthStateChange, signOut as authSignOut } from '../services/auth';
 import type { User } from '../types/database';
 import type { Session } from '@supabase/supabase-js';
 interface AuthState {
@@ -62,6 +62,19 @@ export const useAuth = () => {
       subscription.unsubscribe();
     };
   }, []);
-  return authState;
+  const signOut = async () => {
+    const { error } = await authSignOut();
+    if (!error) {
+      setAuthState({
+        user: null,
+        session: null,
+        loading: false,
+        error: null,
+      });
+    }
+    return { error };
+  };
+
+  return { ...authState, signOut };
 };
 export default useAuth;

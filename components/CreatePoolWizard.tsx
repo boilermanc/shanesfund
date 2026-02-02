@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ArrowRight, Check, Copy, Share2, Sparkles, Shield, Users, DollarSign, Lock, Globe } from 'lucide-react';
+import { X, ArrowRight, Check, Sparkles, Lock, Globe, Loader2, Copy, Share2, Info } from 'lucide-react';
 import ShaneMascot from './ShaneMascot';
+import { useStore } from '../store/useStore';
+import { createPool } from '../services/pools';
 
 interface CreatePoolWizardProps {
   onClose: () => void;
@@ -9,26 +11,52 @@ interface CreatePoolWizardProps {
 }
 
 const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete }) => {
+  const { user, addPool } = useStore();
   const [step, setStep] = useState(0);
   const [poolName, setPoolName] = useState('');
-  const [selectedGame, setSelectedGame] = useState<'powerball' | 'mega-millions' | null>(null);
+  const [selectedGame, setSelectedGame] = useState<'powerball' | 'mega_millions' | null>(null);
   const [contribution, setContribution] = useState(5);
   const [isPrivate, setIsPrivate] = useState(false);
-  const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
-
-  const friends = [
-    { id: '1', name: 'John D.', avatar: 'https://picsum.photos/seed/john/80' },
-    { id: '2', name: 'Sarah M.', avatar: 'https://picsum.photos/seed/sarah/80' },
-    { id: '3', name: 'Mike Ross', avatar: 'https://picsum.photos/seed/mike/80' },
-    { id: '4', name: 'Harvey S.', avatar: 'https://picsum.photos/seed/harvey/80' },
-  ];
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [createdPool, setCreatedPool] = useState<any>(null);
+  const [copied, setCopied] = useState(false);
 
   const handleNext = () => {
-    if (step < 3) {
+    if (step < 2) {
       setStep(step + 1);
     } else {
-      setStep(4); // Success step
-      triggerConfetti();
+      handleCreatePool();
+    }
+  };
+
+  const handleCreatePool = async () => {
+    if (!user?.id || !selectedGame) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const { data, error } = await createPool({
+        name: poolName,
+        game_type: selectedGame,
+        captain_id: user.id,
+        is_private: isPrivate,
+        contribution_amount: contribution,
+      });
+      if (error) {
+        setError(error);
+        setIsLoading(false);
+        return;
+      }
+      if (data) {
+        setCreatedPool(data);
+        addPool(data);
+        setStep(3);
+        triggerConfetti();
+      }
+    } catch (err) {
+      setError('Failed to create pool. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -43,14 +71,50 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
     }
   };
 
+  const copyInviteCode = () => {
+    if (createdPool?.invite_code) {
+      navigator.clipboard.writeText(createdPool.invite_code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function' && navigator.canShare?.({ text: 'test' });
+
+  const shareInviteCode = async () => {
+    if (!createdPool?.invite_code) return;
+
+    const shareData = {
+      title: `Join ${poolName} on Shane's Fund!`,
+      text: `Join my lottery pool "${poolName}"! Use invite code: ${createdPool.invite_code}`,
+      url: window.location.origin,
+    };
+
+    if (canShare) {
+      try {
+        await navigator.share(shareData);
+      } catch (err: any) {
+        // User cancelled share - that's fine, don't fallback
+        if (err?.name !== 'AbortError') {
+          copyInviteCode();
+        }
+      }
+    } else {
+      // No native share, copy the full message instead
+      const message = `${shareData.text}\n${shareData.url}`;
+      navigator.clipboard.writeText(message);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   const stepsData = [
     { speech: "What are we calling this goldmine?", label: "Name", expression: 'thoughtful' as const },
     { speech: "Pick your path to retirement.", label: "Game", expression: 'confident' as const },
-    { speech: "How much per ticket, partner?", label: "Rules", expression: 'thoughtful' as const },
-    { speech: "Who's coming with us?", label: "Invite", expression: 'excited' as const }
+    { speech: "Set the rules, captain!", label: "Rules", expression: 'thoughtful' as const }
   ];
 
-  const progress = ((step + 1) / 4) * 100;
+  const progress = ((step + 1) / 3) * 100;
 
   return (
     <motion.div
@@ -59,44 +123,39 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[600] flex items-center justify-center p-3 sm:p-6"
     >
-      <div 
-        className="absolute inset-0 bg-[#006D77]/40 backdrop-blur-xl" 
-        onClick={step !== 4 ? onClose : undefined}
+      <div
+        className="absolute inset-0 bg-[#006D77]/40 backdrop-blur-xl"
+        onClick={step !== 3 ? onClose : undefined}
       />
-      
       <motion.div
         initial={{ y: 100, scale: 0.9, opacity: 0 }}
         animate={{ y: 0, scale: 1, opacity: 1 }}
         exit={{ y: 100, scale: 0.9, opacity: 0 }}
         className="relative w-full max-w-md bg-white rounded-[2rem] sm:rounded-[3.5rem] p-5 sm:p-8 border border-[#FFDDD2] warm-shadow overflow-hidden flex flex-col modal-max-height"
       >
-        {/* Progress Bar */}
-        {step < 4 && (
+        {step < 3 && (
           <div className="absolute top-0 left-0 right-0 h-1 sm:h-1.5 bg-[#EDF6F9]">
-            <motion.div 
+            <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               className="h-full bg-[#83C5BE]"
             />
           </div>
         )}
-
-        {step !== 4 && (
-          <button 
+        {step !== 3 && (
+          <button
             onClick={onClose}
             className="absolute top-3 right-3 sm:top-8 sm:right-8 p-2 rounded-xl sm:rounded-2xl bg-[#EDF6F9] text-[#006D77] hover:bg-[#83C5BE]/20 transition-colors z-50"
           >
             <X size={18} />
           </button>
         )}
-
-        {/* Mascot & Speech Header */}
-        {step < 4 && (
+        {step < 3 && (
           <div className="flex flex-col items-center mb-4 sm:mb-6 mt-2 shrink-0">
             <div className="scale-75 sm:scale-100">
               <ShaneMascot size="sm" expression={stepsData[step].expression} animate />
             </div>
-            <motion.div 
+            <motion.div
               key={step}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -109,8 +168,18 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
             </motion.div>
           </div>
         )}
-
-        {/* Scrollable Content Area */}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl"
+            >
+              <p className="text-red-600 text-sm font-bold text-center">{error}</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <div className="flex-1 overflow-y-auto no-scrollbar relative">
           <AnimatePresence mode="wait">
             {step === 0 && (
@@ -141,7 +210,6 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
                 </button>
               </motion.div>
             )}
-
             {step === 1 && (
               <motion.div
                 key="step1"
@@ -151,22 +219,18 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
                 className="grid grid-cols-1 gap-2 sm:gap-3 py-2 sm:py-4"
               >
                 {[
-                  { id: 'powerball', name: 'Powerball', jackpot: '$450M', color: 'bg-[#E29578]' },
-                  { id: 'mega-millions', name: 'Mega Millions', jackpot: '$182M', color: 'bg-[#83C5BE]' }
+                  { id: 'powerball', name: 'Powerball', jackpot: 'Est. $500M+', color: 'bg-[#E29578]' },
+                  { id: 'mega_millions', name: 'Mega Millions', jackpot: 'Est. $400M+', color: 'bg-[#83C5BE]' }
                 ].map((game) => (
                   <button
                     key={game.id}
-                    onClick={() => setSelectedGame(game.id as any)}
-                    className={`p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border-2 text-left transition-all relative overflow-hidden group ${
-                      selectedGame === game.id
-                        ? 'bg-white border-[#006D77] shadow-xl'
-                        : 'bg-[#EDF6F9] border-transparent grayscale opacity-70 hover:grayscale-0 hover:opacity-100'
-                    }`}
+                    onClick={() => setSelectedGame(game.id as 'powerball' | 'mega_millions')}
+                    className={`p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border-2 text-left transition-all relative overflow-hidden group ${selectedGame === game.id ? 'border-[#006D77] bg-[#EDF6F9]' : 'border-[#FFDDD2] bg-white hover:border-[#83C5BE]'}`}
                   >
                     <div className="flex justify-between items-center relative z-10">
                       <div>
                         <h4 className="text-base sm:text-lg font-black text-[#006D77]">{game.name}</h4>
-                        <p className={`text-lg sm:text-xl font-black ${game.color.replace('bg-', 'text-')} tracking-tighter`}>{game.jackpot}</p>
+                        <p className={`text-lg sm:text-xl font-black ${selectedGame === game.id ? 'text-[#006D77]' : 'text-[#83C5BE]'} tracking-tighter`}>{game.jackpot}</p>
                       </div>
                       <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl ${game.color} flex items-center justify-center text-white shadow-lg`}>
                         {selectedGame === game.id ? <Check size={18} strokeWidth={4} /> : <Sparkles size={14} />}
@@ -183,7 +247,6 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
                 </button>
               </motion.div>
             )}
-
             {step === 2 && (
               <motion.div
                 key="step2"
@@ -199,22 +262,17 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
                       <button
                         key={amt}
                         onClick={() => setContribution(amt)}
-                        className={`flex-1 py-3 sm:py-4 rounded-lg sm:rounded-xl font-black text-base sm:text-lg border-2 transition-all ${
-                          contribution === amt
-                            ? 'bg-[#006D77] border-[#006D77] text-white shadow-lg'
-                            : 'bg-white border-[#FFDDD2] text-[#006D77]'
-                        }`}
+                        className={`flex-1 py-3 sm:py-4 rounded-lg sm:rounded-xl font-black text-base sm:text-lg border-2 transition-all ${contribution === amt ? 'border-[#006D77] bg-[#006D77] text-white' : 'border-[#FFDDD2] bg-white text-[#006D77] hover:border-[#83C5BE]'}`}
                       >
                         ${amt}
                       </button>
                     ))}
                   </div>
                 </div>
-
                 <div className="bg-[#EDF6F9] p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] space-y-3 sm:space-y-4 border border-[#FFDDD2]">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2 sm:gap-3">
-                      <div className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl ${isPrivate ? 'bg-[#E29578]' : 'bg-[#83C5BE]'} text-white`}>
+                      <div className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl ${isPrivate ? 'bg-[#006D77]' : 'bg-[#83C5BE]'} text-white`}>
                         {isPrivate ? <Lock size={14} /> : <Globe size={14} />}
                       </div>
                       <div>
@@ -222,95 +280,84 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
                         <p className="text-[8px] sm:text-[9px] font-bold text-[#83C5BE] leading-none">{isPrivate ? 'Invite only' : 'Visible to Circle'}</p>
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={() => setIsPrivate(!isPrivate)}
-                      className={`w-11 h-6 sm:w-12 sm:h-7 rounded-full p-1 transition-all relative ${isPrivate ? 'bg-[#E29578]' : 'bg-[#83C5BE]'}`}
+                      className={`w-11 h-6 sm:w-12 sm:h-7 rounded-full p-1 transition-all relative ${isPrivate ? 'bg-[#006D77]' : 'bg-[#FFDDD2]'}`}
                     >
-                      <motion.div 
+                      <motion.div
                         animate={{ x: isPrivate ? 18 : 0 }}
                         className="w-4 h-4 sm:w-5 sm:h-5 bg-white rounded-full shadow-md"
                       />
                     </button>
                   </div>
                 </div>
-
                 <button
                   onClick={handleNext}
-                  className="w-full py-4 sm:py-5 rounded-[1.2rem] sm:rounded-[1.5rem] bg-[#E29578] text-white font-black text-base sm:text-lg shadow-xl shadow-[#E29578]/20 flex items-center justify-center gap-2 sm:gap-3 active:scale-95 transition-all"
+                  disabled={isLoading}
+                  className="w-full py-4 sm:py-5 rounded-[1.2rem] sm:rounded-[1.5rem] bg-[#006D77] text-white font-black text-base sm:text-lg shadow-xl shadow-[#006D77]/20 flex items-center justify-center gap-2 sm:gap-3 active:scale-95 transition-all disabled:opacity-70"
                 >
-                  Next <ArrowRight size={20} strokeWidth={3} />
+                  {isLoading ? (
+                    <>
+                      <Loader2 size={20} className="animate-spin" />
+                      Creating Pool...
+                    </>
+                  ) : (
+                    <>
+                      Create Pool <Sparkles size={20} />
+                    </>
+                  )}
                 </button>
               </motion.div>
             )}
-
             {step === 3 && (
               <motion.div
                 key="step3"
-                initial={{ x: 50, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: -50, opacity: 0 }}
-                className="space-y-3 sm:space-y-4 py-2 sm:py-4"
-              >
-                <div className="max-h-[140px] sm:max-h-[160px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                  {friends.map((friend) => (
-                    <button
-                      key={friend.id}
-                      onClick={() => {
-                        setSelectedFriends(prev => 
-                          prev.includes(friend.id) 
-                            ? prev.filter(id => id !== friend.id)
-                            : [...prev, friend.id]
-                        );
-                      }}
-                      className={`w-full p-2.5 sm:p-3 rounded-lg sm:rounded-xl flex items-center justify-between border-2 transition-all ${
-                        selectedFriends.includes(friend.id)
-                          ? 'bg-[#EDF6F9] border-[#006D77]'
-                          : 'bg-white border-[#FFDDD2]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <img src={friend.avatar} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-white shadow-sm" alt="" />
-                        <span className="font-black text-[#006D77] text-[11px] sm:text-xs">{friend.name}</span>
-                      </div>
-                      <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 flex items-center justify-center ${
-                        selectedFriends.includes(friend.id) ? 'bg-[#006D77] border-[#006D77] text-white' : 'border-[#FFDDD2]'
-                      }`}>
-                        {selectedFriends.includes(friend.id) && <Check size={10} strokeWidth={4} />}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="space-y-2 sm:space-y-3">
-                  <button className="w-full py-3 sm:py-3.5 rounded-lg sm:rounded-xl bg-white border-2 border-dashed border-[#83C5BE] text-[#83C5BE] font-black text-[8px] sm:text-[9px] uppercase tracking-widest flex items-center justify-center gap-2">
-                    <Share2 size={12} /> Generate Invite Link
-                  </button>
-                  <button
-                    onClick={handleNext}
-                    className="w-full py-4 sm:py-5 rounded-[1.2rem] sm:rounded-[1.5rem] bg-[#006D77] text-white font-black text-base sm:text-lg shadow-xl shadow-[#006D77]/20 flex items-center justify-center gap-2 sm:gap-3 active:scale-95 transition-all"
-                  >
-                    Finish Setup <Sparkles size={20} />
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
-            {step === 4 && (
-              <motion.div
-                key="step4"
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="text-center space-y-4 sm:space-y-6 flex flex-col items-center justify-center h-full py-6 sm:py-8"
+                className="text-center space-y-4 sm:space-y-5 flex flex-col items-center justify-center h-full py-4 sm:py-6"
               >
-                <div className="scale-75 sm:scale-100">
+                <div className="scale-65 sm:scale-75">
                   <ShaneMascot size="lg" expression="excited" animate />
                 </div>
                 <div className="space-y-1">
                   <h2 className="text-2xl sm:text-3xl font-black text-[#006D77] tracking-tighter">Pool Created!</h2>
-                  <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.15em] sm:tracking-[0.2em]">Retirement starts today.</p>
+                  <p className="text-[10px] sm:text-xs text-[#006D77]/70 font-bold max-w-[260px] mx-auto leading-relaxed">
+                    Friends can join by tapping <span className="text-[#E29578] font-black">Join Pool</span> and entering this code
+                  </p>
+                </div>
+                {createdPool?.invite_code && (
+                  <div className="w-full space-y-3">
+                    <div className="bg-[#EDF6F9] p-4 rounded-2xl border-2 border-dashed border-[#83C5BE]">
+                      <p className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-2">Invite Code</p>
+                      <p className="text-3xl font-black text-[#006D77] tracking-[0.2em]">{createdPool.invite_code}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={copyInviteCode}
+                        className="flex-1 py-3 rounded-xl bg-white border-2 border-[#83C5BE] text-[#006D77] font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all"
+                      >
+                        {copied ? <Check size={16} /> : <Copy size={16} />}
+                        {copied ? 'Copied!' : 'Copy'}
+                      </button>
+                      <button
+                        onClick={shareInviteCode}
+                        className="flex-1 py-3 rounded-xl bg-[#006D77] text-white font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all"
+                      >
+                        {copied && !canShare ? <Check size={16} /> : <Share2 size={16} />}
+                        {copied && !canShare ? 'Copied!' : 'Share'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 text-[9px] text-[#83C5BE] font-bold">
+                  <Info size={12} />
+                  <span>You can find this code anytime in pool settings</span>
                 </div>
                 <button
-                  onClick={onClose}
+                  onClick={() => {
+                    onComplete(poolName, selectedGame || '');
+                    onClose();
+                  }}
                   className="w-full py-4 sm:py-5 rounded-[1.2rem] sm:rounded-[1.5rem] bg-[#E29578] text-white font-black text-base sm:text-lg shadow-xl shadow-[#E29578]/20 active:scale-95 transition-all"
                 >
                   Go to Pool

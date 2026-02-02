@@ -6,13 +6,15 @@ import { Users, Calendar, ArrowUpRight } from 'lucide-react';
 interface PoolCarouselProps {
   pools: Pool[];
   onJoin?: () => void;
+  onPoolClick?: (poolId: string) => void;
 }
 
-const PoolCard: React.FC<{ pool: Pool; onJoin?: () => void }> = ({ pool, onJoin }) => {
+const PoolCard: React.FC<{ pool: Pool; onJoin?: () => void; onPoolClick?: (poolId: string) => void }> = ({ pool, onJoin, onPoolClick }) => {
   return (
     <motion.div
       whileHover={{ y: -8 }}
       whileTap={{ scale: 0.97 }}
+      onClick={() => onPoolClick?.(pool.id)}
       className="min-w-[260px] sm:min-w-[300px] h-[320px] sm:h-[380px] relative rounded-[2.5rem] sm:rounded-[3rem] overflow-hidden bg-white p-5 sm:p-7 flex flex-col justify-between group cursor-pointer border border-[#FFDDD2] warm-shadow transition-all duration-300"
     >
       <div className="absolute inset-0 opacity-20 pointer-events-none">
@@ -64,23 +66,23 @@ const PoolCard: React.FC<{ pool: Pool; onJoin?: () => void }> = ({ pool, onJoin 
           </div>
         </div>
 
-        <button 
+        <button
           onClick={(e) => { e.stopPropagation(); onJoin?.(); }}
           className="w-full py-3 sm:py-4 rounded-2xl sm:rounded-3xl bg-[#E29578] text-white font-black text-xs sm:text-sm shadow-lg shadow-[#FFDDD2] hover:bg-[#006D77] transition-all"
         >
-          Join Pool $50
+          Join Pool ${(pool as any).contribution_amount || 5}
         </button>
       </div>
     </motion.div>
   );
 };
 
-const PoolCarousel: React.FC<PoolCarouselProps> = ({ pools, onJoin }) => {
+const PoolCarousel: React.FC<PoolCarouselProps> = ({ pools, onJoin, onPoolClick }) => {
   return (
     <div className="relative w-full overflow-x-auto pb-4 sm:pb-6 pt-2 -mx-2">
       <div className="flex gap-4 sm:gap-6 px-2 min-w-full">
         {pools.map((pool) => (
-          <PoolCard key={pool.id} pool={pool} onJoin={onJoin} />
+          <PoolCard key={pool.id} pool={pool} onJoin={onJoin} onPoolClick={onPoolClick} />
         ))}
         <div className="min-w-[16px] sm:min-w-[24px]" />
       </div>

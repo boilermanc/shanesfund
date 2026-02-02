@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from './store/useStore';
 import { useAuth } from './hooks/useAuth';
@@ -23,9 +24,11 @@ import JoinPoolScreen from './components/JoinPoolScreen';
 import SettingsModal from './components/SettingsModal';
 import ShaneWinnerAlert from './components/ShaneWinnerAlert';
 import ContributionLedger from './components/ContributionLedger';
+import PoolDetailView from './components/PoolDetailView';
 import NotificationsCenter from './components/NotificationsCenter';
 import SkeletonLoader from './components/SkeletonLoader';
 import LandingPage from './components/landing/LandingPage';
+import AdminPage from './components/admin/AdminPage';
 // Temporary type for pool display until components are updated
 interface DisplayPool {
   id: string;
@@ -39,7 +42,8 @@ interface DisplayPool {
   contribution_amount?: number;
   members_count?: number;
 }
-const App: React.FC = () => {
+// Main App Content (extracted for cleaner routing)
+const MainApp: React.FC = () => {
   const { user: authUser, session, loading: authLoading } = useAuth();
   const {
     user,
@@ -61,6 +65,7 @@ const App: React.FC = () => {
   const [showProUpgrade, setShowProUpgrade] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [selectedPoolForLedger, setSelectedPoolForLedger] = useState<DisplayPool | null>(null);
+  const [selectedPoolIdForDetail, setSelectedPoolIdForDetail] = useState<string | null>(null);
   // Sync auth state with store
   useEffect(() => {
     if (!authLoading) {
@@ -141,7 +146,7 @@ const App: React.FC = () => {
               {isLoading ? (
                 <SkeletonLoader type="carousel" />
               ) : (
-                <PoolCarousel pools={displayPools as any} onJoin={() => setShowJoinPool(true)} />
+                <PoolCarousel pools={displayPools as any} onJoin={() => setShowJoinPool(true)} onPoolClick={(id) => setSelectedPoolIdForDetail(id)} />
               )}
             </section>
             <section className="space-y-4 px-2">
@@ -152,7 +157,7 @@ const App: React.FC = () => {
                   <SkeletonLoader type="card" />
                 </>
               ) : (
-                <PoolList pools={displayPools as any} onJoin={(pool) => setSelectedPoolForLedger(pool)} />
+                <PoolList pools={displayPools as any} onJoin={(pool) => setSelectedPoolIdForDetail(pool.id)} />
               )}
             </section>
           </div>
@@ -162,18 +167,12 @@ const App: React.FC = () => {
           <FriendsView
             onOpenProfile={() => {}}
             onOpenRequests={() => {}}
-            onOpenPool={(id) => {
-              const pool = displayPools.find(p => p.id === id);
-              if (pool) setSelectedPoolForLedger(pool);
-            }}
+            onOpenPool={(id) => setSelectedPoolIdForDetail(id)}
           />
         );
       case 'results':
         return (
-          <TheBoard onOpenPool={(id) => {
-            const pool = displayPools.find(p => p.id === id);
-            if (pool) setSelectedPoolForLedger(pool);
-          }} />
+          <TheBoard onOpenPool={(id) => setSelectedPoolIdForDetail(id)} />
         );
       case 'insights':
         return <WealthInsights />;
@@ -236,12 +235,33 @@ const App: React.FC = () => {
             onClose={() => setSelectedPoolForLedger(null)}
           />
         )}
+        {selectedPoolIdForDetail && (
+          <PoolDetailView
+            poolId={selectedPoolIdForDetail}
+            onClose={() => setSelectedPoolIdForDetail(null)}
+            onOpenLedger={() => {
+              const pool = displayPools.find(p => p.id === selectedPoolIdForDetail);
+              if (pool) {
+                setSelectedPoolForLedger(pool);
+              }
+            }}
+          />
+        )}
       </AnimatePresence>
       <ShaneWinnerAlert
         isVisible={showWinnerAlert}
         onClose={() => setWinnerAlert(false)}
       />
     </div>
+  );
+};
+// App with Routes
+const App: React.FC = () => {
+  return (
+    <Routes>
+      <Route path="/admin/*" element={<AdminPage />} />
+      <Route path="/*" element={<MainApp />} />
+    </Routes>
   );
 };
 export default App;

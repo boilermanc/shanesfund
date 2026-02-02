@@ -48,20 +48,41 @@ export const getPool = async (poolId: string): Promise<{ data: PoolWithMembers |
     return { data: null, error: 'An unexpected error occurred' };
   }
 };
-// Create a new pool
+// Create a new pool and add creator as captain
 export const createPool = async (
   pool: Omit<InsertTables<'pools'>, 'id' | 'invite_code' | 'created_at' | 'updated_at'>
-): Promise<{ data: Pool | null; error: string | null }> => {
+): Promise<{ data: PoolWithMembers | null; error: string | null }> => {
   try {
+    // Create the pool
     const { data, error } = await supabase
       .from('pools')
       .insert(pool)
       .select()
       .single();
+
     if (error) {
       return { data: null, error: error.message };
     }
-    return { data, error: null };
+
+    // Add the creator as a captain member
+    const { error: memberError } = await supabase
+      .from('pool_members')
+      .insert({
+        pool_id: data.id,
+        user_id: pool.captain_id,
+        role: 'captain',
+      });
+
+    if (memberError) {
+      console.error('Failed to add captain as member:', memberError.message);
+      // Pool was created but member wasn't added - still return pool
+    }
+
+    // Return pool with members_count
+    return {
+      data: { ...data, members_count: 1 },
+      error: null
+    };
   } catch (err) {
     return { data: null, error: 'An unexpected error occurred' };
   }
@@ -199,5 +220,61 @@ export const removeMember = async (
     return { error: null };
   } catch (err) {
     return { error: 'An unexpected error occurred' };
+  }
+};
+
+// Create a contribution record (marks user as having paid)
+export const createContribution = async (
+  poolId: string,
+  userId: string,
+  amount: number,
+  drawDate: string
+): Promise<{ data: any | null; error: string | null }> => {
+  try {
+    const { data, error } = await supabase
+      .from('contributions')
+      .insert({
+        pool_id: poolId,
+        user_id: userId,
+        amount: amount,
+        paid: true,
+        paid_at: new Date().toISOString(),
+        draw_date: drawDate,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return { data: null, error: error.message };
+    }
+
+    return { data, error: null };
+  } catch (err) {
+    return { data: null, error: 'An unexpected error occurred' };
+  }
+};
+
+// Get pool by invite code (for preview before joining)
+export const getPoolByInviteCode = async (
+  inviteCode: string
+): Promise<{ data: PoolWithMembers | null; error: string | null }> => {
+  try {
+    const { data: pool, error } = await supabase
+      .from('pools')
+      .select('*, pool_members(id, user_id, role, users(id, display_name, avatar_url))')
+      .eq('invite_code', inviteCode.toUpperCase())
+      .eq('status', 'active')
+      .single();
+
+    if (error || !pool) {
+      return { data: null, error: 'Invalid invite code or pool not found' };
+    }
+
+    return {
+      data: { ...pool, members_count: pool.pool_members?.length || 0 },
+      error: null
+    };
+  } catch (err) {
+    return { data: null, error: 'An unexpected error occurred' };
   }
 };
