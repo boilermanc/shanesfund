@@ -23,3 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Claude Code
+.claude/projects/
+
+# Misc artifacts
+nul
+src/
