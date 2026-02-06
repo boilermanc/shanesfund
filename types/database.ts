@@ -18,6 +18,8 @@ export interface Database {
           subscription_status: 'active' | 'inactive' | 'canceled' | 'past_due';
           stripe_customer_id: string | null;
           onboarding_completed: boolean;
+          notification_preferences: Json;
+          savings_goal: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -30,6 +32,8 @@ export interface Database {
           subscription_status?: 'active' | 'inactive' | 'canceled' | 'past_due';
           stripe_customer_id?: string | null;
           onboarding_completed?: boolean;
+          notification_preferences?: Json;
+          savings_goal?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -42,6 +46,8 @@ export interface Database {
           subscription_status?: 'active' | 'inactive' | 'canceled' | 'past_due';
           stripe_customer_id?: string | null;
           onboarding_completed?: boolean;
+          notification_preferences?: Json;
+          savings_goal?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -431,6 +437,155 @@ export interface Database {
           created_at?: string;
         };
       };
+      api_logs: {
+        Row: {
+          id: string;
+          api_connection_id: string | null;
+          endpoint: string;
+          method: string;
+          request_body: Json;
+          response_status: number | null;
+          response_body: Json;
+          response_time_ms: number | null;
+          success: boolean;
+          error_message: string | null;
+          triggered_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          api_connection_id?: string | null;
+          endpoint: string;
+          method?: string;
+          request_body?: Json;
+          response_status?: number | null;
+          response_body?: Json;
+          response_time_ms?: number | null;
+          success?: boolean;
+          error_message?: string | null;
+          triggered_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          api_connection_id?: string | null;
+          endpoint?: string;
+          method?: string;
+          request_body?: Json;
+          response_status?: number | null;
+          response_body?: Json;
+          response_time_ms?: number | null;
+          success?: boolean;
+          error_message?: string | null;
+          triggered_by?: string | null;
+          created_at?: string;
+        };
+      };
+      api_connections: {
+        Row: {
+          id: string;
+          name: string;
+          provider: string;
+          base_url: string;
+          api_key: string;
+          additional_config: Json;
+          is_active: boolean;
+          last_tested_at: string | null;
+          last_test_success: boolean | null;
+          last_test_message: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          provider: string;
+          base_url: string;
+          api_key: string;
+          additional_config?: Json;
+          is_active?: boolean;
+          last_tested_at?: string | null;
+          last_test_success?: boolean | null;
+          last_test_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          provider?: string;
+          base_url?: string;
+          api_key?: string;
+          additional_config?: Json;
+          is_active?: boolean;
+          last_tested_at?: string | null;
+          last_test_success?: boolean | null;
+          last_test_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      admin_users: {
+        Row: {
+          id: string;
+          email: string;
+          role: 'super_admin' | 'admin' | 'viewer';
+          permissions: Json;
+          is_active: boolean;
+          last_login_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          email: string;
+          role?: 'super_admin' | 'admin' | 'viewer';
+          permissions?: Json;
+          is_active?: boolean;
+          last_login_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          role?: 'super_admin' | 'admin' | 'viewer';
+          permissions?: Json;
+          is_active?: boolean;
+          last_login_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      contact_messages: {
+        Row: {
+          id: string;
+          name: string;
+          email: string;
+          subject: string;
+          message: string;
+          status: 'new' | 'read' | 'replied' | 'archived';
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          email: string;
+          subject: string;
+          message: string;
+          status?: 'new' | 'read' | 'replied' | 'archived';
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          email?: string;
+          subject?: string;
+          message?: string;
+          status?: 'new' | 'read' | 'replied' | 'archived';
+          created_at?: string;
+        };
+      };
     };
   };
 }
@@ -451,3 +606,7 @@ export type Subscription = Tables<'subscriptions'>;
 export type WaitlistEntry = Tables<'waitlist'>;
 export type LotteryDraw = Tables<'lottery_draws'>;
 export type ActivityLog = Tables<'activity_log'>;
+export type ApiLog = Tables<'api_logs'>;
+export type ApiConnection = Tables<'api_connections'>;
+export type AdminUser = Tables<'admin_users'>;
+export type ContactMessage = Tables<'contact_messages'>;

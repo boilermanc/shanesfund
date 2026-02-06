@@ -7,10 +7,12 @@ interface AcceptFriendModalProps {
   isVisible: boolean;
   onClose: () => void;
   onAccept: () => void;
+  onDecline?: () => void;
   friendName: string;
+  friendAvatarUrl?: string | null;
 }
 
-const AcceptFriendModal: React.FC<AcceptFriendModalProps> = ({ isVisible, onClose, onAccept, friendName }) => {
+const AcceptFriendModal: React.FC<AcceptFriendModalProps> = ({ isVisible, onClose, onAccept, onDecline, friendName, friendAvatarUrl }) => {
   return (
     <AnimatePresence>
       {isVisible && (
@@ -47,8 +49,8 @@ const AcceptFriendModal: React.FC<AcceptFriendModalProps> = ({ isVisible, onClos
             </div>
 
             <div className="flex gap-3 sm:gap-4">
-              <button 
-                onClick={onClose}
+              <button
+                onClick={onDecline || onClose}
                 className="flex-1 py-4 sm:py-5 rounded-[1.8rem] sm:rounded-[2.2rem] bg-[#EDF6F9] text-[#006D77] font-black text-xs sm:text-sm uppercase tracking-widest active:scale-95 transition-all"
               >
                 Nah

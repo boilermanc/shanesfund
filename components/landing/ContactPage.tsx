@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Mail, Clock, ChevronDown, CheckCircle, MessageSquare } from 'lucide-react';
 import Header from './Header';
 import Footer from './Footer';
+import { submitContactMessage } from '../../services/contact';
 
 interface ContactPageProps {
   onBack: () => void;
@@ -122,6 +123,8 @@ const FaqSection: React.FC = () => {
 
 const SupportForm: React.FC = () => {
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -129,10 +132,20 @@ const SupportForm: React.FC = () => {
     message: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Send to your API here
-    console.log('Form data:', formData);
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    const { error } = await submitContactMessage(formData);
+
+    if (error) {
+      setSubmitError(error);
+      setIsSubmitting(false);
+      return;
+    }
+
+    setIsSubmitting(false);
     setSubmitted(true);
   };
 
@@ -227,10 +240,17 @@ const SupportForm: React.FC = () => {
 
         <button
           type="submit"
-          className="w-full bg-[#E29578] text-white font-bold py-4 sm:py-5 rounded-xl sm:rounded-2xl shadow-lg shadow-[#E29578]/30 hover:bg-[#E29578]/90 hover:-translate-y-0.5 transition-all active:scale-[0.98]"
+          disabled={isSubmitting}
+          className="w-full bg-[#E29578] text-white font-bold py-4 sm:py-5 rounded-xl sm:rounded-2xl shadow-lg shadow-[#E29578]/30 hover:bg-[#E29578]/90 hover:-translate-y-0.5 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
         >
-          Send Message
+          {isSubmitting ? 'Sending...' : 'Send Message'}
         </button>
+
+        {submitError && (
+          <p className="text-center text-sm text-red-500 font-medium">
+            {submitError}. Please try again.
+          </p>
+        )}
 
         <p className="text-center text-sm text-[#006D77]/60">
           Prefer direct email?{' '}

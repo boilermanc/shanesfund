@@ -18,7 +18,7 @@ export interface Friend {
 
 export interface Activity {
   id: string;
-  type: 'scan' | 'join' | 'shane';
+  type: 'scan' | 'join' | 'win' | 'contribution' | 'shane';
   user_name: string;
   content: string;
   time: string;

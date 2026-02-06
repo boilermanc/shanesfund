@@ -1,16 +1,24 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Info, TrendingUp, DollarSign, Target, X, Calendar, Ticket, Star } from 'lucide-react';
+import { Trophy, Info, TrendingUp, DollarSign, Target, X, Calendar, Ticket, Star, Edit3, Check, BarChart3 } from 'lucide-react';
+import { useInsights } from '../hooks/useInsights';
+import { updateSavingsGoal } from '../services/insights';
+import type { MonthlyWinning, WinningTicketDetail, PoolStat } from '../services/insights';
+import { useStore } from '../store/useStore';
 
-const ProgressGauge: React.FC<{ percentage: number; goal: string; label: string }> = ({ percentage, goal, label }) => {
+function formatCurrency(amount: number): string {
+  return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+const ProgressGauge: React.FC<{ percentage: number; goal: string; label: string; onEdit: () => void }> = ({ percentage, goal, label, onEdit }) => {
   const radius = 70;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+  const clamped = Math.min(percentage, 100);
+  const strokeDashoffset = circumference - (clamped / 100) * circumference;
 
   return (
     <div className="relative flex flex-col items-center justify-center py-4 sm:py-6">
       <svg className="w-40 h-40 sm:w-48 sm:h-48 transform -rotate-90">
-        {/* Background Ring */}
         <circle
           cx="50%"
           cy="50%"
@@ -20,7 +28,6 @@ const ProgressGauge: React.FC<{ percentage: number; goal: string; label: string 
           fill="transparent"
           className="opacity-20"
         />
-        {/* Indicator Ring */}
         <motion.circle
           cx="50%"
           cy="50%"
@@ -36,31 +43,114 @@ const ProgressGauge: React.FC<{ percentage: number; goal: string; label: string 
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center pt-2">
-        <span className="text-2xl sm:text-3xl font-black text-[#006D77] tracking-tighter">{percentage}%</span>
+        <span className="text-2xl sm:text-3xl font-black text-[#006D77] tracking-tighter">{Math.round(clamped)}%</span>
         <span className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mt-1">to Goal</span>
       </div>
-      <div className="mt-4 sm:mt-6 flex items-center gap-2 group cursor-help relative">
+      <div className="mt-4 sm:mt-6 flex items-center gap-2 group cursor-pointer relative" onClick={onEdit}>
         <p className="text-xs sm:text-sm font-bold text-[#006D77]">{label}: <span className="font-black">{goal}</span></p>
-        <div className="p-1 rounded-full bg-[#EDF6F9] text-[#83C5BE]">
-          <Info size={12} />
-        </div>
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#006D77] text-white text-[9px] sm:text-[10px] rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap font-bold uppercase tracking-wider shadow-lg">
-          Based on current winning trends
+        <div className="p-1 rounded-full bg-[#EDF6F9] text-[#83C5BE] group-hover:text-[#E29578] transition-colors">
+          <Edit3 size={12} />
         </div>
       </div>
     </div>
   );
 };
 
-const BarChart: React.FC<{ onBarClick: (month: string) => void }> = ({ onBarClick }) => {
-  const data = [
-    { label: 'Oct', value: 120 },
-    { label: 'Nov', value: 250 },
-    { label: 'Dec', value: 180 },
-    { label: 'Jan', value: 420 },
-  ];
+const SetGoalPrompt: React.FC<{ onSave: (amount: number) => void }> = ({ onSave }) => {
+  const [value, setValue] = useState('');
 
-  const maxValue = Math.max(...data.map(d => d.value));
+  const handleSubmit = () => {
+    const amount = parseFloat(value);
+    if (amount > 0) {
+      onSave(amount);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center py-6 sm:py-8 px-4">
+      <Target size={32} className="text-[#83C5BE] mb-3" />
+      <h3 className="text-sm sm:text-base font-black text-[#006D77] tracking-tight mb-1">Set a Savings Goal</h3>
+      <p className="text-[9px] sm:text-[10px] font-bold text-[#83C5BE] uppercase tracking-widest mb-6">Track your progress toward a target</p>
+      <div className="flex items-center gap-2 w-full max-w-[200px]">
+        <div className="relative flex-1">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black text-[#83C5BE]">$</span>
+          <input
+            type="number"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="2,000"
+            className="w-full pl-7 pr-3 py-3 text-sm font-black text-[#006D77] bg-white border border-[#FFDDD2] rounded-xl sm:rounded-2xl focus:outline-none focus:border-[#83C5BE] placeholder:text-[#83C5BE]/40"
+          />
+        </div>
+        <button
+          onClick={handleSubmit}
+          disabled={!value || parseFloat(value) <= 0}
+          className="p-3 bg-[#006D77] text-white rounded-xl sm:rounded-2xl shadow-sm disabled:opacity-40"
+        >
+          <Check size={16} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const EditGoalModal: React.FC<{ currentGoal: number; onSave: (amount: number) => void; onClose: () => void }> = ({ currentGoal, onSave, onClose }) => {
+  const [value, setValue] = useState(currentGoal.toString());
+
+  const handleSave = () => {
+    const amount = parseFloat(value);
+    if (amount > 0) {
+      onSave(amount);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[600] flex items-center justify-center p-4 sm:p-6"
+    >
+      <div className="absolute inset-0 bg-[#006D77]/40 backdrop-blur-xl" onClick={onClose} />
+      <motion.div
+        initial={{ y: 50, scale: 0.9, opacity: 0 }}
+        animate={{ y: 0, scale: 1, opacity: 1 }}
+        exit={{ y: 50, scale: 0.9, opacity: 0 }}
+        className="relative w-full max-w-xs bg-[#EDF6F9] rounded-[2.5rem] sm:rounded-[3rem] p-6 sm:p-8 border border-[#FFDDD2] warm-shadow"
+      >
+        <h2 className="text-lg sm:text-xl font-black text-[#006D77] tracking-tighter mb-4">Edit Goal</h2>
+        <div className="relative mb-4">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-[#83C5BE]">$</span>
+          <input
+            type="number"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className="w-full pl-8 pr-4 py-3 text-sm font-black text-[#006D77] bg-white border border-[#FFDDD2] rounded-xl sm:rounded-2xl focus:outline-none focus:border-[#83C5BE]"
+            autoFocus
+          />
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 text-[10px] sm:text-xs font-black text-[#006D77] uppercase tracking-widest bg-white rounded-xl sm:rounded-2xl border border-[#FFDDD2]"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!value || parseFloat(value) <= 0}
+            className="flex-1 py-3 text-[10px] sm:text-xs font-black text-white uppercase tracking-widest bg-[#006D77] rounded-xl sm:rounded-2xl shadow-sm disabled:opacity-40"
+          >
+            Save
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+const BarChart: React.FC<{ data: MonthlyWinning[]; onBarClick: (month: string) => void }> = ({ data, onBarClick }) => {
+  const maxValue = Math.max(...data.map(d => d.value), 1);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -69,26 +159,35 @@ const BarChart: React.FC<{ onBarClick: (month: string) => void }> = ({ onBarClic
           <TrendingUp size={18} className="text-[#83C5BE]" />
           Winning Trends
         </h3>
-        <p className="text-[8px] sm:text-[9px] font-black text-[#83C5BE] uppercase tracking-widest">Tap bars for details</p>
+        {data.some(d => d.value > 0) && (
+          <p className="text-[8px] sm:text-[9px] font-black text-[#83C5BE] uppercase tracking-widest">Tap bars for details</p>
+        )}
       </div>
       <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 border border-[#FFDDD2] warm-shadow flex flex-col gap-4 sm:gap-6">
-        <div className="flex items-end justify-between h-32 sm:h-40 px-2">
-          {data.map((item, i) => (
-            <div key={i} className="flex flex-col items-center gap-2 sm:gap-3 flex-1 group cursor-pointer" onClick={() => onBarClick(item.label)}>
-              <div className="relative w-full flex justify-center items-end h-full">
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{ height: `${(item.value / maxValue) * 100}%` }}
-                  transition={{ duration: 1, delay: i * 0.1, ease: "easeOut" }}
-                  className={`w-8 sm:w-10 rounded-t-xl sm:rounded-t-2xl shadow-sm group-hover:brightness-110 transition-all ${
-                    item.value === maxValue ? 'bg-[#E29578]' : 'bg-[#83C5BE]'
-                  }`}
-                />
+        {data.some(d => d.value > 0) ? (
+          <div className="flex items-end justify-between h-32 sm:h-40 px-2">
+            {data.map((item, i) => (
+              <div key={i} className="flex flex-col items-center gap-2 sm:gap-3 flex-1 group cursor-pointer" onClick={() => item.value > 0 && onBarClick(item.label)}>
+                <div className="relative w-full flex justify-center items-end h-full">
+                  <motion.div
+                    initial={{ height: 0 }}
+                    animate={{ height: item.value > 0 ? `${(item.value / maxValue) * 100}%` : '2px' }}
+                    transition={{ duration: 1, delay: i * 0.1, ease: "easeOut" }}
+                    className={`w-8 sm:w-10 rounded-t-xl sm:rounded-t-2xl shadow-sm group-hover:brightness-110 transition-all ${
+                      item.value === maxValue && item.value > 0 ? 'bg-[#E29578]' : item.value > 0 ? 'bg-[#83C5BE]' : 'bg-[#83C5BE]/20'
+                    }`}
+                  />
+                </div>
+                <span className="text-[10px] sm:text-xs font-black text-[#006D77] uppercase tracking-wider group-hover:text-[#E29578] transition-colors">{item.label}</span>
               </div>
-              <span className="text-[10px] sm:text-xs font-black text-[#006D77] uppercase tracking-wider group-hover:text-[#E29578] transition-colors">{item.label}</span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 sm:py-10 opacity-50">
+            <BarChart3 size={28} className="mx-auto text-[#83C5BE] mb-2" />
+            <p className="text-[10px] sm:text-xs font-black text-[#83C5BE] uppercase tracking-widest">No winning data yet</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -187,31 +286,80 @@ const PoolTypeIcon: React.FC<{ type: 'power' | 'mega' }> = ({ type }) => {
   );
 };
 
+const LoadingSkeleton: React.FC = () => (
+  <div className="space-y-8 sm:space-y-12 pt-8 sm:pt-12 pb-32 animate-pulse">
+    <div className="text-center px-4">
+      <div className="h-3 w-24 bg-[#83C5BE]/20 rounded-full mx-auto mb-4" />
+      <div className="h-10 w-40 bg-[#006D77]/10 rounded-2xl mx-auto mb-2" />
+      <div className="h-4 w-48 bg-[#83C5BE]/15 rounded-full mx-auto" />
+    </div>
+    <div className="flex justify-center">
+      <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-full border-[10px] border-[#83C5BE]/10" />
+    </div>
+    <div className="px-2">
+      <div className="h-48 bg-white rounded-[2rem] border border-[#FFDDD2]" />
+    </div>
+    <div className="px-2">
+      <div className="h-24 bg-white rounded-[2rem] border border-[#FFDDD2]" />
+    </div>
+  </div>
+);
+
+const EmptyState: React.FC = () => (
+  <div className="flex flex-col items-center justify-center py-20 sm:py-28 px-6 text-center">
+    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[1.5rem] sm:rounded-[2rem] bg-[#EDF6F9] flex items-center justify-center mb-4 sm:mb-6 border border-[#FFDDD2]">
+      <TrendingUp size={28} className="text-[#83C5BE]" />
+    </div>
+    <h2 className="text-lg sm:text-xl font-black text-[#006D77] tracking-tight mb-2">No Insights Yet</h2>
+    <p className="text-xs sm:text-sm font-bold text-[#83C5BE] max-w-[260px]">
+      Join a pool and start playing to see your wealth insights, winning trends, and more.
+    </p>
+  </div>
+);
+
 const WealthInsights: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const [editingGoal, setEditingGoal] = useState(false);
 
-  const mockWinnings: Record<string, WinningTicket[]> = {
-    'Oct': [
-      { game: 'Mega Millions', date: 'Oct 12', prize: '$120.00', numbers: [4, 15, 22, 31, 40], bonus: 12 },
-    ],
-    'Nov': [
-      { game: 'Powerball', date: 'Nov 04', prize: '$150.00', numbers: [1, 10, 24, 38, 55], bonus: 7 },
-      { game: 'Mega Millions', date: 'Nov 19', prize: '$100.00', numbers: [9, 11, 28, 41, 52], bonus: 18 },
-    ],
-    'Dec': [
-      { game: 'Powerball', date: 'Dec 24', prize: '$180.00', numbers: [5, 18, 33, 42, 60], bonus: 14 },
-    ],
-    'Jan': [
-      { game: 'Powerball', date: 'Jan 15', prize: '$240.00', numbers: [12, 24, 31, 48, 59], bonus: 15 },
-      { game: 'Mega Millions', date: 'Jan 27', prize: '$180.00', numbers: [5, 18, 29, 34, 62], bonus: 7 },
-    ],
+  const user = useStore((s) => s.user);
+  const setUser = useStore((s) => s.setUser);
+  const { insights, loading } = useInsights(user?.id);
+
+  const savingsGoal = (user as any)?.savings_goal as number | null;
+
+  const handleSaveGoal = async (amount: number) => {
+    if (!user) return;
+    setEditingGoal(false);
+
+    // Optimistic update
+    setUser({ ...user, savings_goal: amount } as any);
+
+    const { error } = await updateSavingsGoal(user.id, amount);
+    if (error) {
+      console.error('Failed to save goal:', error);
+      // Revert on error
+      setUser(user);
+    }
   };
 
-  const luckyPools = [
-    { name: 'The Office Syndicate', wins: '$850.00', rate: '15%', type: 'mega' as const },
-    { name: 'Powerball High Rollers', wins: '$340.50', rate: '8%', type: 'power' as const },
-    { name: 'Weekly Retirement Goal', wins: '$50.00', rate: '22%', type: 'mega' as const },
-  ];
+  if (loading) {
+    return <LoadingSkeleton />;
+  }
+
+  if (!insights || (insights.totalWinnings === 0 && insights.totalContributed === 0 && insights.poolStats.length === 0)) {
+    // Still show goal setting even with no data, but only if user has pools
+    if (insights && insights.monthlyWinnings.length > 0) {
+      // User has pools but no winnings — fall through to main view
+    } else {
+      return <EmptyState />;
+    }
+  }
+
+  const { totalWinnings, personalShare, totalContributed, monthlyWinnings, winningTickets, poolStats } = insights!;
+
+  const profit = personalShare - totalContributed;
+  const profitPct = totalContributed > 0 ? Math.round((profit / totalContributed) * 100) : 0;
+  const goalPercentage = savingsGoal && savingsGoal > 0 ? (totalWinnings / savingsGoal) * 100 : 0;
 
   return (
     <motion.div
@@ -226,8 +374,15 @@ const WealthInsights: React.FC = () => {
         {selectedMonth && (
           <WinningTicketsModal
             month={selectedMonth}
-            tickets={mockWinnings[selectedMonth] || []}
+            tickets={winningTickets[selectedMonth] || []}
             onClose={() => setSelectedMonth(null)}
+          />
+        )}
+        {editingGoal && savingsGoal != null && (
+          <EditGoalModal
+            currentGoal={savingsGoal}
+            onSave={handleSaveGoal}
+            onClose={() => setEditingGoal(false)}
           />
         )}
       </AnimatePresence>
@@ -235,22 +390,31 @@ const WealthInsights: React.FC = () => {
       {/* Header Section */}
       <motion.section variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="text-center px-4">
         <h2 className="text-[10px] sm:text-[11px] font-black text-[#83C5BE] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-3 sm:mb-4">Wealth Insights</h2>
-        <h1 className="text-4xl sm:text-5xl font-black text-[#006D77] tracking-tighter">$1,240.50</h1>
-        <p className="text-xs sm:text-sm font-bold text-[#83C5BE] mt-2">Your Personal Share: <span className="text-[#006D77]">$248.10</span></p>
+        <h1 className="text-4xl sm:text-5xl font-black text-[#006D77] tracking-tighter">{formatCurrency(totalWinnings)}</h1>
+        <p className="text-xs sm:text-sm font-bold text-[#83C5BE] mt-2">Your Personal Share: <span className="text-[#006D77]">{formatCurrency(personalShare)}</span></p>
       </motion.section>
 
-      {/* Progress Section */}
+      {/* Goal Section */}
       <motion.section variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}>
-        <ProgressGauge percentage={12} goal="$2,000" label="Group Vacation Goal" />
+        {savingsGoal != null ? (
+          <ProgressGauge
+            percentage={Math.round(goalPercentage)}
+            goal={formatCurrency(savingsGoal)}
+            label="Savings Goal"
+            onEdit={() => setEditingGoal(true)}
+          />
+        ) : (
+          <SetGoalPrompt onSave={handleSaveGoal} />
+        )}
       </motion.section>
 
       {/* Performance Chart */}
       <motion.section variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}>
-        <BarChart onBarClick={(month) => setSelectedMonth(month)} />
+        <BarChart data={monthlyWinnings} onBarClick={(month) => setSelectedMonth(month)} />
       </motion.section>
 
       {/* ROI Section */}
-      <motion.section 
+      <motion.section
         variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
         className="px-2"
       >
@@ -258,52 +422,57 @@ const WealthInsights: React.FC = () => {
           <div className="flex divide-x divide-[#FFDDD2]">
             <div className="flex-1 p-5 sm:p-8 bg-[#EDF6F9]/50">
               <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-1">Total Contributed</p>
-              <p className="text-lg sm:text-xl font-black text-[#006D77]">$40.00</p>
+              <p className="text-lg sm:text-xl font-black text-[#006D77]">{formatCurrency(totalContributed)}</p>
             </div>
             <div className="flex-1 p-5 sm:p-8 bg-[#EDF6F9]/50">
               <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-1">Total Returns</p>
-              <p className="text-lg sm:text-xl font-black text-[#006D77]">$248.10</p>
+              <p className="text-lg sm:text-xl font-black text-[#006D77]">{formatCurrency(personalShare)}</p>
             </div>
           </div>
-          <div className="bg-[#E29578] py-2.5 sm:py-3 text-center">
+          <div className={`py-2.5 sm:py-3 text-center ${profit >= 0 ? 'bg-[#E29578]' : 'bg-[#006D77]'}`}>
             <p className="text-[10px] sm:text-[11px] font-black text-white uppercase tracking-[0.2em] sm:tracking-[0.3em]">
-              Profit: +$208.10 (520%)
+              {profit >= 0 ? 'Profit' : 'Loss'}: {profit >= 0 ? '+' : ''}{formatCurrency(profit)} ({profitPct}%)
             </p>
           </div>
         </div>
       </motion.section>
 
       {/* Luckiest Pools */}
-      <motion.section variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="space-y-4 sm:space-y-6">
-        <h3 className="text-base sm:text-lg font-black text-[#006D77] tracking-tight px-2 flex items-center gap-2">
-          <Target size={18} className="text-[#83C5BE]" />
-          Luckiest Pools
-        </h3>
-        <div className="space-y-3 sm:space-y-4">
-          {luckyPools.map((pool, idx) => (
-            <div 
-              key={idx} 
-              className="bg-white p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[#FFDDD2] flex items-center justify-between warm-shadow group hover:border-[#83C5BE] transition-colors"
-            >
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-[#EDF6F9] flex items-center justify-center text-[#E29578] border border-[#FFDDD2]">
-                  <Trophy size={16} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-xs sm:text-sm font-black text-[#006D77] group-hover:translate-x-1 transition-transform">{pool.name}</h4>
-                    <PoolTypeIcon type={pool.type} />
+      {poolStats.length > 0 && (
+        <motion.section variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="space-y-4 sm:space-y-6">
+          <h3 className="text-base sm:text-lg font-black text-[#006D77] tracking-tight px-2 flex items-center gap-2">
+            <Target size={18} className="text-[#83C5BE]" />
+            Luckiest Pools
+          </h3>
+          <div className="space-y-3 sm:space-y-4">
+            {poolStats.map((pool, idx) => {
+              const winRate = pool.ticketCount > 0 ? Math.round((pool.winCount / pool.ticketCount) * 100) : 0;
+              return (
+                <div
+                  key={idx}
+                  className="bg-white p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[#FFDDD2] flex items-center justify-between warm-shadow group hover:border-[#83C5BE] transition-colors"
+                >
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-[#EDF6F9] flex items-center justify-center text-[#E29578] border border-[#FFDDD2]">
+                      <Trophy size={16} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs sm:text-sm font-black text-[#006D77] group-hover:translate-x-1 transition-transform">{pool.name}</h4>
+                        <PoolTypeIcon type={pool.gameType === 'powerball' ? 'power' : 'mega'} />
+                      </div>
+                      <p className="text-[9px] sm:text-[10px] text-[#83C5BE] font-black uppercase tracking-widest">{winRate}% Success Rate</p>
+                    </div>
                   </div>
-                  <p className="text-[9px] sm:text-[10px] text-[#83C5BE] font-black uppercase tracking-widest">{pool.rate} Success Rate</p>
+                  <div className="text-right">
+                    <p className="text-xs sm:text-sm font-black text-[#83C5BE]">{formatCurrency(pool.totalWins)} won</p>
+                  </div>
                 </div>
-              </div>
-              <div className="text-right">
-                <p className="text-xs sm:text-sm font-black text-[#83C5BE]">{pool.wins} won</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </motion.section>
+              );
+            })}
+          </div>
+        </motion.section>
+      )}
     </motion.div>
   );
 };

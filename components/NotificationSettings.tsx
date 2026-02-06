@@ -1,17 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Bell, Trophy, Users, Shield, Zap, Info } from 'lucide-react';
+import { ArrowLeft, Bell, Trophy, Users, Shield, Zap, Info, Loader2 } from 'lucide-react';
+import { useStore } from '../store/useStore';
+import {
+  getNotificationPreferences,
+  updateNotificationPreferences,
+  DEFAULT_PREFERENCES,
+  type NotificationPreferences,
+} from '../services/notifications';
 
 interface NotificationSettingsProps {
   onClose: () => void;
 }
 
 const Toggle: React.FC<{ active: boolean; onToggle: () => void }> = ({ active, onToggle }) => (
-  <button 
+  <button
     onClick={(e) => { e.stopPropagation(); onToggle(); }}
     className={`w-12 h-7 sm:w-14 sm:h-8 rounded-full p-1 transition-all duration-300 relative ${active ? 'bg-[#E29578]' : 'bg-[#EDF6F9] border border-[#FFDDD2]'}`}
   >
-    <motion.div 
+    <motion.div
       animate={{ x: active ? 18 : 0 }}
       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
       className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full shadow-lg ${active ? 'bg-white' : 'bg-[#83C5BE]'}`}
@@ -19,12 +26,12 @@ const Toggle: React.FC<{ active: boolean; onToggle: () => void }> = ({ active, o
   </button>
 );
 
-const SettingItem: React.FC<{ 
-  icon: React.ReactNode; 
-  title: string; 
-  desc: string; 
-  active: boolean; 
-  onToggle: () => void 
+const SettingItem: React.FC<{
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  active: boolean;
+  onToggle: () => void
 }> = ({ icon, title, desc, active, onToggle }) => (
   <div className="bg-white p-4 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border border-[#FFDDD2] warm-shadow flex items-center justify-between group transition-all hover:border-[#83C5BE]/40 gap-3">
     <div className="flex items-start gap-3 sm:gap-5 min-w-0 flex-1">
@@ -41,16 +48,31 @@ const SettingItem: React.FC<{
 );
 
 const NotificationSettings: React.FC<NotificationSettingsProps> = ({ onClose }) => {
-  const [settings, setSettings] = useState({
-    jackpot: true,
-    reminders: true,
-    friendActivity: false,
-    security: true,
-    marketing: false
-  });
+  const { user } = useStore();
+  const [settings, setSettings] = useState<NotificationPreferences>(DEFAULT_PREFERENCES);
+  const [loading, setLoading] = useState(true);
 
-  const toggleSetting = (key: keyof typeof settings) => {
-    setSettings(prev => ({ ...prev, [key]: !prev[key] }));
+  useEffect(() => {
+    if (!user?.id) return;
+    const load = async () => {
+      const { data } = await getNotificationPreferences(user.id);
+      if (data) setSettings(data);
+      setLoading(false);
+    };
+    load();
+  }, [user?.id]);
+
+  const toggleSetting = async (key: keyof NotificationPreferences) => {
+    const previous = settings;
+    const updated = { ...settings, [key]: !settings[key] };
+    setSettings(updated); // optimistic
+    if (user?.id) {
+      const { error } = await updateNotificationPreferences(user.id, updated);
+      if (error) {
+        setSettings(previous); // revert on failure
+        console.error('Failed to save preferences:', error);
+      }
+    }
   };
 
   return (
@@ -63,7 +85,7 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ onClose }) 
     >
       {/* Header */}
       <header className="px-4 sm:px-6 pt-10 sm:pt-14 pb-4 sm:pb-6 flex items-center justify-between bg-white/40 backdrop-blur-md border-b border-[#FFDDD2]">
-        <button 
+        <button
           onClick={onClose}
           className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl glass border border-white text-[#006D77] hover:bg-white transition-colors"
         >
@@ -93,47 +115,55 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ onClose }) 
           </div>
         </div>
 
-        {/* Categories */}
-        <div className="space-y-4 sm:space-y-6">
-          <h3 className="text-[10px] sm:text-[11px] font-black text-[#83C5BE] uppercase tracking-[0.3em] sm:tracking-[0.4em] ml-3 sm:ml-4">Syndicate Pulse</h3>
-          <div className="space-y-3 sm:space-y-4">
-            <SettingItem 
-              icon={<Trophy size={18} />}
-              title="Jackpot Results"
-              desc="Get alerted the second we hit a winner."
-              active={settings.jackpot}
-              onToggle={() => toggleSetting('jackpot')}
-            />
-            <SettingItem 
-              icon={<Zap size={18} />}
-              title="Fund Reminders"
-              desc="Nudges for contributions before the draw."
-              active={settings.reminders}
-              onToggle={() => toggleSetting('reminders')}
-            />
+        {loading ? (
+          <div className="flex justify-center py-10">
+            <Loader2 size={24} className="text-[#83C5BE] animate-spin" />
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Categories */}
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-[10px] sm:text-[11px] font-black text-[#83C5BE] uppercase tracking-[0.3em] sm:tracking-[0.4em] ml-3 sm:ml-4">Syndicate Pulse</h3>
+              <div className="space-y-3 sm:space-y-4">
+                <SettingItem
+                  icon={<Trophy size={18} />}
+                  title="Jackpot Results"
+                  desc="Get alerted the second we hit a winner."
+                  active={settings.jackpot}
+                  onToggle={() => toggleSetting('jackpot')}
+                />
+                <SettingItem
+                  icon={<Zap size={18} />}
+                  title="Fund Reminders"
+                  desc="Nudges for contributions before the draw."
+                  active={settings.reminders}
+                  onToggle={() => toggleSetting('reminders')}
+                />
+              </div>
+            </div>
 
-        <div className="space-y-4 sm:space-y-6">
-          <h3 className="text-[10px] sm:text-[11px] font-black text-[#83C5BE] uppercase tracking-[0.3em] sm:tracking-[0.4em] ml-3 sm:ml-4">Social & Security</h3>
-          <div className="space-y-3 sm:space-y-4">
-            <SettingItem 
-              icon={<Users size={18} />}
-              title="Friend Activity"
-              desc="Know when your circle starts new pools."
-              active={settings.friendActivity}
-              onToggle={() => toggleSetting('friendActivity')}
-            />
-            <SettingItem 
-              icon={<Shield size={18} />}
-              title="Security Alerts"
-              desc="Account access and login verification."
-              active={settings.security}
-              onToggle={() => toggleSetting('security')}
-            />
-          </div>
-        </div>
-        
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-[10px] sm:text-[11px] font-black text-[#83C5BE] uppercase tracking-[0.3em] sm:tracking-[0.4em] ml-3 sm:ml-4">Social & Security</h3>
+              <div className="space-y-3 sm:space-y-4">
+                <SettingItem
+                  icon={<Users size={18} />}
+                  title="Friend Activity"
+                  desc="Know when your circle starts new pools."
+                  active={settings.friendActivity}
+                  onToggle={() => toggleSetting('friendActivity')}
+                />
+                <SettingItem
+                  icon={<Shield size={18} />}
+                  title="Security Alerts"
+                  desc="Account access and login verification."
+                  active={settings.security}
+                  onToggle={() => toggleSetting('security')}
+                />
+              </div>
+            </div>
+          </>
+        )}
+
         <div className="pb-8 sm:pb-10 text-center">
           <p className="text-[8px] sm:text-[9px] font-bold text-[#83C5BE] uppercase tracking-[0.2em] sm:tracking-[0.3em]">
             Shane says: "No spam, just early retirement news."

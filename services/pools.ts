@@ -1,5 +1,37 @@
 import { supabase } from '../lib/supabase';
 import type { Pool, PoolMember, InsertTables, UpdateTables } from '../types/database';
+
+// Fire-and-forget: log a user action to activity_log for the social feed.
+// Auto-fetches pool name if pool_id is provided and pool_name isn't in details.
+async function logActivity(
+  userId: string,
+  poolId: string | null,
+  action: string,
+  details: Record<string, any> = {}
+) {
+  try {
+    if (poolId && !details.pool_name) {
+      const { data: pool } = await supabase
+        .from('pools')
+        .select('name')
+        .eq('id', poolId)
+        .single();
+      if (pool?.name) {
+        details.pool_name = pool.name;
+      }
+    }
+
+    await supabase.from('activity_log').insert({
+      user_id: userId,
+      pool_id: poolId,
+      action,
+      details,
+    });
+  } catch {
+    // Silently ignore — activity logging should never break the main flow
+  }
+}
+
 export interface PoolWithMembers extends Pool {
   members_count?: number;
   pool_members?: PoolMember[];
@@ -156,6 +188,7 @@ export const joinPoolByCode = async (
     if (memberError) {
       return { data: null, error: memberError.message };
     }
+    logActivity(userId, pool.id, 'pool_joined', { pool_name: pool.name });
     return { data: pool, error: null };
   } catch (err) {
     return { data: null, error: 'An unexpected error occurred' };
@@ -248,6 +281,7 @@ export const createContribution = async (
       return { data: null, error: error.message };
     }
 
+    logActivity(userId, poolId, 'contribution_made', { amount });
     return { data, error: null };
   } catch (err) {
     return { data: null, error: 'An unexpected error occurred' };
@@ -301,6 +335,9 @@ export async function createTicket(ticket: CreateTicketInput): Promise<{ data: a
       console.error('Error creating ticket:', error);
       return { data: null, error: error.message };
     }
+    logActivity(ticket.entered_by, ticket.pool_id, 'ticket_scanned', {
+      entry_method: ticket.entry_method,
+    });
     return { data, error: null };
   } catch (err) {
     console.error('Exception creating ticket:', err);
@@ -412,6 +449,10 @@ export async function checkTicketsForDraw(
             bonusMatched: bonusMatch,
             prizeTier,
             prizeAmount,
+          });
+          logActivity(ticket.entered_by, ticket.pool_id, 'win_detected', {
+            amount: prizeAmount,
+            prize_tier: prizeTier,
           });
         }
         // Mark ticket as winner

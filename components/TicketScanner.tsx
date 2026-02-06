@@ -359,7 +359,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
                   <div className="p-1 rounded-lg bg-[#E29578]/10 text-[#E29578]">
                     <Zap size={14} fill="currentColor" />
                   </div>
-                  <h3 className="text-lg sm:text-xl font-black text-[#006D77] tracking-tight">Powerball Detected</h3>
+                  <h3 className="text-lg sm:text-xl font-black text-[#006D77] tracking-tight">{selectedGame === 'powerball' ? 'Powerball' : 'Mega Millions'} Detected</h3>
                 </div>
                 <p className="text-xs sm:text-sm font-bold text-[#83C5BE]">Draw Date: {drawDate}</p>
               </div>

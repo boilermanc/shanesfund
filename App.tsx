@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from './store/useStore';
 import { useAuth } from './hooks/useAuth';
+import { useNotifications } from './hooks/useNotifications';
 import { getUserPools } from './services/pools';
 // Components
 import DashboardHeader from './components/DashboardHeader';
@@ -14,6 +15,9 @@ import TheBoard from './components/TheBoard';
 import WealthInsights from './components/WealthInsights';
 import ProfileView from './components/ProfileView';
 import FriendsView from './components/FriendsView';
+import FriendMiniProfile from './components/FriendMiniProfile';
+import AcceptFriendModal from './components/AcceptFriendModal';
+import type { FriendWithProfile } from './services/friends';
 import AuthScreen from './components/AuthScreen';
 import Onboarding from './components/Onboarding';
 import TicketScanner from './components/TicketScanner';
@@ -56,7 +60,13 @@ const MainApp: React.FC = () => {
     setPools,
     setLoading,
     setAuthenticated,
-    setWinnerAlert
+    setWinnerAlert,
+    pendingRequests,
+    removeFriend: storeRemoveFriend,
+    acceptFriendRequest: storeAcceptFriend,
+    declineFriendRequest: storeDeclineFriend,
+    fetchFriends,
+    fetchPendingRequests,
   } = useStore();
   const [activeTab, setActiveTab] = useState('home');
   const [showScanner, setShowScanner] = useState(false);
@@ -66,6 +76,11 @@ const MainApp: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [selectedPoolForLedger, setSelectedPoolForLedger] = useState<DisplayPool | null>(null);
   const [selectedPoolIdForDetail, setSelectedPoolIdForDetail] = useState<string | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [selectedFriend, setSelectedFriend] = useState<FriendWithProfile | null>(null);
+  const [pendingRequestToReview, setPendingRequestToReview] = useState<FriendWithProfile | null>(null);
+  // Wire up realtime notifications
+  useNotifications(user?.id);
   // Sync auth state with store
   useEffect(() => {
     if (!authLoading) {
@@ -128,7 +143,7 @@ const MainApp: React.FC = () => {
             {isLoading ? (
               <SkeletonLoader type="header" />
             ) : (
-              <DashboardHeader user={user as any} totalPoolValue={displayPools.reduce((sum, p) => sum + (p.current_pool_value || 0), 0)} />
+              <DashboardHeader user={user as any} totalPoolValue={displayPools.reduce((sum, p) => sum + (p.current_pool_value || 0), 0)} onOpenNotifications={() => setShowNotifications(true)} />
             )}
             <section className="space-y-4">
               <div className="flex justify-between items-end px-2">
@@ -165,8 +180,12 @@ const MainApp: React.FC = () => {
       case 'friends':
         return (
           <FriendsView
-            onOpenProfile={() => {}}
-            onOpenRequests={() => {}}
+            onOpenProfile={(friend) => setSelectedFriend(friend)}
+            onOpenRequests={() => {
+              if (pendingRequests.length > 0) {
+                setPendingRequestToReview(pendingRequests[0]);
+              }
+            }}
             onOpenPool={(id) => setSelectedPoolIdForDetail(id)}
           />
         );
@@ -208,6 +227,9 @@ const MainApp: React.FC = () => {
       <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
       {/* Modals & Overlays */}
       <AnimatePresence>
+        {showNotifications && (
+          <NotificationsCenter onClose={() => setShowNotifications(false)} />
+        )}
         {showScanner && (
           <TicketScanner onClose={() => setShowScanner(false)} />
         )}
@@ -248,6 +270,37 @@ const MainApp: React.FC = () => {
           />
         )}
       </AnimatePresence>
+      <FriendMiniProfile
+        friend={selectedFriend}
+        onClose={() => setSelectedFriend(null)}
+        onRemoveFriend={async (friendshipId) => {
+          if (user?.id) {
+            await storeRemoveFriend(friendshipId, user.id);
+          }
+          setSelectedFriend(null);
+        }}
+      />
+      <AcceptFriendModal
+        isVisible={!!pendingRequestToReview}
+        friendName={pendingRequestToReview?.displayName || ''}
+        friendAvatarUrl={pendingRequestToReview?.avatarUrl}
+        onAccept={async () => {
+          if (pendingRequestToReview && user?.id) {
+            await storeAcceptFriend(pendingRequestToReview.id, user.id);
+            // Show next pending request or close
+            const remaining = pendingRequests.filter((r) => r.id !== pendingRequestToReview.id);
+            setPendingRequestToReview(remaining.length > 0 ? remaining[0] : null);
+          }
+        }}
+        onDecline={async () => {
+          if (pendingRequestToReview && user?.id) {
+            await storeDeclineFriend(pendingRequestToReview.id, user.id);
+            const remaining = pendingRequests.filter((r) => r.id !== pendingRequestToReview.id);
+            setPendingRequestToReview(remaining.length > 0 ? remaining[0] : null);
+          }
+        }}
+        onClose={() => setPendingRequestToReview(null)}
+      />
       <ShaneWinnerAlert
         isVisible={showWinnerAlert}
         onClose={() => setWinnerAlert(false)}
