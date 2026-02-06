@@ -278,3 +278,158 @@ export const getPoolByInviteCode = async (
     return { data: null, error: 'An unexpected error occurred' };
   }
 };
+// Ticket functions
+export interface CreateTicketInput {
+  pool_id: string;
+  game_type: 'powerball' | 'mega_millions';
+  numbers: number[];
+  bonus_number: number;
+  multiplier?: number;
+  draw_date: string;
+  entered_by: string;
+  entry_method: 'scan' | 'manual';
+  image_url?: string;
+}
+export async function createTicket(ticket: CreateTicketInput): Promise<{ data: any; error: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from('tickets')
+      .insert(ticket)
+      .select()
+      .single();
+    if (error) {
+      console.error('Error creating ticket:', error);
+      return { data: null, error: error.message };
+    }
+    return { data, error: null };
+  } catch (err) {
+    console.error('Exception creating ticket:', err);
+    return { data: null, error: 'Failed to create ticket' };
+  }
+}
+export async function getPoolTickets(poolId: string): Promise<any[]> {
+  const { data, error } = await supabase
+    .from('tickets')
+    .select('*')
+    .eq('pool_id', poolId)
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('Error fetching tickets:', error);
+    return [];
+  }
+  return data || [];
+}
+// Win checking functions
+export interface WinResult {
+  ticketId: string;
+  poolId: string;
+  numbersMatched: number;
+  bonusMatched: boolean;
+  prizeTier: string | null;
+  prizeAmount: number;
+}
+const POWERBALL_PRIZES: Record<string, number> = {
+  'jackpot': 0, // Variable
+  'match_5': 1000000,
+  'match_4_bonus': 50000,
+  'match_4': 100,
+  'match_3_bonus': 100,
+  'match_3': 7,
+  'match_2_bonus': 7,
+  'match_1_bonus': 4,
+  'match_bonus': 4,
+};
+function determinePrizeTier(mainMatches: number, bonusMatch: boolean): string | null {
+  if (mainMatches === 5 && bonusMatch) return 'jackpot';
+  if (mainMatches === 5) return 'match_5';
+  if (mainMatches === 4 && bonusMatch) return 'match_4_bonus';
+  if (mainMatches === 4) return 'match_4';
+  if (mainMatches === 3 && bonusMatch) return 'match_3_bonus';
+  if (mainMatches === 3) return 'match_3';
+  if (mainMatches === 2 && bonusMatch) return 'match_2_bonus';
+  if (mainMatches === 1 && bonusMatch) return 'match_1_bonus';
+  if (mainMatches === 0 && bonusMatch) return 'match_bonus';
+  return null;
+}
+export async function checkTicketsForDraw(
+  gameType: 'powerball' | 'mega_millions'
+): Promise<{ wins: WinResult[]; checkedCount: number; error: string | null }> {
+  try {
+    // Get the latest draw for this game
+    const { data: draw, error: drawError } = await supabase
+      .from('lottery_draws')
+      .select('*')
+      .eq('game_type', gameType)
+      .order('draw_date', { ascending: false })
+      .limit(1)
+      .single();
+    if (drawError || !draw) {
+      return { wins: [], checkedCount: 0, error: 'No draw data found' };
+    }
+    // Get all unchecked tickets for this game type and draw date
+    const { data: tickets, error: ticketsError } = await supabase
+      .from('tickets')
+      .select('*')
+      .eq('game_type', gameType)
+      .eq('draw_date', draw.draw_date)
+      .eq('checked', false);
+    if (ticketsError) {
+      return { wins: [], checkedCount: 0, error: ticketsError.message };
+    }
+    if (!tickets || tickets.length === 0) {
+      return { wins: [], checkedCount: 0, error: null };
+    }
+    const wins: WinResult[] = [];
+    const winningNumbers = draw.winning_numbers as number[];
+    const winningBonus = draw.bonus_number as number;
+    for (const ticket of tickets) {
+      const ticketNumbers = ticket.numbers as number[];
+      const ticketBonus = ticket.bonus_number as number;
+      // Count main number matches
+      const mainMatches = ticketNumbers.filter(n => winningNumbers.includes(n)).length;
+      const bonusMatch = ticketBonus === winningBonus;
+      // Determine prize tier
+      const prizeTier = determinePrizeTier(mainMatches, bonusMatch);
+      if (prizeTier) {
+        const prizeAmount = POWERBALL_PRIZES[prizeTier] || 0;
+        // Insert winning record
+        const { error: winError } = await supabase
+          .from('winnings')
+          .insert({
+            ticket_id: ticket.id,
+            pool_id: ticket.pool_id,
+            prize_amount: prizeAmount,
+            prize_tier: prizeTier,
+            numbers_matched: mainMatches,
+            bonus_matched: bonusMatch,
+            draw_date: draw.draw_date,
+          });
+        if (!winError) {
+          wins.push({
+            ticketId: ticket.id,
+            poolId: ticket.pool_id,
+            numbersMatched: mainMatches,
+            bonusMatched: bonusMatch,
+            prizeTier,
+            prizeAmount,
+          });
+        }
+        // Mark ticket as winner
+        await supabase
+          .from('tickets')
+          .update({ checked: true, is_winner: true })
+          .eq('id', ticket.id);
+      } else {
+        // Mark ticket as checked (no win)
+        await supabase
+          .from('tickets')
+          .update({ checked: true, is_winner: false })
+          .eq('id', ticket.id);
+      }
+    }
+    return { wins, checkedCount: tickets.length, error: null };
+  } catch (err) {
+    console.error('Error checking tickets:', err);
+    return { wins: [], checkedCount: 0, error: 'Failed to check tickets' };
+  }
+}
