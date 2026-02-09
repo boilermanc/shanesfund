@@ -15,7 +15,7 @@ const PoolCard: React.FC<{ pool: Pool; onJoin?: () => void; onPoolClick?: (poolI
       whileHover={{ y: -8 }}
       whileTap={{ scale: 0.97 }}
       onClick={() => onPoolClick?.(pool.id)}
-      className="min-w-[260px] sm:min-w-[300px] h-[320px] sm:h-[380px] relative rounded-[2.5rem] sm:rounded-[3rem] overflow-hidden bg-white p-5 sm:p-7 flex flex-col justify-between group cursor-pointer border border-[#FFDDD2] warm-shadow transition-all duration-300"
+      className="min-w-[260px] sm:min-w-[300px] md:min-w-0 h-[320px] sm:h-[380px] md:h-auto md:min-h-[380px] relative rounded-[2.5rem] sm:rounded-[3rem] overflow-hidden bg-white p-5 sm:p-7 flex flex-col justify-between group cursor-pointer border border-[#FFDDD2] warm-shadow transition-all duration-300"
     >
       <div className="absolute inset-0 opacity-20 pointer-events-none">
         <div className="absolute -top-10 -right-10 w-32 sm:w-40 h-32 sm:h-40 bg-[#FFDDD2] rounded-full blur-3xl" />
@@ -79,14 +79,23 @@ const PoolCard: React.FC<{ pool: Pool; onJoin?: () => void; onPoolClick?: (poolI
 
 const PoolCarousel: React.FC<PoolCarouselProps> = ({ pools, onJoin, onPoolClick }) => {
   return (
-    <div className="relative w-full overflow-x-auto pb-4 sm:pb-6 pt-2 -mx-2">
-      <div className="flex gap-4 sm:gap-6 px-2 min-w-full">
+    <>
+      {/* Mobile: horizontal scroll carousel */}
+      <div className="md:hidden relative w-full overflow-x-auto pb-4 sm:pb-6 pt-2 -mx-2">
+        <div className="flex gap-4 sm:gap-6 px-2 min-w-full">
+          {pools.map((pool) => (
+            <PoolCard key={pool.id} pool={pool} onJoin={onJoin} onPoolClick={onPoolClick} />
+          ))}
+          <div className="min-w-[16px] sm:min-w-[24px]" />
+        </div>
+      </div>
+      {/* Desktop: grid layout */}
+      <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
         {pools.map((pool) => (
           <PoolCard key={pool.id} pool={pool} onJoin={onJoin} onPoolClick={onPoolClick} />
         ))}
-        <div className="min-w-[16px] sm:min-w-[24px]" />
       </div>
-    </div>
+    </>
   );
 };
 

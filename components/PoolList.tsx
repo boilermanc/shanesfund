@@ -18,7 +18,7 @@ const PoolCard: React.FC<{ pool: Pool; onJoin?: (pool: Pool) => void }> = ({ poo
       initial={{ opacity: 0, scale: 0.95 }}
       whileInView={{ opacity: 1, scale: 1 }}
       viewport={{ once: true }}
-      className="bg-white rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 mb-3 sm:mb-4 border border-[#FFDDD2] warm-shadow flex flex-col gap-3 sm:gap-4 relative group"
+      className="bg-white rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 mb-3 sm:mb-4 md:mb-0 border border-[#FFDDD2] warm-shadow flex flex-col gap-3 sm:gap-4 relative group"
     >
       <div className="flex justify-between items-start gap-2">
         <div className="space-y-1 min-w-0 flex-1">
@@ -65,7 +65,7 @@ const PoolCard: React.FC<{ pool: Pool; onJoin?: (pool: Pool) => void }> = ({ poo
 
 const PoolList: React.FC<PoolListProps> = ({ pools, onJoin }) => {
   return (
-    <div className="pb-6 sm:pb-8">
+    <div className="pb-6 sm:pb-8 md:grid md:grid-cols-2 md:gap-4 lg:gap-6">
       {pools.map((pool) => (
         <PoolCard key={pool.id} pool={pool} onJoin={onJoin} />
       ))}

@@ -17,28 +17,37 @@ const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({ type }) => {
   }
 
   if (type === 'carousel') {
-    return (
-      <div className="flex gap-4 sm:gap-6 overflow-hidden pt-2">
-        {[1, 2].map((i) => (
-          <div key={i} className="min-w-[260px] sm:min-w-[300px] h-[320px] sm:h-[380px] rounded-[2.5rem] sm:rounded-[3rem] bg-white relative overflow-hidden border border-[#FFDDD2]">
-            <div className="shimmer absolute inset-0 opacity-40" />
-            <div className="p-5 sm:p-7 space-y-6 sm:space-y-8">
-              <div className="flex justify-between">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl sm:rounded-3xl bg-[#EDF6F9]" />
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-[#EDF6F9]" />
-              </div>
-              <div className="space-y-2 sm:space-y-3">
-                <div className="w-3/4 h-6 sm:h-8 bg-[#EDF6F9] rounded" />
-                <div className="w-1/2 h-3 sm:h-4 bg-[#EDF6F9] rounded" />
-              </div>
-              <div className="absolute bottom-5 sm:bottom-7 left-5 sm:left-7 right-5 sm:right-7 space-y-4 sm:space-y-6">
-                <div className="w-full h-1 bg-[#EDF6F9] rounded" />
-                <div className="w-full h-12 sm:h-14 bg-[#EDF6F9] rounded-2xl sm:rounded-3xl" />
-              </div>
-            </div>
+    const skeletonCard = (i: number) => (
+      <div key={i} className="min-w-[260px] sm:min-w-[300px] md:min-w-0 h-[320px] sm:h-[380px] rounded-[2.5rem] sm:rounded-[3rem] bg-white relative overflow-hidden border border-[#FFDDD2]">
+        <div className="shimmer absolute inset-0 opacity-40" />
+        <div className="p-5 sm:p-7 space-y-6 sm:space-y-8">
+          <div className="flex justify-between">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl sm:rounded-3xl bg-[#EDF6F9]" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-[#EDF6F9]" />
           </div>
-        ))}
+          <div className="space-y-2 sm:space-y-3">
+            <div className="w-3/4 h-6 sm:h-8 bg-[#EDF6F9] rounded" />
+            <div className="w-1/2 h-3 sm:h-4 bg-[#EDF6F9] rounded" />
+          </div>
+          <div className="absolute bottom-5 sm:bottom-7 left-5 sm:left-7 right-5 sm:right-7 space-y-4 sm:space-y-6">
+            <div className="w-full h-1 bg-[#EDF6F9] rounded" />
+            <div className="w-full h-12 sm:h-14 bg-[#EDF6F9] rounded-2xl sm:rounded-3xl" />
+          </div>
+        </div>
       </div>
+    );
+
+    return (
+      <>
+        {/* Mobile: horizontal scroll skeleton */}
+        <div className="md:hidden flex gap-4 sm:gap-6 overflow-hidden pt-2">
+          {[1, 2].map(skeletonCard)}
+        </div>
+        {/* Desktop: grid skeleton */}
+        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
+          {[1, 2, 3].map(skeletonCard)}
+        </div>
+      </>
     );
   }
 

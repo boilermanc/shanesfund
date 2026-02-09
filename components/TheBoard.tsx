@@ -175,30 +175,43 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool }) => {
       variants={{
         visible: { transition: { staggerChildren: 0.15 } }
       }}
-      className="space-y-8 sm:space-y-10 pt-8 sm:pt-12 pb-32"
+      className="space-y-8 sm:space-y-10 pt-8 sm:pt-12 pb-32 md:pb-12"
     >
       <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="px-2">
-        <h2 className="text-3xl sm:text-4xl font-black tracking-tighter text-[#006D77]">The Board</h2>
+        <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter text-[#006D77]">The Board</h2>
         <p className="text-xs sm:text-sm font-bold text-[#83C5BE] mt-1">Draws updated in real-time</p>
       </motion.div>
       <div className="space-y-4 sm:space-y-6">
-        <GameCard 
-          game="Powerball"
-          date={powerball ? formatDrawDate(powerball.draw_date) : 'Loading...'}
-          jackpot={powerball ? formatJackpot(powerball.jackpot_amount) : 'Loading...'}
-          numbers={powerball?.winning_numbers || [0, 0, 0, 0, 0]}
-          bonus={powerball?.bonus_number || 0}
-          isScanning={isChecking}
-          showMatch={showMatch}
-          isLoading={isLoading}
-          onClick={() => onOpenPool?.('2')}
-        />
+        <div className="md:grid md:grid-cols-2 md:gap-6 space-y-4 sm:space-y-6 md:space-y-0">
+          <GameCard
+            game="Powerball"
+            date={powerball ? formatDrawDate(powerball.draw_date) : 'Loading...'}
+            jackpot={powerball ? formatJackpot(powerball.jackpot_amount) : 'Loading...'}
+            numbers={powerball?.winning_numbers || [0, 0, 0, 0, 0]}
+            bonus={powerball?.bonus_number || 0}
+            isScanning={isChecking}
+            showMatch={showMatch}
+            isLoading={isLoading}
+            onClick={() => onOpenPool?.('2')}
+          />
+          <GameCard
+            game="Mega Millions"
+            date={megaMillions ? formatDrawDate(megaMillions.draw_date) : 'Loading...'}
+            jackpot={megaMillions ? formatJackpot(megaMillions.jackpot_amount) : 'Loading...'}
+            numbers={megaMillions?.winning_numbers || [0, 0, 0, 0, 0]}
+            bonus={megaMillions?.bonus_number || 0}
+            isScanning={isChecking}
+            showMatch={showMatch}
+            isLoading={isLoading}
+            onClick={() => onOpenPool?.('1')}
+          />
+        </div>
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handleCheckTickets}
           disabled={isLoading || isChecking}
-          className="w-full py-4 sm:py-5 rounded-[2rem] sm:rounded-[2.5rem] bg-[#006D77] text-white font-black text-xs sm:text-sm uppercase tracking-[0.15em] sm:tracking-[0.2em] shadow-xl shadow-[#83C5BE]/20 flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50"
+          className="w-full md:max-w-md md:mx-auto py-4 sm:py-5 rounded-[2rem] sm:rounded-[2.5rem] bg-[#006D77] text-white font-black text-xs sm:text-sm uppercase tracking-[0.15em] sm:tracking-[0.2em] shadow-xl shadow-[#83C5BE]/20 flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50"
         >
           {isChecking ? (
             <>
@@ -212,21 +225,10 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool }) => {
             </>
           )}
         </motion.button>
-        <GameCard 
-          game="Mega Millions"
-          date={megaMillions ? formatDrawDate(megaMillions.draw_date) : 'Loading...'}
-          jackpot={megaMillions ? formatJackpot(megaMillions.jackpot_amount) : 'Loading...'}
-          numbers={megaMillions?.winning_numbers || [0, 0, 0, 0, 0]}
-          bonus={megaMillions?.bonus_number || 0}
-          isScanning={isChecking}
-          showMatch={showMatch}
-          isLoading={isLoading}
-          onClick={() => onOpenPool?.('1')}
-        />
       </div>
       <motion.section variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="space-y-4 sm:space-y-6">
         <h3 className="text-base sm:text-lg font-black text-[#006D77] tracking-tight ml-2">Recent Draws</h3>
-        <div className="space-y-3 sm:space-y-4">
+        <div className="space-y-3 sm:space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
           {isLoading ? (
             Array(3).fill(0).map((_, idx) => (
               <div key={idx} className="bg-white p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[#FFDDD2] animate-pulse">

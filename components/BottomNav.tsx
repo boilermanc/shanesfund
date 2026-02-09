@@ -21,7 +21,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab }) => {
       initial={{ y: 100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ type: 'spring', damping: 20, stiffness: 100 }}
-      className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[45] px-3 sm:px-4 bottom-nav-safe"
+      className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[45] px-3 sm:px-4 bottom-nav-safe md:hidden"
     >
       <div className="relative h-16 sm:h-20 bg-[#EDF6F9]/80 backdrop-blur-xl border border-[#83C5BE] rounded-[2rem] sm:rounded-[2.5rem] px-1 sm:px-2 flex justify-around items-center warm-shadow pointer-events-auto shadow-[0_15px_40px_-10px_rgba(255,221,210,1)]">
         {tabs.map((tab, index) => {

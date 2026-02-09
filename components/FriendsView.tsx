@@ -103,12 +103,12 @@ const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests
   };
 
   return (
-    <div className="space-y-8 sm:space-y-10 pt-8 sm:pt-12 pb-32">
+    <div className="space-y-8 sm:space-y-10 pt-8 sm:pt-12 pb-32 md:pb-12">
       {/* Header & Search */}
       <div className="px-2 space-y-4 sm:space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-3xl sm:text-4xl font-black tracking-tighter text-[#006D77]">Inner Circle</h2>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter text-[#006D77]">Inner Circle</h2>
             <div className="flex items-center gap-2 mt-1">
               <span className="w-2 h-2 rounded-full bg-[#E29578] animate-pulse" />
               <p className="text-[10px] sm:text-xs font-bold text-[#83C5BE]">{friends.length} connection{friends.length !== 1 ? 's' : ''} active</p>
@@ -317,7 +317,7 @@ const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests
                 <p className="text-[10px] font-bold text-[#83C5BE]">Search for people above to start building your Inner Circle!</p>
               </div>
             ) : (
-              <div className="space-y-2 sm:space-y-3">
+              <div className="space-y-2 sm:space-y-3 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
                 {friends.map(friend => (
                   <motion.div
                     key={friend.id}

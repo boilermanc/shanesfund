@@ -27,9 +27,9 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue,
   // Get first name safely
   const firstName = user?.display_name?.split(' ')[0] || 'Friend';
   return (
-    <div className="space-y-4 sm:space-y-6 pt-4 sm:pt-6">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8 pt-4 sm:pt-6 md:pt-8">
       {/* Greeting Header */}
-      <div className="flex justify-between items-center px-2">
+      <div className="flex justify-between items-center px-2 md:hidden">
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="scale-75 sm:scale-100">
             <ShaneMascot size="sm" expression="normal" animate />
@@ -77,7 +77,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue,
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-pearl rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 warm-shadow border border-white/40 overflow-hidden relative"
+        className="glass-pearl rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 md:p-10 lg:p-12 warm-shadow border border-white/40 overflow-hidden relative"
       >
         {/* Decorative elements */}
         <div className="absolute -top-12 -right-12 w-24 sm:w-32 h-24 sm:h-32 bg-white/20 rounded-full blur-2xl" />
@@ -86,7 +86,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue,
           <p className="text-[9px] sm:text-[11px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-[#006D77]/60 mb-2 sm:mb-3">
             Current Pool Value
           </p>
-          <motion.div className="text-4xl sm:text-5xl font-black text-[#006D77] tracking-tighter">
+          <motion.div className="text-4xl sm:text-5xl md:text-6xl font-black text-[#006D77] tracking-tighter">
             {displayValue}
           </motion.div>
           <div className="mt-4 sm:mt-6 flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-white/40 border border-white/60">

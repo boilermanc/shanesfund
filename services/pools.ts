@@ -312,50 +312,6 @@ export const getPoolByInviteCode = async (
     return { data: null, error: 'An unexpected error occurred' };
   }
 };
-// Ticket functions
-export interface CreateTicketInput {
-  pool_id: string;
-  game_type: 'powerball' | 'mega_millions';
-  numbers: number[];
-  bonus_number: number;
-  multiplier?: number;
-  draw_date: string;
-  entered_by: string;
-  entry_method: 'scan' | 'manual';
-  image_url?: string;
-}
-export async function createTicket(ticket: CreateTicketInput): Promise<{ data: any; error: string | null }> {
-  try {
-    const { data, error } = await supabase
-      .from('tickets')
-      .insert(ticket)
-      .select()
-      .single();
-    if (error) {
-      console.error('Error creating ticket:', error);
-      return { data: null, error: error.message };
-    }
-    logActivity(ticket.entered_by, ticket.pool_id, 'ticket_scanned', {
-      entry_method: ticket.entry_method,
-    });
-    return { data, error: null };
-  } catch (err) {
-    console.error('Exception creating ticket:', err);
-    return { data: null, error: 'Failed to create ticket' };
-  }
-}
-export async function getPoolTickets(poolId: string): Promise<any[]> {
-  const { data, error } = await supabase
-    .from('tickets')
-    .select('*')
-    .eq('pool_id', poolId)
-    .order('created_at', { ascending: false });
-  if (error) {
-    console.error('Error fetching tickets:', error);
-    return [];
-  }
-  return data || [];
-}
 // Win checking functions
 export interface WinResult {
   ticketId: string;

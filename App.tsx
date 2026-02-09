@@ -31,6 +31,7 @@ import ContributionLedger from './components/ContributionLedger';
 import PoolDetailView from './components/PoolDetailView';
 import NotificationsCenter from './components/NotificationsCenter';
 import SkeletonLoader from './components/SkeletonLoader';
+import TopNav from './components/TopNav';
 import LandingPage from './components/landing/LandingPage';
 import AdminPage from './components/admin/AdminPage';
 // Temporary type for pool display until components are updated
@@ -108,7 +109,7 @@ const MainApp: React.FC = () => {
   // Show loading while checking auth
   if (authLoading) {
     return (
-      <div className="min-h-screen max-w-md mx-auto flex items-center justify-center bg-[#EDF6F9]">
+      <div className="min-h-screen flex items-center justify-center bg-[#EDF6F9]">
         <div className="text-center">
           <img src="/logo.png" alt="Shane's Retirement Fund" className="h-24 w-auto mx-auto mb-4" />
           <div className="animate-pulse text-[#006D77] font-medium">Loading...</div>
@@ -139,7 +140,7 @@ const MainApp: React.FC = () => {
     switch (activeTab) {
       case 'home':
         return (
-          <div className="space-y-12 pb-32">
+          <div className="space-y-12 pb-32 md:pb-12">
             {isLoading ? (
               <SkeletonLoader type="header" />
             ) : (
@@ -202,29 +203,43 @@ const MainApp: React.FC = () => {
     }
   };
   return (
-    <div className="min-h-screen max-w-md mx-auto relative shadow-2xl bg-[#EDF6F9]" style={{ minHeight: '100dvh' }}>
-      <div className="px-4 sm:px-6 relative z-10 safe-area-top">
-        <div className="flex justify-center pt-4 sm:pt-6 pb-3 sm:pb-4">
-          <img src="/logo.png" alt="Shane's Retirement Fund" className="h-16 sm:h-24 w-auto" />
-        </div>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            {renderTabContent()}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-      <QuickActions
+    <div className="min-h-screen bg-[#EDF6F9]" style={{ minHeight: '100dvh' }}>
+      <TopNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
         onScanTicket={() => setShowScanner(true)}
         onCreatePool={() => setShowCreatePool(true)}
-        onJoinPool={() => setShowJoinPool(true)}
+        onOpenNotifications={() => setShowNotifications(true)}
+        user={user}
       />
-      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 safe-area-top">
+        <div className="flex justify-center pt-4 sm:pt-6 pb-3 sm:pb-4 md:hidden">
+          <img src="/logo.png" alt="Shane's Retirement Fund" className="h-16 sm:h-24 w-auto" />
+        </div>
+        <div className="md:pt-20">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              {renderTabContent()}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+      <div className="md:hidden">
+        <QuickActions
+          onScanTicket={() => setShowScanner(true)}
+          onCreatePool={() => setShowCreatePool(true)}
+          onJoinPool={() => setShowJoinPool(true)}
+        />
+      </div>
+      <div className="md:hidden">
+        <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+      </div>
       {/* Modals & Overlays */}
       <AnimatePresence>
         {showNotifications && (

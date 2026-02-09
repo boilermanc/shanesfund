@@ -65,7 +65,7 @@ const ProfileView: React.FC = () => {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="space-y-10 pt-12 pb-24 -mx-6 px-6 bg-[#F2E9D4] min-h-full"
+      className="space-y-10 pt-12 pb-24 md:pb-12 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-[#F2E9D4] min-h-full"
     >
       <AnimatePresence>
         {showEdit && <PersonalInfoEdit key="edit-info" onClose={() => setShowEdit(false)} />}
@@ -73,7 +73,7 @@ const ProfileView: React.FC = () => {
       </AnimatePresence>
 
       {/* Header Section */}
-      <motion.section variants={itemVariants} className="flex flex-col items-center">
+      <motion.section variants={itemVariants} className="flex flex-col items-center md:flex-row md:gap-8 md:justify-center">
         <div className="relative">
           <ShaneMascot size="lg" expression="normal" animate />
           {/* Pro Badge */}
@@ -91,7 +91,7 @@ const ProfileView: React.FC = () => {
       </motion.section>
 
       {/* Stats Grid */}
-      <motion.section variants={itemVariants} className="grid grid-cols-2 gap-4">
+      <motion.section variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard value="5" label="Active Pools" />
         <StatCard value="$142.50" label="Won" />
       </motion.section>
@@ -121,7 +121,7 @@ const ProfileView: React.FC = () => {
       </motion.section>
 
       {/* Settings Menu */}
-      <motion.section variants={itemVariants} className="bg-white rounded-[2.5rem] p-6 border border-[#FFDDD2] shadow-sm">
+      <motion.section variants={itemVariants} className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-[#FFDDD2] shadow-sm md:max-w-2xl md:mx-auto">
         <SettingRow 
           icon={<User size={18} />} 
           title="Personal Information" 

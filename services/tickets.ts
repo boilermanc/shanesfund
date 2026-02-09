@@ -1,5 +1,44 @@
 import { supabase } from '../lib/supabase';
 import type { Ticket, InsertTables, UpdateTables } from '../types/database';
+
+export interface CreateTicketInput {
+  pool_id: string;
+  game_type: 'powerball' | 'mega_millions';
+  numbers: number[];
+  bonus_number: number;
+  multiplier?: number;
+  draw_date: string;
+  entered_by: string;
+  entry_method: 'scan' | 'manual';
+  image_url?: string;
+}
+
+// Create a ticket and log the activity
+export const createTicket = async (
+  ticket: CreateTicketInput
+): Promise<{ data: Ticket | null; error: string | null }> => {
+  try {
+    const { data, error } = await supabase
+      .from('tickets')
+      .insert(ticket)
+      .select()
+      .single();
+    if (error) {
+      return { data: null, error: error.message };
+    }
+    // Fire-and-forget activity log
+    supabase.from('activity_log').insert({
+      user_id: ticket.entered_by,
+      pool_id: ticket.pool_id,
+      action: 'ticket_scanned',
+      details: { entry_method: ticket.entry_method },
+    }).then(() => {});
+    return { data, error: null };
+  } catch (err) {
+    return { data: null, error: 'Failed to create ticket' };
+  }
+};
+
 // Get all tickets for a pool
 export const getPoolTickets = async (
   poolId: string
@@ -7,13 +46,13 @@ export const getPoolTickets = async (
   try {
     const { data, error } = await supabase
       .from('tickets')
-      .select(
+      .select(`
         *,
         users:entered_by (
           display_name,
           avatar_url
         )
-      )
+      `)
       .eq('pool_id', poolId)
       .order('draw_date', { ascending: false });
     if (error) {
@@ -156,7 +195,7 @@ export const uploadTicketImage = async (
 ): Promise<{ url: string | null; error: string | null }> => {
   try {
     const fileExt = file.name.split('.').pop();
-    const filePath = ${poolId}/.;
+    const filePath = `${poolId}/${ticketId}.${fileExt}`;
     const { error: uploadError } = await supabase.storage
       .from('tickets')
       .upload(filePath, file, { upsert: true });

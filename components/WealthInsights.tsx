@@ -165,7 +165,7 @@ const BarChart: React.FC<{ data: MonthlyWinning[]; onBarClick: (month: string) =
       </div>
       <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 border border-[#FFDDD2] warm-shadow flex flex-col gap-4 sm:gap-6">
         {data.some(d => d.value > 0) ? (
-          <div className="flex items-end justify-between h-32 sm:h-40 px-2">
+          <div className="flex items-end justify-between h-32 sm:h-40 md:h-56 px-2">
             {data.map((item, i) => (
               <div key={i} className="flex flex-col items-center gap-2 sm:gap-3 flex-1 group cursor-pointer" onClick={() => item.value > 0 && onBarClick(item.label)}>
                 <div className="relative w-full flex justify-center items-end h-full">
@@ -173,7 +173,7 @@ const BarChart: React.FC<{ data: MonthlyWinning[]; onBarClick: (month: string) =
                     initial={{ height: 0 }}
                     animate={{ height: item.value > 0 ? `${(item.value / maxValue) * 100}%` : '2px' }}
                     transition={{ duration: 1, delay: i * 0.1, ease: "easeOut" }}
-                    className={`w-8 sm:w-10 rounded-t-xl sm:rounded-t-2xl shadow-sm group-hover:brightness-110 transition-all ${
+                    className={`w-8 sm:w-10 md:w-14 rounded-t-xl sm:rounded-t-2xl shadow-sm group-hover:brightness-110 transition-all ${
                       item.value === maxValue && item.value > 0 ? 'bg-[#E29578]' : item.value > 0 ? 'bg-[#83C5BE]' : 'bg-[#83C5BE]/20'
                     }`}
                   />
@@ -287,7 +287,7 @@ const PoolTypeIcon: React.FC<{ type: 'power' | 'mega' }> = ({ type }) => {
 };
 
 const LoadingSkeleton: React.FC = () => (
-  <div className="space-y-8 sm:space-y-12 pt-8 sm:pt-12 pb-32 animate-pulse">
+  <div className="space-y-8 sm:space-y-12 pt-8 sm:pt-12 pb-32 md:pb-12 animate-pulse">
     <div className="text-center px-4">
       <div className="h-3 w-24 bg-[#83C5BE]/20 rounded-full mx-auto mb-4" />
       <div className="h-10 w-40 bg-[#006D77]/10 rounded-2xl mx-auto mb-2" />
@@ -368,7 +368,7 @@ const WealthInsights: React.FC = () => {
       variants={{
         visible: { transition: { staggerChildren: 0.1 } }
       }}
-      className="space-y-8 sm:space-y-12 pt-8 sm:pt-12 pb-32"
+      className="space-y-8 sm:space-y-12 pt-8 sm:pt-12 pb-32 md:pb-12"
     >
       <AnimatePresence>
         {selectedMonth && (
@@ -388,9 +388,9 @@ const WealthInsights: React.FC = () => {
       </AnimatePresence>
 
       {/* Header Section */}
-      <motion.section variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="text-center px-4">
+      <motion.section variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="text-center px-4 md:max-w-2xl md:mx-auto">
         <h2 className="text-[10px] sm:text-[11px] font-black text-[#83C5BE] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-3 sm:mb-4">Wealth Insights</h2>
-        <h1 className="text-4xl sm:text-5xl font-black text-[#006D77] tracking-tighter">{formatCurrency(totalWinnings)}</h1>
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-[#006D77] tracking-tighter">{formatCurrency(totalWinnings)}</h1>
         <p className="text-xs sm:text-sm font-bold text-[#83C5BE] mt-2">Your Personal Share: <span className="text-[#006D77]">{formatCurrency(personalShare)}</span></p>
       </motion.section>
 
@@ -444,7 +444,7 @@ const WealthInsights: React.FC = () => {
             <Target size={18} className="text-[#83C5BE]" />
             Luckiest Pools
           </h3>
-          <div className="space-y-3 sm:space-y-4">
+          <div className="space-y-3 sm:space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
             {poolStats.map((pool, idx) => {
               const winRate = pool.ticketCount > 0 ? Math.round((pool.winCount / pool.ticketCount) * 100) : 0;
               return (

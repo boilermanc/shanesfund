@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Camera, Zap, RefreshCw, Keyboard, ChevronDown, Loader2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { createTicket } from '../services/pools';
+import { createTicket } from '../services/tickets';
 interface TicketScannerProps {
   onClose: () => void;
   poolId?: string;
