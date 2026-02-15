@@ -557,6 +557,88 @@ export interface Database {
           updated_at?: string;
         };
       };
+      email_templates: {
+        Row: {
+          id: string;
+          name: string;
+          subject: string;
+          html_body: string;
+          variables: string[];
+          description: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          subject: string;
+          html_body: string;
+          variables?: string[];
+          description?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          subject?: string;
+          html_body?: string;
+          variables?: string[];
+          description?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      email_logs: {
+        Row: {
+          id: string;
+          template_id: string | null;
+          template_name: string | null;
+          to_email: string;
+          from_email: string;
+          subject: string;
+          html_body: string;
+          variables: Json;
+          resend_message_id: string | null;
+          status: 'pending' | 'sent' | 'failed';
+          error_message: string | null;
+          triggered_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          template_id?: string | null;
+          template_name?: string | null;
+          to_email: string;
+          from_email?: string;
+          subject: string;
+          html_body: string;
+          variables?: Json;
+          resend_message_id?: string | null;
+          status?: 'pending' | 'sent' | 'failed';
+          error_message?: string | null;
+          triggered_by?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          template_id?: string | null;
+          template_name?: string | null;
+          to_email?: string;
+          from_email?: string;
+          subject?: string;
+          html_body?: string;
+          variables?: Json;
+          resend_message_id?: string | null;
+          status?: 'pending' | 'sent' | 'failed';
+          error_message?: string | null;
+          triggered_by?: string;
+          created_at?: string;
+        };
+      };
       contact_messages: {
         Row: {
           id: string;
@@ -610,3 +692,5 @@ export type ApiLog = Tables<'api_logs'>;
 export type ApiConnection = Tables<'api_connections'>;
 export type AdminUser = Tables<'admin_users'>;
 export type ContactMessage = Tables<'contact_messages'>;
+export type EmailTemplate = Tables<'email_templates'>;
+export type EmailLog = Tables<'email_logs'>;

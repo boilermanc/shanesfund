@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import AdminLayout from './AdminLayout';
 import AdminDashboard from './AdminDashboard';
 import ApiTester from './ApiTester';
+import EmailSection from './EmailSection';
 import { useAdminTheme } from '../../hooks/useAdminTheme';
 
 // Placeholder section component with theme support
@@ -74,6 +75,8 @@ const AdminPage: React.FC = () => {
         return <UsersSection />;
       case 'api-tester':
         return <ApiTesterSection />;
+      case 'email':
+        return <EmailSection />;
       case 'logs':
         return <LogsSection />;
       case 'settings':

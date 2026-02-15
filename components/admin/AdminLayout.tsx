@@ -11,6 +11,7 @@ import {
   X,
   Shield,
   Zap,
+  Mail,
   Database,
   Bell,
   ChevronRight,
@@ -84,6 +85,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeSection, onSe
     { id: 'api-health', label: 'API Health', icon: Activity },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'api-tester', label: 'API Tester', icon: Zap },
+    { id: 'email', label: 'Email', icon: Mail },
     { id: 'logs', label: 'Logs', icon: Database },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
@@ -217,7 +219,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeSection, onSe
           <p className={`px-3 py-2 mt-4 text-[10px] font-medium ${t.textMuted} uppercase tracking-wider`}>
             Management
           </p>
-          {navItems.slice(2, 4).map((item) => (
+          {navItems.slice(2, 5).map((item) => (
             <button
               key={item.id}
               onClick={() => {
@@ -237,7 +239,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeSection, onSe
           <p className={`px-3 py-2 mt-4 text-[10px] font-medium ${t.textMuted} uppercase tracking-wider`}>
             System
           </p>
-          {navItems.slice(4).map((item) => (
+          {navItems.slice(5).map((item) => (
             <button
               key={item.id}
               onClick={() => {
