@@ -4,27 +4,11 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-// CollectAPI endpoints
-const LOTTERY_ENDPOINTS = {
-  powerball: "https://api.collectapi.com/chancegame/usaPowerball",
-  mega_millions: "https://api.collectapi.com/chancegame/usaMegaMillions",
+// NY Open Data API endpoints (free, no API key required)
+const NY_OPEN_DATA_ENDPOINTS = {
+  powerball: "https://data.ny.gov/resource/d6yy-54nr.json?$limit=1&$order=draw_date%20DESC",
+  mega_millions: "https://data.ny.gov/resource/5xaw-6ayf.json?$limit=1&$order=draw_date%20DESC",
 };
-// Parse date like "Jan 31, 2026" to "2026-01-31"
-function parseDrawDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toISOString().split("T")[0];
-}
-// Parse jackpot like "$59 Million" to number
-function parseJackpot(jackpotStr: string): number | null {
-  if (!jackpotStr) return null;
-  const cleaned = jackpotStr.replace(/[$,]/g, "").toLowerCase();
-  const match = cleaned.match(/([\d.]+)\s*(million|billion)?/);
-  if (!match) return null;
-  let amount = parseFloat(match[1]);
-  if (match[2] === "million") amount *= 1_000_000;
-  if (match[2] === "billion") amount *= 1_000_000_000;
-  return amount;
-}
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -52,36 +36,28 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
-    // Get API key from environment variable
-    const apiKey = Deno.env.get("COLLECTAPI_KEY");
-    if (!apiKey) {
-      log("ERROR: COLLECTAPI_KEY environment variable not set");
-      throw new Error("CollectAPI key not configured");
-    }
-    log("CollectAPI key retrieved from environment");
     const results: any[] = [];
     for (const gameType of gameTypes) {
-      const endpoint = LOTTERY_ENDPOINTS[gameType as keyof typeof LOTTERY_ENDPOINTS];
+      const endpoint = NY_OPEN_DATA_ENDPOINTS[gameType as keyof typeof NY_OPEN_DATA_ENDPOINTS];
       if (!endpoint) {
         log(`ERROR: Unknown game type: ${gameType}`);
         continue;
       }
-      log(`Fetching ${gameType} from ${endpoint}`);
-      const response = await fetch(endpoint, {
-        method: "GET",
-        headers: {
-          "authorization": `apikey ${apiKey}`,
-          "content-type": "application/json",
-        },
-      });
-      const data = await response.json();
-      log(`${gameType} API response status: ${response.status}`);
-      if (!data.success || !data.result) {
-        log(`ERROR: ${gameType} API returned unsuccessful response`);
-        results.push({ game_type: gameType, success: false, error: "API error" });
+      log(`Fetching ${gameType} from NY Open Data`);
+      const response = await fetch(endpoint);
+      if (!response.ok) {
+        log(`ERROR: ${gameType} API returned status ${response.status}`);
+        results.push({ game_type: gameType, success: false, error: `HTTP ${response.status}` });
         continue;
       }
-      const result = data.result;
+      const data = await response.json();
+      log(`${gameType} API response status: ${response.status}`);
+      if (!Array.isArray(data) || data.length === 0) {
+        log(`ERROR: ${gameType} API returned empty results`);
+        results.push({ game_type: gameType, success: false, error: "No data returned" });
+        continue;
+      }
+      const result = data[0];
       log(`${gameType} raw result: ${JSON.stringify(result)}`);
       // Parse the numbers based on game type
       let winningNumbers: number[];
@@ -89,34 +65,28 @@ serve(async (req) => {
       let multiplier: number | null = null;
       let drawDate: string;
       if (gameType === "powerball") {
-        // Powerball format: result.numbers is an OBJECT with n1-n5 and pb
-        const nums = result.numbers;
-        winningNumbers = [
-          parseInt(nums.n1),
-          parseInt(nums.n2),
-          parseInt(nums.n3),
-          parseInt(nums.n4),
-          parseInt(nums.n5),
-        ];
-        bonusNumber = parseInt(nums.pb);
-        drawDate = parseDrawDate(nums.date || result.date);
-        multiplier = result.powerplay ? parseInt(result.powerplay) : null;
+        // Powerball: winning_numbers has 6 space-separated numbers, last is the Powerball
+        const parts = result.winning_numbers.trim().split(/\s+/).map(Number);
+        if (parts.length < 6) {
+          log(`ERROR: Powerball winning_numbers has ${parts.length} numbers, expected 6`);
+          results.push({ game_type: gameType, success: false, error: "Unexpected number format" });
+          continue;
+        }
+        winningNumbers = parts.slice(0, 5);
+        bonusNumber = parts[5];
+        drawDate = result.draw_date.split("T")[0];
+        multiplier = result.multiplier ? parseInt(result.multiplier) : null;
       } else {
-        // Mega Millions format: result.numbers is an OBJECT with n1-n5 and mb
-        const nums = result.numbers;
-        winningNumbers = [
-          parseInt(nums.n1),
-          parseInt(nums.n2),
-          parseInt(nums.n3),
-          parseInt(nums.n4),
-          parseInt(nums.n5),
-        ];
-        bonusNumber = parseInt(nums.mb || nums.megaball);
-        drawDate = parseDrawDate(nums.date || result.date);
-        multiplier = result.megaplier ? parseInt(result.megaplier) : null;
+        // Mega Millions: winning_numbers has 5 numbers, mega_ball is a separate field
+        const parts = result.winning_numbers.trim().split(/\s+/).map(Number);
+        winningNumbers = parts;
+        bonusNumber = parseInt(result.mega_ball);
+        drawDate = result.draw_date.split("T")[0];
+        multiplier = result.multiplier ? parseInt(result.multiplier) : null;
       }
-      const jackpotAmount = parseJackpot(result.jackpot);
-      log(`${gameType} parsed - Date: ${drawDate}, Numbers: ${winningNumbers}, Bonus: ${bonusNumber}, Multiplier: ${multiplier}, Jackpot: ${jackpotAmount}`);
+      // NY Open Data does not provide jackpot amounts
+      const jackpotAmount: number | null = null;
+      log(`${gameType} parsed - Date: ${drawDate}, Numbers: ${winningNumbers}, Bonus: ${bonusNumber}, Multiplier: ${multiplier}`);
       // Upsert into lottery_draws table
       const { data: insertData, error: insertError } = await supabase
         .from("lottery_draws")

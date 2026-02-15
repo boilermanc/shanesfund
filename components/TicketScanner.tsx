@@ -1,38 +1,25 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Camera, Zap, RefreshCw, Keyboard, ChevronDown, Loader2 } from 'lucide-react';
+import { X, Check, Camera, Zap, RefreshCw, Keyboard, ChevronDown, Loader2, AlertCircle } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { createTicket } from '../services/tickets';
+import { createTicket, uploadTicketImage } from '../services/tickets';
+import { preprocessForOcr, captureFrame } from '../lib/imagePreprocess';
+import { parseTicketOcr, type ParsedPlay } from '../lib/parseTicketOcr';
+import { getOcrWorker, terminateOcrWorker } from '../lib/ocrWorker';
+
 interface TicketScannerProps {
   onClose: () => void;
   poolId?: string;
 }
-const GhostNumber: React.FC<{ x: string; y: string; delay: number }> = ({ x, y, delay }) => (
-  <motion.span
-    initial={{ opacity: 0, scale: 0.5 }}
-    animate={{
-      opacity: [0, 0.6, 0],
-      scale: [0.5, 1.2, 0.8],
-      x: [0, (Math.random() - 0.5) * 40, 0],
-      y: [0, (Math.random() - 0.5) * 40, 0]
-    }}
-    transition={{
-      duration: 2,
-      repeat: Infinity,
-      delay,
-      ease: "easeInOut"
-    }}
-    className="absolute text-[#006D77] font-black text-lg sm:text-xl pointer-events-none select-none"
-    style={{ left: x, top: y }}
-  >
-    {Math.floor(Math.random() * 60) + 1}
-  </motion.span>
-);
+
+type ScanPhase = 'preview' | 'processing' | 'review';
+
 const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialPoolId }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const { user, pools } = useStore();
-  const [isScanning, setIsScanning] = useState(true);
-  const [detectedData, setDetectedData] = useState<number[] | null>(null);
+
+  // Shared state
   const [isManualEntry, setIsManualEntry] = useState(false);
   const [manualNumbers, setManualNumbers] = useState(['', '', '', '', '']);
   const [manualBonus, setManualBonus] = useState('');
@@ -42,36 +29,135 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPoolPicker, setShowPoolPicker] = useState(false);
+
+  // Scan mode state
+  const [scanPhase, setScanPhase] = useState<ScanPhase>('preview');
+  const [capturedImageUrl, setCapturedImageUrl] = useState<string | null>(null);
+  const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [parsedPlays, setParsedPlays] = useState<ParsedPlay[]>([]);
+  const [selectedPlayIndex, setSelectedPlayIndex] = useState(0);
+  const [editableNumbers, setEditableNumbers] = useState(['', '', '', '', '']);
+  const [editableBonus, setEditableBonus] = useState('');
+  const [ocrRawText, setOcrRawText] = useState('');
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
+  // Start/stop camera
+  const startCamera = useCallback(async () => {
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error('Camera access failed', err);
+      setCameraError('Camera access denied. Please allow camera access or enter manually.');
+    }
+  }, []);
+
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach(track => track.stop());
+    streamRef.current = null;
+  }, []);
+
+  // Camera lifecycle
   useEffect(() => {
     if (isManualEntry) return;
-    let stream: MediaStream | null = null;
-    async function setupCamera() {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' }
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (err) {
-        console.error("Camera access failed", err);
-      }
+    if (scanPhase === 'preview') {
+      startCamera();
     }
-    setupCamera();
-    const timer = setTimeout(() => {
-      setIsScanning(false);
-      setDetectedData([12, 24, 31, 48, 59, 15]);
-    }, 4000);
     return () => {
-      stream?.getTracks().forEach(track => track.stop());
-      clearTimeout(timer);
+      stopCamera();
     };
-  }, [isManualEntry]);
-  const ghostNumbers = Array.from({ length: 12 }).map((_, i) => ({
-    x: `${15 + Math.random() * 70}%`,
-    y: `${20 + Math.random() * 50}%`,
-    delay: i * 0.3
-  }));
+  }, [isManualEntry, scanPhase, startCamera, stopCamera]);
+
+  // Cleanup OCR worker on unmount
+  useEffect(() => {
+    return () => { terminateOcrWorker(); };
+  }, []);
+
+  // Capture & OCR
+  const handleCapture = async () => {
+    if (!videoRef.current) return;
+
+    setScanPhase('processing');
+    setOcrProgress(0);
+    setError(null);
+    setOcrRawText('');
+
+    try {
+      // 1. Capture raw frame for display + upload
+      const rawCanvas = captureFrame(videoRef.current);
+      const dataUrl = rawCanvas.toDataURL('image/jpeg', 0.85);
+      setCapturedImageUrl(dataUrl);
+
+      // Save blob for upload
+      rawCanvas.toBlob((blob) => {
+        if (blob) setCapturedBlob(blob);
+      }, 'image/jpeg', 0.85);
+
+      // Stop camera to save battery
+      stopCamera();
+
+      // 2. Preprocess for OCR
+      const processedCanvas = preprocessForOcr(videoRef.current);
+
+      // 3. Run OCR
+      const worker = await getOcrWorker((progress) => setOcrProgress(progress));
+      const { data: { text } } = await worker.recognize(processedCanvas);
+      setOcrRawText(text);
+
+      // 4. Parse results
+      const result = parseTicketOcr(text);
+
+      if (result.plays.length > 0) {
+        setParsedPlays(result.plays);
+        setSelectedPlayIndex(0);
+        const play = result.plays[0];
+        setEditableNumbers(play.numbers.map(n => n.toString()));
+        setEditableBonus(play.bonusNumber.toString());
+        if (play.gameType) setSelectedGame(play.gameType);
+      } else {
+        setParsedPlays([]);
+        setEditableNumbers(['', '', '', '', '']);
+        setEditableBonus('');
+      }
+
+      setScanPhase('review');
+    } catch (err) {
+      console.error('OCR failed:', err);
+      setError('OCR processing failed. Please try again or enter manually.');
+      setScanPhase('review');
+    }
+  };
+
+  // Retake — reset scan state and restart camera
+  const handleRetake = () => {
+    setCapturedImageUrl(null);
+    setCapturedBlob(null);
+    setParsedPlays([]);
+    setEditableNumbers(['', '', '', '', '']);
+    setEditableBonus('');
+    setOcrRawText('');
+    setError(null);
+    setOcrProgress(0);
+    setScanPhase('preview');
+  };
+
+  // Select a different parsed play
+  const handleSelectPlay = (index: number) => {
+    setSelectedPlayIndex(index);
+    const play = parsedPlays[index];
+    setEditableNumbers(play.numbers.map(n => n.toString()));
+    setEditableBonus(play.bonusNumber.toString());
+    if (play.gameType) setSelectedGame(play.gameType);
+  };
+
+  // Save ticket
   const handleSaveTicket = async () => {
     if (!user?.id) {
       setError('You must be logged in');
@@ -81,32 +167,49 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
       setError('Please select a pool');
       return;
     }
-    const numbers = isManualEntry 
-      ? manualNumbers.map(n => parseInt(n)).filter(n => !isNaN(n))
-      : detectedData?.slice(0, 5) || [];
-    const bonusNumber = isManualEntry 
-      ? parseInt(manualBonus) 
-      : detectedData?.[5] || 0;
-    if (numbers.length !== 5 || !bonusNumber) {
+
+    const isScanMode = !isManualEntry;
+    const numbers = isScanMode
+      ? editableNumbers.map(n => parseInt(n)).filter(n => !isNaN(n))
+      : manualNumbers.map(n => parseInt(n)).filter(n => !isNaN(n));
+    const bonusNumber = isScanMode
+      ? parseInt(editableBonus)
+      : parseInt(manualBonus);
+
+    if (numbers.length !== 5 || !bonusNumber || isNaN(bonusNumber)) {
       setError('Please enter all 6 numbers');
       return;
     }
+
     setIsSaving(true);
     setError(null);
-    const { data, error: saveError } = await createTicket({
+
+    const { data: ticket, error: saveError } = await createTicket({
       pool_id: selectedPoolId,
       game_type: selectedGame,
       numbers,
       bonus_number: bonusNumber,
       draw_date: drawDate,
       entered_by: user.id,
-      entry_method: isManualEntry ? 'manual' : 'scan',
+      entry_method: isScanMode ? 'scan' : 'manual',
     });
-    setIsSaving(false);
-    if (saveError) {
-      setError(saveError);
+
+    if (saveError || !ticket) {
+      setError(saveError || 'Failed to create ticket');
+      setIsSaving(false);
       return;
     }
+
+    // Upload captured image (fire-and-forget)
+    if (isScanMode && capturedBlob && ticket.id) {
+      const file = new File([capturedBlob], `ticket-${ticket.id}.jpg`, { type: 'image/jpeg' });
+      uploadTicketImage(selectedPoolId, ticket.id, file).catch(err => {
+        console.error('Image upload failed:', err);
+      });
+    }
+
+    setIsSaving(false);
+
     if (typeof (window as any).confetti === 'function') {
       (window as any).confetti({
         particleCount: 100,
@@ -117,7 +220,12 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
     }
     onClose();
   };
+
   const selectedPool = pools.find(p => p.id === selectedPoolId);
+
+  // ──────────────────────────────────────────────
+  // MANUAL ENTRY MODE (unchanged)
+  // ──────────────────────────────────────────────
   if (isManualEntry) {
     return (
       <motion.div
@@ -281,6 +389,10 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
       </motion.div>
     );
   }
+
+  // ──────────────────────────────────────────────
+  // SCAN MODE
+  // ──────────────────────────────────────────────
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -288,45 +400,59 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
       exit={{ opacity: 0, scale: 1.05 }}
       className="fixed inset-0 z-[400] bg-black flex flex-col"
     >
+      {/* Camera / Captured Image Layer */}
       <div className="absolute inset-0 overflow-hidden">
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover grayscale opacity-50"
-        />
-        <div className="absolute inset-0 flex flex-col pointer-events-none">
-          <div className="flex-1 bg-[#EDF6F9]/60 backdrop-blur-[2px]" />
-          <div className="flex h-[220px] sm:h-[280px]">
-            <div className="flex-1 bg-[#EDF6F9]/60 backdrop-blur-[2px]" />
-            <div className="w-[260px] sm:w-[320px] relative">
-              <div className="absolute top-0 left-0 w-5 h-5 sm:w-6 sm:h-6 border-t-[3px] sm:border-t-4 border-l-[3px] sm:border-l-4 border-[#006D77] rounded-tl-lg sm:rounded-tl-xl" />
-              <div className="absolute top-0 right-0 w-5 h-5 sm:w-6 sm:h-6 border-t-[3px] sm:border-t-4 border-r-[3px] sm:border-r-4 border-[#006D77] rounded-tr-lg sm:rounded-tr-xl" />
-              <div className="absolute bottom-0 left-0 w-5 h-5 sm:w-6 sm:h-6 border-b-[3px] sm:border-b-4 border-l-[3px] sm:border-l-4 border-[#006D77] rounded-bl-lg sm:rounded-bl-xl" />
-              <div className="absolute bottom-0 right-0 w-5 h-5 sm:w-6 sm:h-6 border-b-[3px] sm:border-b-4 border-r-[3px] sm:border-r-4 border-[#006D77] rounded-br-lg sm:rounded-br-xl" />
-              {isScanning && (
-                <motion.div
-                  initial={{ top: '5%' }}
-                  animate={{ top: ['5%', '95%', '5%'] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute left-2 right-2 h-0.5 sm:h-1 bg-[#E29578] z-10 shadow-[0_0_15px_#E29578,0_0_30px_#E29578]"
-                />
-              )}
+        {scanPhase === 'preview' ? (
+          <>
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            {/* Viewfinder overlay */}
+            <div className="absolute inset-0 flex flex-col pointer-events-none">
+              <div className="flex-1 bg-black/50" />
+              <div className="flex h-[220px] sm:h-[280px]">
+                <div className="flex-1 bg-black/50" />
+                <div className="w-[260px] sm:w-[320px] relative">
+                  <div className="absolute top-0 left-0 w-5 h-5 sm:w-6 sm:h-6 border-t-[3px] sm:border-t-4 border-l-[3px] sm:border-l-4 border-[#83C5BE] rounded-tl-lg sm:rounded-tl-xl" />
+                  <div className="absolute top-0 right-0 w-5 h-5 sm:w-6 sm:h-6 border-t-[3px] sm:border-t-4 border-r-[3px] sm:border-r-4 border-[#83C5BE] rounded-tr-lg sm:rounded-tr-xl" />
+                  <div className="absolute bottom-0 left-0 w-5 h-5 sm:w-6 sm:h-6 border-b-[3px] sm:border-b-4 border-l-[3px] sm:border-l-4 border-[#83C5BE] rounded-bl-lg sm:rounded-bl-xl" />
+                  <div className="absolute bottom-0 right-0 w-5 h-5 sm:w-6 sm:h-6 border-b-[3px] sm:border-b-4 border-r-[3px] sm:border-r-4 border-[#83C5BE] rounded-br-lg sm:rounded-br-xl" />
+                </div>
+                <div className="flex-1 bg-black/50" />
+              </div>
+              <div className="flex-1 bg-black/50 flex flex-col items-center pt-6 sm:pt-8">
+                {!cameraError && (
+                  <p className="text-white/70 text-[10px] sm:text-xs font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] px-4 text-center">
+                    Position ticket numbers in frame
+                  </p>
+                )}
+                {cameraError && (
+                  <div className="flex flex-col items-center gap-3 px-6">
+                    <AlertCircle size={24} className="text-[#E29578]" />
+                    <p className="text-white/70 text-xs sm:text-sm font-bold text-center">{cameraError}</p>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="flex-1 bg-[#EDF6F9]/60 backdrop-blur-[2px]" />
-          </div>
-          <div className="flex-1 bg-[#EDF6F9]/60 backdrop-blur-[2px] flex flex-col items-center pt-6 sm:pt-8">
-            {isScanning && (
-              <p className="text-[#83C5BE] text-[10px] sm:text-xs font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] animate-pulse px-4 text-center">
-                Align ticket within the frame...
-              </p>
-            )}
-          </div>
-        </div>
-        {isScanning && ghostNumbers.map((gn, i) => (
-          <GhostNumber key={i} x={gn.x} y={gn.y} delay={gn.delay} />
-        ))}
+          </>
+        ) : (
+          // Processing or Review — show captured still image
+          capturedImageUrl && (
+            <img
+              src={capturedImageUrl}
+              alt="Captured ticket"
+              className={`absolute inset-0 w-full h-full object-cover ${
+                scanPhase === 'processing' ? 'opacity-40' : 'opacity-30'
+              }`}
+            />
+          )
+        )}
       </div>
+
+      {/* Top controls */}
       <div className="absolute left-0 right-0 px-4 sm:px-8 flex justify-between items-center z-[410]" style={{ top: 'max(2.5rem, env(safe-area-inset-top, 2.5rem))' }}>
         <motion.button
           whileTap={{ scale: 0.9 }}
@@ -335,39 +461,141 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
         >
           <X size={20} strokeWidth={3} />
         </motion.button>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          onClick={() => setIsManualEntry(true)}
-          className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-[#83C5BE]/20 backdrop-blur-md border border-[#83C5BE]/40 text-[#006D77] text-[9px] sm:text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 sm:gap-2"
-        >
-          <Keyboard size={14} />
-          Enter Manually
-        </motion.button>
+        {scanPhase === 'preview' && (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            onClick={() => setIsManualEntry(true)}
+            className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 sm:gap-2"
+          >
+            <Keyboard size={14} />
+            Enter Manually
+          </motion.button>
+        )}
       </div>
+
+      {/* ── PREVIEW PHASE: Capture button ── */}
+      {scanPhase === 'preview' && !cameraError && (
+        <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-10 safe-area-bottom z-[420]">
+          <motion.button
+            whileTap={{ scale: 0.85 }}
+            onClick={handleCapture}
+            className="w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-white/20 backdrop-blur-md border-4 border-white flex items-center justify-center shadow-2xl"
+          >
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white flex items-center justify-center">
+              <Camera size={28} className="text-[#006D77]" />
+            </div>
+          </motion.button>
+        </div>
+      )}
+
+      {/* Camera error fallback button */}
+      {scanPhase === 'preview' && cameraError && (
+        <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-10 safe-area-bottom z-[420]">
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsManualEntry(true)}
+            className="px-8 py-4 rounded-2xl bg-[#E29578] text-white font-black shadow-xl flex items-center gap-2"
+          >
+            <Keyboard size={18} />
+            Enter Manually
+          </motion.button>
+        </div>
+      )}
+
+      {/* ── PROCESSING PHASE: Progress overlay ── */}
+      {scanPhase === 'processing' && (
+        <div className="absolute inset-0 z-[415] flex flex-col items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center gap-5"
+          >
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center">
+              <Loader2 size={32} className="text-white animate-spin" />
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-white font-black text-sm sm:text-base">
+                {ocrProgress === 0 ? 'Initializing...' : 'Reading ticket...'}
+              </p>
+              <div className="w-48 h-2 rounded-full bg-white/20 overflow-hidden">
+                <motion.div
+                  className="h-full bg-[#83C5BE] rounded-full"
+                  initial={{ width: '5%' }}
+                  animate={{ width: `${Math.max(5, ocrProgress)}%` }}
+                  transition={{ duration: 0.3 }}
+                />
+              </div>
+              <p className="text-white/60 text-xs font-bold">{ocrProgress}%</p>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* ── REVIEW PHASE: Results bottom sheet ── */}
       <AnimatePresence>
-        {!isScanning && detectedData && (
+        {scanPhase === 'review' && (
           <motion.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 150 }}
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] sm:rounded-t-[32px] border-t-4 sm:border-t-8 border-[#83C5BE] p-5 sm:p-8 shadow-[0_-15px_50px_rgba(0,0,0,0.2)] z-[420] safe-area-bottom"
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] sm:rounded-t-[32px] border-t-4 sm:border-t-8 border-[#83C5BE] p-5 sm:p-8 shadow-[0_-15px_50px_rgba(0,0,0,0.2)] z-[420] safe-area-bottom max-h-[85vh] overflow-auto"
           >
+            {/* Header */}
             <div className="flex justify-between items-start mb-4 sm:mb-6">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <div className="p-1 rounded-lg bg-[#E29578]/10 text-[#E29578]">
                     <Zap size={14} fill="currentColor" />
                   </div>
-                  <h3 className="text-lg sm:text-xl font-black text-[#006D77] tracking-tight">{selectedGame === 'powerball' ? 'Powerball' : 'Mega Millions'} Detected</h3>
+                  <h3 className="text-lg sm:text-xl font-black text-[#006D77] tracking-tight">
+                    {parsedPlays.length > 0
+                      ? `${selectedGame === 'powerball' ? 'Powerball' : 'Mega Millions'} Detected`
+                      : 'Review Ticket'}
+                  </h3>
                 </div>
                 <p className="text-xs sm:text-sm font-bold text-[#83C5BE]">Draw Date: {drawDate}</p>
               </div>
-              <div className="bg-[#EDF6F9] px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border border-[#FFDDD2]">
-                <p className="text-[8px] sm:text-[10px] font-black text-[#006D77] uppercase tracking-wider italic">Verified OCR</p>
-              </div>
+              {parsedPlays.length > 0 && (
+                <div className="bg-[#EDF6F9] px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border border-[#FFDDD2]">
+                  <p className="text-[8px] sm:text-[10px] font-black text-[#006D77] uppercase tracking-wider">Scanned OCR</p>
+                </div>
+              )}
             </div>
-            {/* Pool Selector in scan mode */}
+
+            {/* Play selector tabs (if multiple plays) */}
+            {parsedPlays.length > 1 && (
+              <div className="flex gap-2 mb-4">
+                {parsedPlays.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleSelectPlay(i)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                      selectedPlayIndex === i
+                        ? 'bg-[#006D77] text-white'
+                        : 'bg-[#EDF6F9] text-[#006D77] border border-[#FFDDD2]'
+                    }`}
+                  >
+                    Play {String.fromCharCode(65 + i)}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* OCR failed message */}
+            {parsedPlays.length === 0 && !error && (
+              <div className="mb-4 p-4 rounded-2xl bg-[#FFDDD2]/30 border border-[#E29578]/30">
+                <div className="flex items-start gap-2">
+                  <AlertCircle size={16} className="text-[#E29578] mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-bold text-[#006D77]">Couldn't detect numbers automatically</p>
+                    <p className="text-xs text-[#83C5BE] mt-1">You can enter them below, or retake the photo with better lighting.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Pool Selector */}
             <div className="mb-4">
               <button
                 onClick={() => setShowPoolPicker(!showPoolPicker)}
@@ -403,29 +631,90 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
                 )}
               </AnimatePresence>
             </div>
-            <div className="flex justify-center gap-2 sm:gap-3 mb-6 sm:mb-8">
-              {detectedData.slice(0, 5).map((num, i) => (
+
+            {/* Game Type Toggle */}
+            <div className="flex gap-2 mb-4">
+              {(['powerball', 'mega_millions'] as const).map(game => (
+                <button
+                  key={game}
+                  onClick={() => setSelectedGame(game)}
+                  className={`flex-1 py-2 rounded-xl font-black text-xs transition-all ${
+                    selectedGame === game
+                      ? 'bg-[#006D77] text-white'
+                      : 'bg-[#EDF6F9] text-[#006D77] border border-[#FFDDD2]'
+                  }`}
+                >
+                  {game === 'powerball' ? 'Powerball' : 'Mega Millions'}
+                </button>
+              ))}
+            </div>
+
+            {/* Draw Date */}
+            <div className="mb-4">
+              <input
+                type="date"
+                value={drawDate}
+                onChange={(e) => setDrawDate(e.target.value)}
+                className="w-full p-3 rounded-xl bg-[#EDF6F9] border border-[#FFDDD2] font-bold text-sm text-[#006D77]"
+              />
+            </div>
+
+            {/* Editable number balls */}
+            <div className="mb-2">
+              <label className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-2 block">
+                Main Numbers (1-{selectedGame === 'powerball' ? '69' : '70'})
+              </label>
+            </div>
+            <div className="flex justify-center gap-2 sm:gap-3 mb-4">
+              {editableNumbers.map((num, i) => (
                 <motion.div
                   key={i}
                   initial={{ scale: 0, rotate: -20 }}
                   animate={{ scale: 1, rotate: 0 }}
-                  transition={{ delay: 0.2 + i * 0.1 }}
-                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#006D77] flex items-center justify-center font-black text-white text-xs sm:text-sm shadow-lg border border-white/20 relative overflow-hidden"
+                  transition={{ delay: 0.1 + i * 0.08 }}
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#006D77] flex items-center justify-center shadow-lg border border-white/20 relative overflow-hidden"
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
-                  {num}
+                  <input
+                    type="number"
+                    min="1"
+                    max={selectedGame === 'powerball' ? 69 : 70}
+                    value={num}
+                    onChange={(e) => {
+                      const newNumbers = [...editableNumbers];
+                      newNumbers[i] = e.target.value;
+                      setEditableNumbers(newNumbers);
+                    }}
+                    className="w-full h-full bg-transparent text-center font-black text-white text-sm sm:text-base outline-none relative z-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="#"
+                  />
                 </motion.div>
               ))}
               <motion.div
                 initial={{ scale: 0, rotate: 20 }}
                 animate={{ scale: 1, rotate: 0 }}
-                transition={{ delay: 0.8 }}
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#E29578] flex items-center justify-center font-black text-white text-xs sm:text-sm shadow-lg border border-white/20 relative overflow-hidden"
+                transition={{ delay: 0.6 }}
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#E29578] flex items-center justify-center shadow-lg border border-white/20 relative overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
-                {detectedData[5]}
+                <input
+                  type="number"
+                  min="1"
+                  max={selectedGame === 'powerball' ? 26 : 25}
+                  value={editableBonus}
+                  onChange={(e) => setEditableBonus(e.target.value)}
+                  className="w-full h-full bg-transparent text-center font-black text-white text-sm sm:text-base outline-none relative z-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  placeholder="#"
+                />
               </motion.div>
             </div>
+            <div className="mb-6">
+              <p className="text-[10px] text-center text-[#83C5BE] font-bold">
+                {selectedGame === 'powerball' ? 'Powerball' : 'Mega Ball'} (1-{selectedGame === 'powerball' ? '26' : '25'})
+              </p>
+            </div>
+
+            {/* Error */}
             {error && (
               <motion.p
                 initial={{ opacity: 0 }}
@@ -435,6 +724,8 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
                 {error}
               </motion.p>
             )}
+
+            {/* Actions */}
             <div className="flex flex-col gap-3 sm:gap-4">
               <motion.button
                 whileTap={{ scale: 0.98 }}
@@ -454,31 +745,28 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
                   </>
                 )}
               </motion.button>
-              <button
-                onClick={() => {
-                  setIsScanning(true);
-                  setDetectedData(null);
-                }}
-                className="w-full py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2rem] bg-[#FFDDD2] text-[#006D77] font-black text-xs sm:text-sm uppercase tracking-widest flex items-center justify-center gap-2"
-              >
-                <RefreshCw size={16} />
-                Retake Scan
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleRetake}
+                  className="flex-1 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2rem] bg-[#FFDDD2] text-[#006D77] font-black text-xs sm:text-sm uppercase tracking-widest flex items-center justify-center gap-2"
+                >
+                  <RefreshCw size={16} />
+                  Retake
+                </button>
+                <button
+                  onClick={() => setIsManualEntry(true)}
+                  className="flex-1 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2rem] bg-[#EDF6F9] text-[#006D77] font-black text-xs sm:text-sm uppercase tracking-widest flex items-center justify-center gap-2 border border-[#FFDDD2]"
+                >
+                  <Keyboard size={16} />
+                  Manual
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-      {isScanning && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-30">
-          <div className="flex flex-col items-center gap-3 sm:gap-4">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl sm:rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center">
-              <Camera size={28} className="text-white opacity-40" />
-            </div>
-            <p className="text-white/40 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.3em] sm:tracking-[0.4em]">Neural Engine Active</p>
-          </div>
-        </div>
-      )}
     </motion.div>
   );
 };
+
 export default TicketScanner;

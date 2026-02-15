@@ -11,10 +11,72 @@ export interface LotteryDraw {
   jackpot_amount: number | null;
   created_at: string;
 }
+// NY Open Data API endpoints (free, no API key required)
+const NY_OPEN_DATA = {
+  powerball: 'https://data.ny.gov/resource/d6yy-54nr.json?$limit=1&$order=draw_date%20DESC',
+  mega_millions: 'https://data.ny.gov/resource/5xaw-6ayf.json?$limit=1&$order=draw_date%20DESC',
+};
+async function fetchLatestFromNYOpenData(): Promise<{
+  powerball: LotteryDraw | null;
+  megaMillions: LotteryDraw | null;
+}> {
+  const results: { powerball: LotteryDraw | null; megaMillions: LotteryDraw | null } = {
+    powerball: null,
+    megaMillions: null,
+  };
+  try {
+    const [pbResponse, mmResponse] = await Promise.all([
+      fetch(NY_OPEN_DATA.powerball),
+      fetch(NY_OPEN_DATA.mega_millions),
+    ]);
+    // Parse Powerball
+    if (pbResponse.ok) {
+      const pbData = await pbResponse.json();
+      if (Array.isArray(pbData) && pbData.length > 0) {
+        const r = pbData[0];
+        const parts = r.winning_numbers.trim().split(/\s+/).map(Number);
+        if (parts.length >= 6) {
+          results.powerball = {
+            id: `ny-pb-${r.draw_date}`,
+            game_type: 'powerball',
+            draw_date: r.draw_date.split('T')[0],
+            winning_numbers: parts.slice(0, 5),
+            bonus_number: parts[5],
+            multiplier: r.multiplier ? parseInt(r.multiplier) : null,
+            jackpot_amount: null,
+            created_at: new Date().toISOString(),
+          };
+        }
+      }
+    }
+    // Parse Mega Millions
+    if (mmResponse.ok) {
+      const mmData = await mmResponse.json();
+      if (Array.isArray(mmData) && mmData.length > 0) {
+        const r = mmData[0];
+        const parts = r.winning_numbers.trim().split(/\s+/).map(Number);
+        results.megaMillions = {
+          id: `ny-mm-${r.draw_date}`,
+          game_type: 'mega_millions',
+          draw_date: r.draw_date.split('T')[0],
+          winning_numbers: parts,
+          bonus_number: parseInt(r.mega_ball),
+          multiplier: r.multiplier ? parseInt(r.multiplier) : null,
+          jackpot_amount: null,
+          created_at: new Date().toISOString(),
+        };
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching from NY Open Data:', error);
+  }
+  return results;
+}
 export async function getLatestDraws(): Promise<{
   powerball: LotteryDraw | null;
   megaMillions: LotteryDraw | null;
 }> {
+  // Try Supabase first (primary source)
   const { data: powerballData, error: pbError } = await supabase
     .from('lottery_draws')
     .select('*')
@@ -35,10 +97,15 @@ export async function getLatestDraws(): Promise<{
   if (mmError && mmError.code !== 'PGRST116') {
     console.error('Error fetching Mega Millions:', mmError);
   }
-  return {
-    powerball: powerballData as LotteryDraw | null,
-    megaMillions: megaData as LotteryDraw | null,
-  };
+  let powerball = powerballData as LotteryDraw | null;
+  let megaMillions = megaData as LotteryDraw | null;
+  // Fallback to NY Open Data API if Supabase has no data
+  if (!powerball || !megaMillions) {
+    const apiResults = await fetchLatestFromNYOpenData();
+    if (!powerball) powerball = apiResults.powerball;
+    if (!megaMillions) megaMillions = apiResults.megaMillions;
+  }
+  return { powerball, megaMillions };
 }
 export async function getDrawHistory(
   gameType: 'powerball' | 'mega_millions',

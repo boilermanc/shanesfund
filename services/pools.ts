@@ -332,6 +332,17 @@ const POWERBALL_PRIZES: Record<string, number> = {
   'match_1_bonus': 4,
   'match_bonus': 4,
 };
+const MEGA_MILLIONS_PRIZES: Record<string, number> = {
+  'jackpot': 0, // Variable
+  'match_5': 1000000,
+  'match_4_bonus': 10000,
+  'match_4': 500,
+  'match_3_bonus': 200,
+  'match_3': 10,
+  'match_2_bonus': 10,
+  'match_1_bonus': 4,
+  'match_bonus': 2,
+};
 function determinePrizeTier(mainMatches: number, bonusMatch: boolean): string | null {
   if (mainMatches === 5 && bonusMatch) return 'jackpot';
   if (mainMatches === 5) return 'match_5';
@@ -384,7 +395,8 @@ export async function checkTicketsForDraw(
       // Determine prize tier
       const prizeTier = determinePrizeTier(mainMatches, bonusMatch);
       if (prizeTier) {
-        const prizeAmount = POWERBALL_PRIZES[prizeTier] || 0;
+        const prizeTable = gameType === 'mega_millions' ? MEGA_MILLIONS_PRIZES : POWERBALL_PRIZES;
+        const prizeAmount = prizeTable[prizeTier] || 0;
         // Insert winning record
         const { error: winError } = await supabase
           .from('winnings')
