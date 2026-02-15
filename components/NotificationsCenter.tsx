@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Bell, Trophy, UserPlus, CreditCard, Clock, Users, AlertCircle, CheckCheck } from 'lucide-react';
+import { ArrowLeft, Bell, Trophy, UserPlus, CreditCard, Users, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import type { Notification } from '../types/database';
+import type { Notification } from '../services/notificationService';
 
 interface NotificationsCenterProps {
   onClose: () => void;
@@ -28,17 +28,17 @@ function timeAgo(dateString: string): string {
 
 // Notification type → icon and color mapping
 const NOTIFICATION_CONFIG: Record<Notification['type'], { icon: React.ReactNode; color: string }> = {
-  win:            { icon: <Trophy size={16} />,      color: 'bg-[#E29578]' },
-  invite:         { icon: <UserPlus size={16} />,    color: 'bg-[#006D77]' },
-  payment:        { icon: <CreditCard size={16} />,  color: 'bg-[#83C5BE]' },
-  reminder:       { icon: <Clock size={16} />,       color: 'bg-[#006D77]' },
-  friend_request: { icon: <UserPlus size={16} />,    color: 'bg-[#E29578]' },
-  pool_update:    { icon: <Users size={16} />,       color: 'bg-[#83C5BE]' },
-  system:         { icon: <AlertCircle size={16} />, color: 'bg-[#006D77]' },
+  win:            { icon: <Trophy size={16} />,     color: 'bg-[#E29578]' },
+  invite:         { icon: <UserPlus size={16} />,   color: 'bg-[#006D77]' },
+  friend_request: { icon: <UserPlus size={16} />,   color: 'bg-[#006D77]' },
+  payment:        { icon: <CreditCard size={16} />, color: 'bg-[#83C5BE]' },
+  reminder:       { icon: <Bell size={16} />,       color: 'bg-[#E29578]' },
+  pool_update:    { icon: <Users size={16} />,      color: 'bg-[#006D77]' },
+  system:         { icon: <Bell size={16} />,       color: 'bg-[#83C5BE]' },
 };
 
 const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onClose }) => {
-  const { notifications, unreadCount, markNotificationRead, markAllNotificationsRead, user } = useStore();
+  const { notifications, notificationsLoading, unreadCount, markNotificationRead, markAllNotificationsRead, removeNotification, user } = useStore();
 
   const handleMarkAllRead = () => {
     if (user?.id && unreadCount > 0) {
@@ -69,10 +69,9 @@ const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onClose }) =>
         {unreadCount > 0 ? (
           <button
             onClick={handleMarkAllRead}
-            className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl glass border border-white text-[#006D77] hover:bg-white transition-colors"
-            title="Mark all read"
+            className="text-[10px] sm:text-[11px] font-black text-[#E29578] uppercase tracking-widest hover:opacity-70 transition-opacity"
           >
-            <CheckCheck size={18} />
+            Mark all read
           </button>
         ) : (
           <div className="w-9 sm:w-10" />
@@ -81,7 +80,21 @@ const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onClose }) =>
 
       {/* Notification List */}
       <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 sm:py-8 space-y-3 sm:space-y-4">
-        {notifications.length > 0 ? (
+        {notificationsLoading ? (
+          <div className="space-y-3 sm:space-y-4">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="bg-white p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[#FFDDD2]/50 animate-pulse">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#EDF6F9] shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 bg-[#EDF6F9] rounded w-1/3" />
+                    <div className="h-2.5 bg-[#EDF6F9] rounded w-2/3" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : notifications.length > 0 ? (
           <>
             {notifications.map((notif, i) => {
               const config = NOTIFICATION_CONFIG[notif.type] || NOTIFICATION_CONFIG.system;
@@ -97,7 +110,7 @@ const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onClose }) =>
                   className={`bg-white p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border warm-shadow flex items-center justify-between group cursor-pointer transition-all ${
                     notif.read
                       ? 'border-[#FFDDD2]/50 opacity-70'
-                      : 'border-[#FFDDD2] shadow-md'
+                      : 'border-l-4 border-l-[#E29578] border-[#FFDDD2] shadow-md'
                   }`}
                 >
                   <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
@@ -116,10 +129,19 @@ const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onClose }) =>
                       </p>
                     </div>
                   </div>
-                  <div className="text-right shrink-0 ml-2">
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
                     <p className="text-[9px] sm:text-[10px] text-[#83C5BE] font-black uppercase tracking-widest">
                       {timeAgo(notif.created_at)}
                     </p>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeNotification(notif.id);
+                      }}
+                      className="p-1 rounded-lg text-[#83C5BE]/50 hover:text-[#E29578] hover:bg-[#FFDDD2]/30 opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
                 </motion.div>
               );

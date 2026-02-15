@@ -3,6 +3,7 @@ import AdminLayout from './AdminLayout';
 import AdminDashboard from './AdminDashboard';
 import ApiTester from './ApiTester';
 import EmailSection from './EmailSection';
+import AdminNotifications from './AdminNotifications';
 import { useAdminTheme } from '../../hooks/useAdminTheme';
 
 // Placeholder section component with theme support
@@ -77,6 +78,8 @@ const AdminPage: React.FC = () => {
         return <ApiTesterSection />;
       case 'email':
         return <EmailSection />;
+      case 'notifications':
+        return <AdminNotifications />;
       case 'logs':
         return <LogsSection />;
       case 'settings':

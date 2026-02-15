@@ -1,9 +1,18 @@
 import { create } from 'zustand';
-import type { User, Pool, Notification } from '../types/database';
+import type { User, Pool } from '../types/database';
 import type { Activity } from '../types';
 import type { FriendWithProfile, PoolWithFriendCount } from '../services/friends';
 import * as friendsService from '../services/friends';
-import * as notificationsService from '../services/notifications';
+import type { Notification } from '../services/notificationService';
+import {
+  fetchNotifications as fetchNotificationsApi,
+  getUnreadCount as getUnreadCountApi,
+  markAsRead,
+  markAllAsRead,
+  deleteNotification,
+  subscribeToNotifications,
+  unsubscribeFromNotifications,
+} from '../services/notificationService';
 
 // Helper: format a date string as relative time ("5m ago", "2h ago", etc.)
 function timeAgo(dateString: string): string {
@@ -86,6 +95,7 @@ interface AppState {
   showWinnerAlert: boolean;
   notifications: Notification[];
   unreadCount: number;
+  notificationsLoading: boolean;
   // Auth actions
   setUser: (user: User | null) => void;
   setAuthenticated: (isAuthenticated: boolean) => void;
@@ -116,8 +126,12 @@ interface AppState {
   setWinnerAlert: (show: boolean) => void;
   triggerWinnerAlert: () => void;
   setNotifications: (notifications: Notification[]) => void;
+  loadNotifications: (userId: string) => Promise<void>;
+  startNotificationListener: (userId: string) => void;
+  stopNotificationListener: () => void;
   markNotificationRead: (notificationId: string) => Promise<void>;
   markAllNotificationsRead: (userId: string) => Promise<void>;
+  removeNotification: (notificationId: string) => Promise<void>;
 }
 export const useStore = create<AppState>((set, get) => ({
   // Initial state
@@ -140,6 +154,7 @@ export const useStore = create<AppState>((set, get) => ({
   showWinnerAlert: false,
   notifications: [],
   unreadCount: 0,
+  notificationsLoading: false,
   // Auth actions
   setUser: (user) => set({ 
     user, 
@@ -151,25 +166,29 @@ export const useStore = create<AppState>((set, get) => ({
   setOnboarded: (isOnboarded) => {
     set({ isOnboarded });
   },
-  logout: () => set({
-    user: null,
-    isAuthenticated: false,
-    isOnboarded: false,
-    pools: [],
-    activePool: null,
-    friends: [],
-    pendingRequests: [],
-    sentRequests: [],
-    friendsLoading: false,
-    activities: [],
-    activitiesLoading: false,
-    mutualPools: [],
-    mutualPoolsLoading: false,
-    sharedWealth: 0,
-    sharedWealthLoading: false,
-    notifications: [],
-    unreadCount: 0,
-  }),
+  logout: () => {
+    unsubscribeFromNotifications();
+    set({
+      user: null,
+      isAuthenticated: false,
+      isOnboarded: false,
+      pools: [],
+      activePool: null,
+      friends: [],
+      pendingRequests: [],
+      sentRequests: [],
+      friendsLoading: false,
+      activities: [],
+      activitiesLoading: false,
+      mutualPools: [],
+      mutualPoolsLoading: false,
+      sharedWealth: 0,
+      sharedWealthLoading: false,
+      notifications: [],
+      unreadCount: 0,
+      notificationsLoading: false,
+    });
+  },
   // Pool actions
   setPools: (pools) => set({ pools }),
   setActivePool: (activePool) => set({ activePool }),
@@ -329,28 +348,100 @@ export const useStore = create<AppState>((set, get) => ({
     notifications,
     unreadCount: notifications.filter((n) => !n.read).length,
   }),
-  markNotificationRead: async (notificationId) => {
-    // Optimistic update
-    set((state) => ({
-      notifications: state.notifications.map((n) =>
-        n.id === notificationId ? { ...n, read: true } : n
-      ),
-      unreadCount: Math.max(0, state.unreadCount - 1),
-    }));
-    // Persist to backend
-    const { error } = await notificationsService.markAsRead(notificationId);
-    if (error) {
-      console.error('Failed to mark notification as read:', error);
+  loadNotifications: async (userId) => {
+    set({ notificationsLoading: true });
+    const [notifResult, countResult] = await Promise.all([
+      fetchNotificationsApi(userId),
+      getUnreadCountApi(userId),
+    ]);
+    set({
+      notifications: notifResult.data || [],
+      unreadCount: countResult.count,
+      notificationsLoading: false,
+    });
+    if (notifResult.error) {
+      console.error('Failed to fetch notifications:', notifResult.error);
+    }
+    if (countResult.error) {
+      console.error('Failed to fetch unread count:', countResult.error);
     }
   },
-  markAllNotificationsRead: async (userId) => {
-    const { error } = await notificationsService.markAllAsRead(userId);
-    if (!error) {
-      set((state) => ({
-        notifications: state.notifications.map((n) => ({ ...n, read: true })),
-        unreadCount: 0,
-      }));
+  startNotificationListener: (userId) => {
+    subscribeToNotifications(
+      userId,
+      (payload) => {
+        const newNotif = payload.new as Notification;
+        set((state) => ({
+          notifications: [newNotif, ...state.notifications],
+          unreadCount: state.unreadCount + 1,
+        }));
+      },
+      (payload) => {
+        const updated = payload.new as Notification;
+        set((state) => ({
+          notifications: state.notifications.map((n) =>
+            n.id === updated.id ? updated : n
+          ),
+        }));
+      },
+      (payload) => {
+        const old = payload.old as { id: string };
+        set((state) => {
+          const existing = state.notifications.find((n) => n.id === old.id);
+          const wasUnread = existing && !existing.read;
+          return {
+            notifications: state.notifications.filter((n) => n.id !== old.id),
+            unreadCount: wasUnread ? Math.max(0, state.unreadCount - 1) : state.unreadCount,
+          };
+        });
+      }
+    );
+  },
+  stopNotificationListener: () => {
+    unsubscribeFromNotifications();
+  },
+  markNotificationRead: async (notificationId) => {
+    const { error } = await markAsRead(notificationId);
+    if (error) {
+      console.error('Failed to mark notification as read:', error);
+      return;
     }
+    set((state) => {
+      const notif = state.notifications.find((n) => n.id === notificationId);
+      const wasUnread = notif && !notif.read;
+      return {
+        notifications: state.notifications.map((n) =>
+          n.id === notificationId ? { ...n, read: true } : n
+        ),
+        unreadCount: wasUnread ? Math.max(0, state.unreadCount - 1) : state.unreadCount,
+      };
+    });
+  },
+  markAllNotificationsRead: async (userId) => {
+    const { error } = await markAllAsRead(userId);
+    if (error) {
+      console.error('Failed to mark all notifications as read:', error);
+      return;
+    }
+    set((state) => ({
+      notifications: state.notifications.map((n) => ({ ...n, read: true })),
+      unreadCount: 0,
+    }));
+  },
+  removeNotification: async (notificationId) => {
+    const { error } = await deleteNotification(notificationId);
+    if (error) {
+      console.error('Failed to delete notification:', error);
+      return;
+    }
+    set((state) => {
+      const notif = state.notifications.find((n) => n.id === notificationId);
+      const wasUnread = notif && !notif.read;
+      return {
+        notifications: state.notifications.filter((n) => n.id !== notificationId),
+        unreadCount: wasUnread ? Math.max(0, state.unreadCount - 1) : state.unreadCount,
+      };
+    });
   },
 }));
 export default useStore;

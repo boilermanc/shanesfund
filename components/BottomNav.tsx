@@ -1,6 +1,7 @@
 import React from 'react';
 import { Home, ClipboardList, Users, User, BarChart3, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useStore } from '../store/useStore';
 
 interface BottomNavProps {
   activeTab: string;
@@ -8,6 +9,8 @@ interface BottomNavProps {
 }
 
 const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab }) => {
+  const unreadCount = useStore((s) => s.unreadCount);
+
   const tabs = [
     { id: 'home', icon: Home, label: 'Home' },
     { id: 'friends', icon: Heart, label: 'Friends' },
@@ -38,16 +41,31 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab }) => {
               onClick={() => setActiveTab(tab.id)}
               className="relative flex flex-col items-center justify-center p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all outline-none"
             >
-              <motion.div
-                animate={{ 
-                  scale: isActive ? 1.2 : 1,
-                  color: isActive ? '#006D77' : '#83C5BE'
-                }}
-                className={isActive ? 'opacity-100' : 'opacity-60'}
-              >
-                <Icon size={20} strokeWidth={isActive ? 3 : 2} className="sm:hidden" />
-                <Icon size={24} strokeWidth={isActive ? 3 : 2} className="hidden sm:block" />
-              </motion.div>
+              <div className="relative">
+                <motion.div
+                  animate={{
+                    scale: isActive ? 1.2 : 1,
+                    color: isActive ? '#006D77' : '#83C5BE'
+                  }}
+                  className={isActive ? 'opacity-100' : 'opacity-60'}
+                >
+                  <Icon size={20} strokeWidth={isActive ? 3 : 2} className="sm:hidden" />
+                  <Icon size={24} strokeWidth={isActive ? 3 : 2} className="hidden sm:block" />
+                </motion.div>
+                <AnimatePresence>
+                  {tab.id === 'home' && unreadCount > 0 && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      transition={{ type: 'spring', damping: 15, stiffness: 400 }}
+                      className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full bg-[#E29578] text-white text-[9px] font-black flex items-center justify-center px-1"
+                    >
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
               
               <AnimatePresence>
                 {isActive && (
