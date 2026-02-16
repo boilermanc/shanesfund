@@ -150,23 +150,60 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
     fetchMatchingPools(selectedGame);
   };
 
-  // Viewfinder region (normalized 0-1 coordinates matching the overlay layout)
-  // The viewfinder is 260px wide × 220px tall centered in the video area
-  // These are approximate — the overlay uses flex layout so we estimate center crop
+  // Map the CSS viewfinder rectangle to normalized video coordinates,
+  // accounting for the object-cover scaling the <video> element uses.
   const getViewfinderRegion = () => {
     const video = videoRef.current;
-    if (!video) return { x: 0.1, y: 0.15, w: 0.8, h: 0.4 };
-    const vw = video.videoWidth || video.clientWidth;
-    const vh = video.videoHeight || video.clientHeight;
-    // Viewfinder is ~260px/screenWidth centered, ~220px/screenHeight positioned
-    // Use a generous crop covering the center of the frame
-    const cropW = Math.min(0.85, 320 / (vw || 320));
-    const cropH = Math.min(0.5, 280 / (vh || 600));
+    if (!video) return { x: 0.05, y: 0.2, w: 0.9, h: 0.35 };
+
+    const videoW = video.videoWidth;
+    const videoH = video.videoHeight;
+    const containerW = video.clientWidth || window.innerWidth;
+    const containerH = video.clientHeight || window.innerHeight;
+
+    if (!videoW || !videoH) return { x: 0.05, y: 0.2, w: 0.9, h: 0.35 };
+
+    // Viewfinder CSS dimensions (matches the overlay divs)
+    const isLarger = containerW >= 640;
+    const vfW = isLarger ? 320 : 260;
+    const vfH = isLarger ? 280 : 220;
+
+    // Viewfinder is centered (flex spacers above/below and left/right)
+    const vfLeft = (containerW - vfW) / 2;
+    const vfTop = (containerH - vfH) / 2;
+
+    // object-cover: video scales to fill container, excess is cropped
+    const containerAspect = containerW / containerH;
+    const videoAspect = videoW / videoH;
+
+    let displayW: number, displayH: number, offsetX: number, offsetY: number;
+    if (videoAspect > containerAspect) {
+      // Video wider than container — sides cropped
+      displayH = containerH;
+      displayW = containerH * videoAspect;
+      offsetX = (displayW - containerW) / 2;
+      offsetY = 0;
+    } else {
+      // Video taller than container — top/bottom cropped
+      displayW = containerW;
+      displayH = containerW / videoAspect;
+      offsetX = 0;
+      offsetY = (displayH - containerH) / 2;
+    }
+
+    // Convert viewfinder CSS rect to normalized video coordinates
+    const x = (vfLeft + offsetX) / displayW;
+    const y = (vfTop + offsetY) / displayH;
+    const w = vfW / displayW;
+    const h = vfH / displayH;
+
+    // Add padding so edge numbers aren't cut off
+    const pad = 0.03;
     return {
-      x: (1 - cropW) / 2,
-      y: (1 - cropH) / 2 - 0.05, // slightly above center to match viewfinder position
-      w: cropW,
-      h: cropH,
+      x: Math.max(0, x - pad),
+      y: Math.max(0, y - pad),
+      w: Math.min(1 - Math.max(0, x - pad), w + 2 * pad),
+      h: Math.min(1 - Math.max(0, y - pad), h + 2 * pad),
     };
   };
 
