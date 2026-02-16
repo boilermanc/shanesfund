@@ -9,7 +9,7 @@ interface PoolCarouselProps {
   onPoolClick?: (poolId: string) => void;
 }
 
-const PoolCard: React.FC<{ pool: DisplayPool; onJoin?: () => void; onPoolClick?: (poolId: string) => void }> = ({ pool, onJoin, onPoolClick }) => {
+const PoolCard: React.FC<{ pool: DisplayPool; onPoolClick?: (poolId: string) => void }> = ({ pool, onPoolClick }) => {
   const expectedTotal = pool.members_count * pool.contribution_amount;
   const progressPercent = expectedTotal > 0
     ? Math.min(100, Math.max(0, (pool.current_pool_value / expectedTotal) * 100))
@@ -104,10 +104,10 @@ const PoolCard: React.FC<{ pool: DisplayPool; onJoin?: () => void; onPoolClick?:
         </div>
 
         <button
-          onClick={(e) => { e.stopPropagation(); onJoin?.(); }}
+          onClick={(e) => { e.stopPropagation(); onPoolClick?.(pool.id); }}
           className="w-full py-3 sm:py-4 rounded-2xl sm:rounded-3xl bg-[#E29578] text-white font-black text-xs sm:text-sm shadow-lg shadow-[#FFDDD2] hover:bg-[#006D77] transition-all"
         >
-          {pool.contribution_amount > 0 ? `Join Pool $${pool.contribution_amount}` : 'View Pool'}
+          View Pool
         </button>
       </div>
     </motion.div>
@@ -141,7 +141,7 @@ const PoolCarousel: React.FC<PoolCarouselProps> = ({ pools, onJoin, onPoolClick 
       <div className="md:hidden relative w-full overflow-x-auto pb-4 sm:pb-6 pt-2 -mx-2">
         <div className="flex gap-4 sm:gap-6 px-2 min-w-full">
           {activePools.map((pool) => (
-            <PoolCard key={pool.id} pool={pool} onJoin={onJoin} onPoolClick={onPoolClick} />
+            <PoolCard key={pool.id} pool={pool} onPoolClick={onPoolClick} />
           ))}
           <div className="min-w-[16px] sm:min-w-[24px]" />
         </div>
@@ -149,7 +149,7 @@ const PoolCarousel: React.FC<PoolCarouselProps> = ({ pools, onJoin, onPoolClick 
       {/* Desktop: grid layout */}
       <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
         {activePools.map((pool) => (
-          <PoolCard key={pool.id} pool={pool} onJoin={onJoin} onPoolClick={onPoolClick} />
+          <PoolCard key={pool.id} pool={pool} onPoolClick={onPoolClick} />
         ))}
       </div>
     </>
