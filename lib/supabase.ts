@@ -1,7 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
-const supabaseUrl = 'https://fhinyhfvezctknrsmzgp.supabase.co';
-const supabaseAnonKey = 'sb_publishable_vy2VB0GENhofRgPfh4BkYw_iz8nXUtI';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Missing Supabase environment variables. ' +
+    'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.'
+  );
+}
+
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,

@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Camera, Zap, RefreshCw, Keyboard, ChevronDown, Loader2, AlertCircle } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { createTicket, uploadTicketImage } from '../services/tickets';
+import { addTicket, uploadTicketImage } from '../services/tickets';
 import { preprocessForOcr, captureFrame } from '../lib/imagePreprocess';
 import { parseTicketOcr, type ParsedPlay } from '../lib/parseTicketOcr';
 import { getOcrWorker, terminateOcrWorker } from '../lib/ocrWorker';
@@ -184,7 +184,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
     setIsSaving(true);
     setError(null);
 
-    const { data: ticket, error: saveError } = await createTicket({
+    const { data: ticket, error: saveError } = await addTicket({
       pool_id: selectedPoolId,
       game_type: selectedGame,
       numbers,
@@ -210,8 +210,8 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
 
     setIsSaving(false);
 
-    if (typeof (window as any).confetti === 'function') {
-      (window as any).confetti({
+    if (typeof window.confetti === 'function') {
+      window.confetti({
         particleCount: 100,
         spread: 70,
         origin: { y: 0.6 },
@@ -305,8 +305,9 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
           </div>
           {/* Draw Date */}
           <div>
-            <label className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-2 block">Draw Date</label>
+            <label htmlFor="ticket-draw-date" className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-2 block">Draw Date</label>
             <input
+              id="ticket-draw-date"
               type="date"
               value={drawDate}
               onChange={(e) => setDrawDate(e.target.value)}
@@ -339,10 +340,11 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
           </div>
           {/* Bonus Number */}
           <div>
-            <label className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-2 block">
+            <label htmlFor="ticket-bonus-number" className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-2 block">
               {selectedGame === 'powerball' ? 'Powerball' : 'Mega Ball'} (1-{selectedGame === 'powerball' ? '26' : '25'})
             </label>
             <input
+              id="ticket-bonus-number"
               type="number"
               min="1"
               max={selectedGame === 'powerball' ? 26 : 25}

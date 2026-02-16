@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  User, 
-  Bell, 
-  Shield, 
-  CreditCard, 
-  Star, 
-  ChevronRight, 
-  LogOut
+import {
+  User,
+  Bell,
+  Star,
+  ChevronRight,
+  LogOut,
+  Loader2
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { supabase } from '../lib/supabase';
 import PersonalInfoEdit from './PersonalInfoEdit';
 import NotificationSettings from './NotificationSettings';
 import ShaneMascot from './ShaneMascot';
@@ -43,6 +43,9 @@ const SettingRow: React.FC<{ icon: React.ReactNode; title: string; onClick?: () 
   <motion.div 
     variants={itemVariants}
     onClick={onClick}
+    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
+    role="button"
+    tabIndex={0}
     className="flex items-center justify-between py-5 border-b border-[#FFDDD2] last:border-0 group cursor-pointer"
   >
     <div className="flex items-center gap-4">
@@ -56,12 +59,87 @@ const SettingRow: React.FC<{ icon: React.ReactNode; title: string; onClick?: () 
 );
 
 const ProfileView: React.FC = () => {
-  const { user, setAuthenticated } = useStore();
+  const { user, pools, logout } = useStore();
   const [showEdit, setShowEdit] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [totalWon, setTotalWon] = useState<number | null>(null);
+  const [winningsLoading, setWinningsLoading] = useState(true);
+
+  const activePools = useMemo(() => pools.filter(p => p.status === 'active'), [pools]);
+
+  const isCaptain = useMemo(
+    () => pools.some(p => p.captain_id === user?.id),
+    [pools, user?.id]
+  );
+
+  const badgeLabel = useMemo(() => {
+    const tier = user?.subscription_tier;
+    if (tier === 'pro') return 'Pro Member';
+    if (tier === 'premium') return 'Premium Member';
+    if (isCaptain) return 'Pool Captain';
+    return 'Member';
+  }, [user?.subscription_tier, isCaptain]);
+
+  const memberSince = useMemo(() => {
+    if (!user?.created_at) return null;
+    const d = new Date(user.created_at);
+    return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }, [user?.created_at]);
+
+  // Fetch total winnings for pools this user belongs to
+  useEffect(() => {
+    const fetchWinnings = async () => {
+      const poolIds = pools.map(p => p.id);
+      if (poolIds.length === 0) {
+        setTotalWon(0);
+        setWinningsLoading(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('winnings')
+        .select('per_member_share')
+        .in('pool_id', poolIds);
+
+      if (error) {
+        console.error('Failed to fetch winnings:', error.message);
+        setTotalWon(0);
+      } else {
+        const rows = data as { per_member_share: number | null }[] | null;
+        const sum = rows?.reduce((acc, w) => acc + (w.per_member_share || 0), 0) ?? 0;
+        setTotalWon(sum);
+      }
+      setWinningsLoading(false);
+    };
+    fetchWinnings();
+  }, [pools]);
+
+  const savingsGoal = user?.savings_goal ?? null;
+  const progressPercent = savingsGoal && savingsGoal > 0 && totalWon !== null
+    ? Math.min(100, Math.round((totalWon / savingsGoal) * 100))
+    : null;
+  const remaining = savingsGoal && totalWon !== null
+    ? Math.max(0, savingsGoal - totalWon)
+    : null;
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Supabase signOut failed:', error.message);
+      }
+    } catch (err) {
+      console.error('Unexpected error during signOut:', err);
+    } finally {
+      logout();
+    }
+  };
+
+  const wonDisplay = winningsLoading
+    ? '...'
+    : `$${(totalWon ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
-    <motion.div 
+    <motion.div
       initial="hidden"
       animate="visible"
       variants={containerVariants}
@@ -76,49 +154,71 @@ const ProfileView: React.FC = () => {
       <motion.section variants={itemVariants} className="flex flex-col items-center md:flex-row md:gap-8 md:justify-center">
         <div className="relative">
           <ShaneMascot size="lg" expression="normal" animate />
-          {/* Pro Badge */}
+          {/* Tier Badge */}
           <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#E29578] px-4 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg shadow-[#FFDDD2] z-10">
             <Star size={12} className="text-white fill-white" />
-            <span className="text-[10px] font-black text-white uppercase tracking-wider">Pro Member</span>
+            <span className="text-[10px] font-black text-white uppercase tracking-wider">{badgeLabel}</span>
           </div>
         </div>
         <div className="text-center mt-8">
           <h1 className="shane-serif text-3xl font-black text-[#4A5D4E] tracking-tighter">
-            {user?.full_name?.split(' ')[0] || 'Shane'}
+            {user?.display_name?.split(' ')[0] || 'Shane'}
           </h1>
-          <p className="text-[10px] font-black text-[#006D77] uppercase tracking-[0.3em] opacity-40 mt-1">Syndicate Leader</p>
+          <p className="text-[10px] font-black text-[#006D77] uppercase tracking-[0.3em] opacity-40 mt-1">
+            {memberSince ? `Member since ${memberSince}` : 'Member'}
+          </p>
         </div>
       </motion.section>
 
       {/* Stats Grid */}
       <motion.section variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard value="5" label="Active Pools" />
-        <StatCard value="$142.50" label="Won" />
+        <StatCard value={String(activePools.length)} label="Active Pools" />
+        <StatCard value={wonDisplay} label="Won" />
       </motion.section>
 
-      {/* Subscription & Wealth Card */}
-      <motion.section 
-        variants={itemVariants}
-        className="rounded-[2.5rem] p-8 border border-white warm-shadow relative overflow-hidden bg-white/40 backdrop-blur-md"
-      >
-        <div className="relative z-10">
-          <h3 className="text-sm font-black text-[#006D77] uppercase tracking-[0.2em] mb-4">Retirement Progress</h3>
-          
-          <div className="space-y-3">
-            <div className="h-4 w-full bg-black/5 rounded-full overflow-hidden">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: '35%' }}
-                transition={{ duration: 1.5, ease: "easeOut", delay: 0.5 }}
-                className="h-full bg-[#4A5D4E]"
-              />
-            </div>
-            <p className="text-[11px] font-bold text-[#006D77] leading-relaxed">
-              Shane says: You're <span className="font-black text-[#E29578]">$857.50</span> away from your next milestone!
-            </p>
+      {/* Retirement Progress — only show if user has a savings goal */}
+      {savingsGoal && savingsGoal > 0 ? (
+        <motion.section
+          variants={itemVariants}
+          className="rounded-[2.5rem] p-8 border border-white warm-shadow relative overflow-hidden bg-white/40 backdrop-blur-md"
+        >
+          <div className="relative z-10">
+            <h3 className="text-sm font-black text-[#006D77] uppercase tracking-[0.2em] mb-4">Retirement Progress</h3>
+
+            {winningsLoading ? (
+              <div className="flex items-center gap-2 text-[#83C5BE]">
+                <Loader2 size={16} className="animate-spin" />
+                <span className="text-[11px] font-bold">Loading...</span>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div
+                  role="progressbar"
+                  aria-valuenow={progressPercent ?? 0}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Retirement savings progress"
+                  className="h-4 w-full bg-black/5 rounded-full overflow-hidden"
+                >
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progressPercent ?? 0}%` }}
+                    transition={{ duration: 1.5, ease: "easeOut", delay: 0.5 }}
+                    className="h-full bg-[#4A5D4E]"
+                  />
+                </div>
+                <p className="text-[11px] font-bold text-[#006D77] leading-relaxed">
+                  {remaining !== null && remaining > 0 ? (
+                    <>Shane says: You're <span className="font-black text-[#E29578]">${remaining.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> away from your goal!</>
+                  ) : (
+                    <>Shane says: You've reached your savings goal! <span className="font-black text-[#E29578]">Amazing!</span></>
+                  )}
+                </p>
+              </div>
+            )}
           </div>
-        </div>
-      </motion.section>
+        </motion.section>
+      ) : null}
 
       {/* Settings Menu */}
       <motion.section variants={itemVariants} className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-[#FFDDD2] shadow-sm md:max-w-2xl md:mx-auto">
@@ -132,7 +232,7 @@ const ProfileView: React.FC = () => {
           title="Notification Settings" 
           onClick={() => setShowNotifications(true)}
         />
-        <SettingRow icon={<LogOut size={18} />} title="Log Out" onClick={() => setAuthenticated(false)} />
+        <SettingRow icon={<LogOut size={18} />} title="Log Out" onClick={handleLogout} />
       </motion.section>
 
       <div className="text-center pb-8">

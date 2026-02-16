@@ -1,20 +1,15 @@
 import React, { useState } from 'react';
-import AdminLayout from './AdminLayout';
+import AdminLayout, { type AdminSection } from './AdminLayout';
 import AdminDashboard from './AdminDashboard';
 import ApiTester from './ApiTester';
 import EmailSection from './EmailSection';
 import AdminNotifications from './AdminNotifications';
-import { useAdminTheme } from '../../hooks/useAdminTheme';
+import { useAdminTheme, getAdminTheme } from '../../hooks/useAdminTheme';
 
 // Placeholder section component with theme support
 const PlaceholderSection = ({ title, description, message }: { title: string; description: string; message: string }) => {
   const { isDark } = useAdminTheme();
-  const t = {
-    textPrimary: isDark ? 'text-zinc-100' : 'text-zinc-900',
-    textMuted: isDark ? 'text-zinc-500' : 'text-zinc-500',
-    cardBg: isDark ? 'bg-zinc-900' : 'bg-white',
-    cardBorder: isDark ? 'border-zinc-800' : 'border-zinc-200',
-  };
+  const t = getAdminTheme(isDark);
 
   return (
     <div className="space-y-6">
@@ -64,7 +59,7 @@ const SettingsSection = () => (
 );
 
 const AdminPage: React.FC = () => {
-  const [activeSection, setActiveSection] = useState('dashboard');
+  const [activeSection, setActiveSection] = useState<AdminSection>('dashboard');
 
   const renderSection = () => {
     switch (activeSection) {

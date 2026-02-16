@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X } from 'lucide-react';
 import ShaneMascot from './ShaneMascot';
+import FocusTrap from './FocusTrap';
 
 interface AcceptFriendModalProps {
   isVisible: boolean;
@@ -16,13 +17,17 @@ const AcceptFriendModal: React.FC<AcceptFriendModalProps> = ({ isVisible, onClos
   return (
     <AnimatePresence>
       {isVisible && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[1100] flex items-center justify-center p-4 sm:p-6"
-        >
-          <div className="absolute inset-0 bg-[#006D77]/40 backdrop-blur-xl" onClick={onClose} />
+        <FocusTrap onClose={onClose}>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1100] flex items-center justify-center p-4 sm:p-6"
+            role="alertdialog"
+            aria-modal="true"
+            aria-label={`Accept friend request from ${friendName}`}
+          >
+            <div className="absolute inset-0 bg-[#006D77]/40 backdrop-blur-xl" onClick={onClose} />
           
           <motion.div
             initial={{ scale: 0.9, y: 40, opacity: 0 }}
@@ -63,7 +68,8 @@ const AcceptFriendModal: React.FC<AcceptFriendModalProps> = ({ isVisible, onClos
               </button>
             </div>
           </motion.div>
-        </motion.div>
+          </motion.div>
+        </FocusTrap>
       )}
     </AnimatePresence>
   );

@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { X, Copy, Share2, Smartphone, QrCode } from 'lucide-react';
 import ShaneMascot from './ShaneMascot';
+import FocusTrap from './FocusTrap';
 
 interface InviteShareScreenProps {
   poolName: string;
@@ -25,12 +26,16 @@ const InviteShareScreen: React.FC<InviteShareScreenProps> = ({ poolName, inviteC
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 100 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 100 }}
-      className="fixed inset-0 z-[700] bg-[#EDF6F9] flex flex-col"
-    >
+    <FocusTrap onClose={onClose}>
+      <motion.div
+        initial={{ opacity: 0, y: 100 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 100 }}
+        className="fixed inset-0 z-[700] bg-[#EDF6F9] flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Invite to pool"
+      >
       <header className="px-4 sm:px-6 pt-10 sm:pt-14 pb-4 sm:pb-6 flex items-center justify-between bg-white border-b border-[#FFDDD2]">
         <h2 className="text-lg sm:text-xl font-black text-[#006D77] tracking-tight">Invite to Pool</h2>
         <button 
@@ -97,7 +102,8 @@ const InviteShareScreen: React.FC<InviteShareScreenProps> = ({ poolName, inviteC
           </p>
         </div>
       </main>
-    </motion.div>
+      </motion.div>
+    </FocusTrap>
   );
 };
 

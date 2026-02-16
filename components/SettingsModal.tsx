@@ -13,6 +13,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import FocusTrap from './FocusTrap';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -46,15 +47,18 @@ const SettingItem: React.FC<{
 );
 
 const Toggle: React.FC<{ active: boolean; onToggle: () => void }> = ({ active, onToggle }) => (
-  <div 
+  <button
+    type="button"
+    role="switch"
+    aria-checked={active}
     onClick={(e) => { e.stopPropagation(); onToggle(); }}
     className={`w-12 h-6 sm:w-14 sm:h-7 rounded-full p-1 sm:p-1.5 transition-colors cursor-pointer flex items-center ${active ? 'bg-[#E29578]' : 'bg-[#EDF6F9]'}`}
   >
-    <motion.div 
+    <motion.div
       animate={{ x: active ? 20 : 0 }}
       className="w-4 h-4 rounded-full bg-white shadow-md"
     />
-  </div>
+  </button>
 );
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
@@ -63,23 +67,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const [biometrics, setBiometrics] = useState(false);
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[250] flex items-center justify-center"
-    >
-      <div 
-        className="absolute inset-0 bg-[#006D77]/40 backdrop-blur-xl" 
-        onClick={onClose}
-      />
-      
-      <motion.div 
-        initial={{ y: 100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 100, opacity: 0 }}
-        className="relative w-full h-full max-w-md bg-[#EDF6F9] overflow-y-auto px-4 sm:px-6 pb-12 sm:pb-16 safe-area-top safe-area-bottom" style={{ paddingTop: 'max(3rem, calc(env(safe-area-inset-top, 0px) + 1rem))' }}
+    <FocusTrap onClose={onClose}>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[250] flex items-center justify-center"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Account settings"
       >
+        <div
+          className="absolute inset-0 bg-[#006D77]/40 backdrop-blur-xl"
+          onClick={onClose}
+        />
+
+        <motion.div
+          initial={{ y: 100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 100, opacity: 0 }}
+          className="relative w-full h-full max-w-md bg-[#EDF6F9] overflow-y-auto px-4 sm:px-6 pb-12 sm:pb-16 safe-area-top safe-area-bottom" style={{ paddingTop: 'max(3rem, calc(env(safe-area-inset-top, 0px) + 1rem))' }}
+        >
         <div className="flex justify-between items-center mb-8 sm:mb-12 px-2">
           <h2 className="text-3xl sm:text-4xl font-black tracking-tighter text-[#006D77]">Account</h2>
           <button 
@@ -97,7 +105,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
               <img src={user?.avatar_url} className="w-full h-full rounded-[1.5rem] sm:rounded-[2rem] object-cover border-2 sm:border-4 border-white" alt="" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg sm:text-xl font-black text-[#006D77] truncate">{user?.full_name}</h3>
+              <h3 className="text-lg sm:text-xl font-black text-[#006D77] truncate">{user?.display_name}</h3>
               <p className="text-xs sm:text-sm font-bold text-[#83C5BE] truncate">{user?.email}</p>
               <div className="mt-1.5 sm:mt-2 inline-flex items-center gap-2 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[#E29578]/10 border border-[#E29578]/20">
                 <span className="text-[9px] sm:text-[10px] font-black text-[#E29578] uppercase tracking-wider">Pro Status</span>
@@ -142,8 +150,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
           <p className="text-[10px] sm:text-[11px] text-[#006D77] font-black uppercase tracking-[0.3em] sm:tracking-[0.4em]">Shane's Retirement Fund v2.4.0</p>
           <p className="text-[9px] sm:text-[10px] text-[#83C5BE] mt-1 font-bold">Shane Miller Enterprise</p>
         </div>
+        </motion.div>
       </motion.div>
-    </motion.div>
+    </FocusTrap>
   );
 };
 

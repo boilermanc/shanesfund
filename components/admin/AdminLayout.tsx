@@ -20,20 +20,16 @@ import {
   Moon
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { useAdminTheme } from '../../hooks/useAdminTheme';
+import { useAdminTheme, getAdminTheme } from '../../hooks/useAdminTheme';
 import { supabase } from '../../lib/supabase';
+import type { AdminUser } from '../../types/database';
+
+export type AdminSection = 'dashboard' | 'api-health' | 'users' | 'api-tester' | 'email' | 'notifications' | 'logs' | 'settings';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
-  activeSection: string;
-  onSectionChange: (section: string) => void;
-}
-
-interface AdminUser {
-  id: string;
-  email: string;
-  role: 'super_admin' | 'admin' | 'viewer';
-  permissions: Record<string, boolean>;
+  activeSection: AdminSection;
+  onSectionChange: (section: AdminSection) => void;
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeSection, onSectionChange }) => {
@@ -80,7 +76,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeSection, onSe
     setIsLoading(false);
   };
 
-  const navItems = [
+  const navItems: { id: AdminSection; label: string; icon: React.FC<any> }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'api-health', label: 'API Health', icon: Activity },
     { id: 'users', label: 'Users', icon: Users },
@@ -91,27 +87,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeSection, onSe
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
-  // Theme classes
-  const t = {
-    pageBg: isDark ? 'bg-zinc-950' : 'bg-zinc-100',
-    cardBg: isDark ? 'bg-zinc-900' : 'bg-white',
-    cardBorder: isDark ? 'border-zinc-800' : 'border-zinc-200',
-    sidebarBg: isDark ? 'bg-zinc-900' : 'bg-white',
-    sidebarBorder: isDark ? 'border-zinc-800' : 'border-zinc-200',
-    headerBg: isDark ? 'bg-zinc-950/80' : 'bg-white/80',
-    textPrimary: isDark ? 'text-zinc-100' : 'text-zinc-900',
-    textSecondary: isDark ? 'text-zinc-400' : 'text-zinc-600',
-    textMuted: isDark ? 'text-zinc-500' : 'text-zinc-500',
-    navActive: isDark ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-100 text-zinc-900',
-    navInactive: isDark ? 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100' : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900',
-    avatarBg: isDark ? 'bg-zinc-800' : 'bg-zinc-100',
-    avatarRing: isDark ? 'ring-zinc-700' : 'ring-zinc-300',
-    avatarText: isDark ? 'text-zinc-300' : 'text-zinc-700',
-    hoverBg: isDark ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-100',
-    hoverBgSolid: isDark ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100',
-    spinnerBorder: isDark ? 'border-zinc-700 border-t-zinc-400' : 'border-zinc-300 border-t-zinc-600',
-    overlay: isDark ? 'bg-black/60' : 'bg-black/30',
-  };
+  const t = getAdminTheme(isDark);
 
   if (isLoading) {
     return (
@@ -154,7 +130,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeSection, onSe
             </a>
             <button
               onClick={() => signOut()}
-              className={`block w-full px-4 py-2 ${t.textSecondary} hover:${t.textPrimary} rounded-md text-sm transition-colors`}
+              className={`block w-full px-4 py-2 ${t.textSecondary} ${t.hoverText} rounded-md text-sm transition-colors`}
             >
               Sign in with different account
             </button>
@@ -190,7 +166,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeSection, onSe
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className={`lg:hidden p-1 ${t.textSecondary} hover:${t.textPrimary} rounded`}
+            className={`lg:hidden p-1 ${t.textSecondary} ${t.hoverText} rounded`}
           >
             <X size={18} />
           </button>
@@ -273,7 +249,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeSection, onSe
           </div>
           <button
             onClick={() => signOut()}
-            className={`w-full flex items-center gap-3 px-3 py-2 mt-1 ${t.textSecondary} hover:${t.textPrimary} ${t.hoverBg} rounded-md transition-colors text-sm`}
+            className={`w-full flex items-center gap-3 px-3 py-2 mt-1 ${t.textSecondary} ${t.hoverText} ${t.hoverBg} rounded-md transition-colors text-sm`}
           >
             <LogOut size={16} strokeWidth={1.5} />
             Sign out
@@ -287,7 +263,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeSection, onSe
           <div className="flex items-center gap-4">
             <button
               onClick={() => setSidebarOpen(true)}
-              className={`lg:hidden p-2 -ml-2 ${t.textSecondary} hover:${t.textPrimary} rounded-md ${t.hoverBgSolid}`}
+              className={`lg:hidden p-2 -ml-2 ${t.textSecondary} ${t.hoverText} rounded-md ${t.hoverBgSolid}`}
             >
               <Menu size={20} />
             </button>
@@ -302,20 +278,20 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeSection, onSe
             {/* Theme toggle */}
             <button
               onClick={toggleTheme}
-              className={`p-2 ${t.textSecondary} hover:${t.textPrimary} rounded-md ${t.hoverBgSolid} transition-colors`}
+              className={`p-2 ${t.textSecondary} ${t.hoverText} rounded-md ${t.hoverBgSolid} transition-colors`}
               title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {isDark ? <Sun size={18} strokeWidth={1.5} /> : <Moon size={18} strokeWidth={1.5} />}
             </button>
 
-            <button className={`relative p-2 ${t.textSecondary} hover:${t.textPrimary} rounded-md ${t.hoverBgSolid} transition-colors`}>
+            <button className={`relative p-2 ${t.textSecondary} ${t.hoverText} rounded-md ${t.hoverBgSolid} transition-colors`}>
               <Bell size={18} strokeWidth={1.5} />
               <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-emerald-500 rounded-full" />
             </button>
 
             <a
               href="/"
-              className={`hidden sm:inline-flex items-center gap-1.5 text-sm ${t.textSecondary} hover:${t.textPrimary} px-3 py-1.5 rounded-md ${t.hoverBgSolid} transition-colors`}
+              className={`hidden sm:inline-flex items-center gap-1.5 text-sm ${t.textSecondary} ${t.hoverText} px-3 py-1.5 rounded-md ${t.hoverBgSolid} transition-colors`}
             >
               View site
               <ExternalLink size={14} strokeWidth={1.5} />

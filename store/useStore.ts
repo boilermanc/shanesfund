@@ -1,9 +1,8 @@
 import { create } from 'zustand';
-import type { User, Pool } from '../types/database';
-import type { Activity } from '../types';
+import type { User, Activity, Notification } from '../types/database';
+import type { PoolWithMembers } from '../services/pools';
 import type { FriendWithProfile, PoolWithFriendCount } from '../services/friends';
 import * as friendsService from '../services/friends';
-import type { Notification } from '../services/notificationService';
 import {
   fetchNotifications as fetchNotificationsApi,
   getUnreadCount as getUnreadCountApi,
@@ -12,7 +11,7 @@ import {
   deleteNotification,
   subscribeToNotifications,
   unsubscribeFromNotifications,
-} from '../services/notificationService';
+} from '../services/notifications';
 
 // Helper: format a date string as relative time ("5m ago", "2h ago", etc.)
 function timeAgo(dateString: string): string {
@@ -75,8 +74,8 @@ interface AppState {
   isLoading: boolean;
   isOnboarded: boolean;
   // Pools state
-  pools: Pool[];
-  activePool: Pool | null;
+  pools: PoolWithMembers[];
+  activePool: PoolWithMembers | null;
   // Friends state
   friends: FriendWithProfile[];
   pendingRequests: FriendWithProfile[];
@@ -103,10 +102,10 @@ interface AppState {
   setOnboarded: (isOnboarded: boolean) => void;
   logout: () => void;
   // Pool actions
-  setPools: (pools: Pool[]) => void;
-  setActivePool: (pool: Pool | null) => void;
-  addPool: (pool: Pool) => void;
-  updatePool: (poolId: string, updates: Partial<Pool>) => void;
+  setPools: (pools: PoolWithMembers[]) => void;
+  setActivePool: (pool: PoolWithMembers | null) => void;
+  addPool: (pool: PoolWithMembers) => void;
+  updatePool: (poolId: string, updates: Partial<PoolWithMembers>) => void;
   removePool: (poolId: string) => void;
   // Friends actions
   fetchFriends: (userId: string) => Promise<void>;

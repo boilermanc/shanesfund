@@ -1,14 +1,14 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Pool } from '../types';
+import type { DisplayPool } from '../types/database';
 import { Users, Calendar, ArrowRight } from 'lucide-react';
 
 interface PoolListProps {
-  pools: Pool[];
-  onJoin?: (pool: Pool) => void;
+  pools: DisplayPool[];
+  onJoin?: (pool: DisplayPool) => void;
 }
 
-const PoolCard: React.FC<{ pool: Pool; onJoin?: (pool: Pool) => void }> = ({ pool, onJoin }) => {
+const PoolCard: React.FC<{ pool: DisplayPool; onJoin?: (pool: DisplayPool) => void }> = ({ pool, onJoin }) => {
   const paidCount = Math.floor(pool.participants_count * 0.8);
   const totalCount = pool.participants_count;
   const progress = (paidCount / totalCount) * 100;

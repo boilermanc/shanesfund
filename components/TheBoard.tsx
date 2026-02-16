@@ -3,8 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ChevronRight, ArrowRight, Loader2, Trophy, X } from 'lucide-react';
 import { getLatestDraws, getDrawHistory, formatJackpot, formatDrawDate, LotteryDraw } from '../services/lottery';
 import { checkTicketsForDraw, WinResult } from '../services/pools';
+import { useStore } from '../store/useStore';
+import FocusTrap from './FocusTrap';
 interface TheBoardProps {
   onOpenPool?: (poolId: string) => void;
+  onJoinPool?: () => void;
 }
 const GameLogo: React.FC<{ game: string }> = ({ game }) => (
   <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center font-black text-white text-[10px] sm:text-xs ${game === 'Powerball' ? 'bg-[#E29578]' : 'bg-[#006D77]'}`}>
@@ -21,13 +24,17 @@ const GameCard: React.FC<{
   showMatch?: boolean;
   onClick?: () => void;
   isLoading?: boolean;
-}> = ({ game, date, jackpot, numbers, bonus, isScanning, showMatch, onClick, isLoading }) => (
+  poolAction?: string;
+}> = ({ game, date, jackpot, numbers, bonus, isScanning, showMatch, onClick, isLoading, poolAction = 'Manage Pool' }) => (
   <motion.div
     variants={{
       hidden: { y: 20, opacity: 0 },
       visible: { y: 0, opacity: 1 }
     }}
     onClick={onClick}
+    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
+    role="button"
+    tabIndex={0}
     className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-7 border border-[#83C5BE]/30 warm-shadow relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all"
   >
     <div className="flex justify-between items-start mb-4 sm:mb-6">
@@ -41,7 +48,7 @@ const GameCard: React.FC<{
       <div className="flex flex-col items-end gap-1">
         <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-widest">{date}</p>
         <div className="flex items-center gap-1 text-[#E29578] opacity-0 group-hover:opacity-100 transition-opacity">
-          <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-tighter">Manage Pool</span>
+          <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-tighter">{poolAction}</span>
           <ArrowRight size={10} />
         </div>
       </div>
@@ -109,7 +116,10 @@ const GameCard: React.FC<{
     )}
   </motion.div>
 );
-const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool }) => {
+const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
+  const pools = useStore((state) => state.pools);
+  const powerballPool = pools.find(p => p.game_type === 'powerball');
+  const megaMillionsPool = pools.find(p => p.game_type === 'mega_millions');
   const [isChecking, setIsChecking] = useState(false);
   const [showMatch, setShowMatch] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -152,8 +162,8 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool }) => {
       setCheckResults({ wins: totalWins, checkedCount: totalChecked });
       if (totalWins.length > 0) {
         // Trigger confetti for wins!
-        if (typeof (window as any).confetti === 'function') {
-          (window as any).confetti({
+        if (typeof window.confetti === 'function') {
+          window.confetti({
             particleCount: 200,
             spread: 100,
             origin: { y: 0.6 },
@@ -192,7 +202,14 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool }) => {
             isScanning={isChecking}
             showMatch={showMatch}
             isLoading={isLoading}
-            onClick={() => onOpenPool?.('2')}
+            poolAction={powerballPool ? 'Manage Pool' : 'Join Pool'}
+            onClick={() => {
+              if (powerballPool) {
+                onOpenPool?.(powerballPool.id);
+              } else {
+                onJoinPool?.();
+              }
+            }}
           />
           <GameCard
             game="Mega Millions"
@@ -203,7 +220,14 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool }) => {
             isScanning={isChecking}
             showMatch={showMatch}
             isLoading={isLoading}
-            onClick={() => onOpenPool?.('1')}
+            poolAction={megaMillionsPool ? 'Manage Pool' : 'Join Pool'}
+            onClick={() => {
+              if (megaMillionsPool) {
+                onOpenPool?.(megaMillionsPool.id);
+              } else {
+                onJoinPool?.();
+              }
+            }}
           />
         </div>
         <motion.button
@@ -246,9 +270,12 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool }) => {
             </div>
           ) : (
             history.map((draw) => (
-              <div 
-                key={draw.id} 
+              <div
+                key={draw.id}
                 onClick={() => onOpenPool?.(draw.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPool?.(draw.id); } }}
+                role="button"
+                tabIndex={0}
                 className="bg-white p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[#FFDDD2] flex items-center justify-between group cursor-pointer active:scale-95 transition-all"
               >
                 <div className="flex flex-col gap-1">
@@ -288,20 +315,24 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool }) => {
       {/* Results Modal */}
       <AnimatePresence>
         {showResultsModal && checkResults && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-            onClick={() => setShowResultsModal(false)}
-          >
+          <FocusTrap onClose={() => setShowResultsModal(false)}>
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-sm w-full shadow-2xl"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+              onClick={() => setShowResultsModal(false)}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Check results"
             >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-sm w-full shadow-2xl"
+              >
               <div className="flex justify-between items-start mb-6">
                 <div className="flex items-center gap-3">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${checkResults.wins.length > 0 ? 'bg-[#E29578]' : 'bg-[#83C5BE]'}`}>
@@ -360,8 +391,9 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool }) => {
               >
                 Got It
               </button>
+              </motion.div>
             </motion.div>
-          </motion.div>
+          </FocusTrap>
         )}
       </AnimatePresence>
     </motion.div>

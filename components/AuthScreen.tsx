@@ -105,10 +105,11 @@ const AuthScreen: React.FC = () => {
                 exit={{ height: 0, opacity: 0 }}
                 className="space-y-2 overflow-hidden"
               >
-                <label className="text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-4">Full Name</label>
+                <label htmlFor="auth-display-name" className="text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-4">Full Name</label>
                 <div className="relative">
                   <UserIcon className="absolute left-6 top-1/2 -translate-y-1/2 text-[#83C5BE]" size={18} />
                   <input
+                    id="auth-display-name"
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
@@ -122,10 +123,11 @@ const AuthScreen: React.FC = () => {
             )}
           </AnimatePresence>
           <div className="space-y-2">
-            <label className="text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-4">Email Address</label>
+            <label htmlFor="auth-email" className="text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-4">Email Address</label>
             <div className="relative">
               <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-[#83C5BE]" size={18} />
               <input
+                id="auth-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -137,10 +139,11 @@ const AuthScreen: React.FC = () => {
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-4">Password</label>
+            <label htmlFor="auth-password" className="text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-4">Password</label>
             <div className="relative">
               <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-[#83C5BE]" size={18} />
               <input
+                id="auth-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

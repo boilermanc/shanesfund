@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Send,
   Bell,
@@ -14,11 +15,13 @@ import {
   CreditCard,
   Users as UsersIcon,
   AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
-import { useAdminTheme } from '../../hooks/useAdminTheme';
+import { useAdminTheme, getAdminTheme } from '../../hooks/useAdminTheme';
 import { supabase } from '../../lib/supabase';
-import { sendNotification, sendPoolNotification } from '../../services/notificationService';
-import type { Notification } from '../../services/notificationService';
+import { sendNotification, sendPoolNotification } from '../../services/notifications';
+import type { Notification } from '../../types/database';
+import FocusTrap from '../FocusTrap';
 
 type NotifTab = 'send' | 'recent' | 'stats';
 
@@ -69,20 +72,10 @@ const SendTab: React.FC = () => {
   const [dataJson, setDataJson] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [userCount, setUserCount] = useState<number | null>(null);
 
-  const t = {
-    cardBg: isDark ? 'bg-zinc-900' : 'bg-white',
-    cardBorder: isDark ? 'border-zinc-800' : 'border-zinc-200',
-    textPrimary: isDark ? 'text-zinc-100' : 'text-zinc-900',
-    textSecondary: isDark ? 'text-zinc-400' : 'text-zinc-600',
-    textMuted: isDark ? 'text-zinc-500' : 'text-zinc-500',
-    inputBg: isDark ? 'bg-zinc-800' : 'bg-zinc-50',
-    inputBorder: isDark ? 'border-zinc-700' : 'border-zinc-300',
-    inputText: isDark ? 'text-zinc-100' : 'text-zinc-900',
-    placeholder: isDark ? 'placeholder-zinc-600' : 'placeholder-zinc-400',
-    buttonBg: isDark ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200',
-    buttonText: isDark ? 'text-zinc-300' : 'text-zinc-700',
-  };
+  const t = getAdminTheme(isDark);
 
   const handleSend = async () => {
     if (!title || !message) return;
@@ -125,10 +118,10 @@ const SendTab: React.FC = () => {
           setIsSending(false);
           return;
         }
-        const notif = await sendNotification({ userId: userData.id, type, title, message, data: extra });
-        setResult(notif
-          ? { success: true, message: `Notification sent to ${email}` }
-          : { success: false, message: 'Failed to send notification' }
+        const { data: notif, error: sendErr } = await sendNotification({ userId: userData.id, type, title, message, data: extra });
+        setResult(sendErr
+          ? { success: false, message: sendErr }
+          : { success: true, message: `Notification sent to ${email}` }
         );
       } else {
         // All users
@@ -161,6 +154,7 @@ const SendTab: React.FC = () => {
   };
 
   return (
+    <>
     <div className="grid lg:grid-cols-2 gap-6">
       <div className={`${t.cardBg} border ${t.cardBorder} rounded-lg`}>
         <div className={`px-4 py-3 border-b ${t.cardBorder}`}>
@@ -194,8 +188,9 @@ const SendTab: React.FC = () => {
           {/* Conditional recipient input */}
           {recipientType === 'user' && (
             <div className="space-y-1.5">
-              <label className={`block text-xs font-medium ${t.textSecondary}`}>User Email</label>
+              <label htmlFor="notif-user-email" className={`block text-xs font-medium ${t.textSecondary}`}>User Email</label>
               <input
+                id="notif-user-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -206,8 +201,9 @@ const SendTab: React.FC = () => {
           )}
           {recipientType === 'pool' && (
             <div className="space-y-1.5">
-              <label className={`block text-xs font-medium ${t.textSecondary}`}>Pool ID</label>
+              <label htmlFor="notif-pool-id" className={`block text-xs font-medium ${t.textSecondary}`}>Pool ID</label>
               <input
+                id="notif-pool-id"
                 type="text"
                 value={poolId}
                 onChange={(e) => setPoolId(e.target.value)}
@@ -219,9 +215,10 @@ const SendTab: React.FC = () => {
 
           {/* Type */}
           <div className="space-y-1.5">
-            <label className={`block text-xs font-medium ${t.textSecondary}`}>Type</label>
+            <label htmlFor="notif-type" className={`block text-xs font-medium ${t.textSecondary}`}>Type</label>
             <div className="relative">
               <select
+                id="notif-type"
                 value={type}
                 onChange={(e) => setType(e.target.value as Notification['type'])}
                 className={`w-full px-3 py-2 ${t.inputBg} border ${t.inputBorder} rounded-md ${t.inputText} text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-600`}
@@ -236,8 +233,9 @@ const SendTab: React.FC = () => {
 
           {/* Title */}
           <div className="space-y-1.5">
-            <label className={`block text-xs font-medium ${t.textSecondary}`}>Title</label>
+            <label htmlFor="notif-title" className={`block text-xs font-medium ${t.textSecondary}`}>Title</label>
             <input
+              id="notif-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -248,8 +246,9 @@ const SendTab: React.FC = () => {
 
           {/* Message */}
           <div className="space-y-1.5">
-            <label className={`block text-xs font-medium ${t.textSecondary}`}>Message</label>
+            <label htmlFor="notif-message" className={`block text-xs font-medium ${t.textSecondary}`}>Message</label>
             <textarea
+              id="notif-message"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={3}
@@ -260,10 +259,11 @@ const SendTab: React.FC = () => {
 
           {/* Data JSON */}
           <div className="space-y-1.5">
-            <label className={`block text-xs font-medium ${t.textSecondary}`}>
+            <label htmlFor="notif-data" className={`block text-xs font-medium ${t.textSecondary}`}>
               Data <span className={t.textMuted}>(optional JSON)</span>
             </label>
             <textarea
+              id="notif-data"
               value={dataJson}
               onChange={(e) => setDataJson(e.target.value)}
               rows={2}
@@ -274,7 +274,17 @@ const SendTab: React.FC = () => {
 
           {/* Send */}
           <button
-            onClick={handleSend}
+            onClick={async () => {
+              if (recipientType === 'all') {
+                const { count, error } = await supabase
+                  .from('users')
+                  .select('*', { count: 'exact', head: true });
+                setUserCount(!error && count != null ? count : null);
+                setShowConfirm(true);
+              } else {
+                handleSend();
+              }
+            }}
             disabled={isSending || !title || !message}
             className={`w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 ${
               isDark ? 'disabled:bg-zinc-700 disabled:text-zinc-500' : 'disabled:bg-zinc-300 disabled:text-zinc-500'
@@ -301,7 +311,7 @@ const SendTab: React.FC = () => {
               <p className={`${t.textMuted} text-sm mt-2`}>Send a notification to see the result</p>
             </div>
           ) : (
-            <div className="flex items-start gap-3 p-4 rounded-md border ${t.cardBorder}">
+            <div className={`flex items-start gap-3 p-4 rounded-md border ${t.cardBorder}`}>
               {result.success ? (
                 <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />
               ) : (
@@ -318,6 +328,67 @@ const SendTab: React.FC = () => {
         </div>
       </div>
     </div>
+
+    {/* Bulk send confirmation modal */}
+    <AnimatePresence>
+      {showConfirm && (
+        <FocusTrap onClose={() => setShowConfirm(false)}>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+            onClick={() => setShowConfirm(false)}
+            role="alertdialog"
+            aria-modal="true"
+            aria-label="Confirm bulk notification"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              onClick={(e) => e.stopPropagation()}
+              className={`${t.cardBg} border ${t.cardBorder} rounded-lg w-full max-w-md shadow-xl`}
+            >
+            <div className={`px-5 py-4 border-b ${t.cardBorder}`}>
+              <h3 className={`text-sm font-semibold ${t.textPrimary}`}>Confirm Bulk Notification</h3>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <p className={`text-sm ${t.textSecondary}`}>
+                You are about to send a notification to <span className="font-semibold text-amber-500">{userCount != null ? `all ${userCount}` : 'all'} users</span>.
+              </p>
+              <div className={`${t.inputBg} border ${t.inputBorder} rounded-md p-3 space-y-1`}>
+                <p className={`text-xs font-medium ${t.textMuted}`}>Title</p>
+                <p className={`text-sm ${t.textPrimary}`}>{title}</p>
+                <p className={`text-xs font-medium ${t.textMuted} pt-1`}>Message</p>
+                <p className={`text-sm ${t.textSecondary}`}>{message}</p>
+              </div>
+              <p className={`text-xs ${t.textMuted}`}>This action cannot be undone.</p>
+            </div>
+            <div className={`px-5 py-3 border-t ${t.cardBorder} flex justify-end gap-2`}>
+              <button
+                onClick={() => setShowConfirm(false)}
+                className={`px-4 py-2 text-sm rounded-md ${t.buttonBg} ${t.buttonText} transition-colors`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirm(false);
+                  handleSend();
+                }}
+                className="px-4 py-2 text-sm rounded-md bg-amber-600 hover:bg-amber-500 text-white font-medium transition-colors"
+              >
+                Yes, Send to All
+              </button>
+            </div>
+            </motion.div>
+          </motion.div>
+        </FocusTrap>
+      )}
+    </AnimatePresence>
+    </>
   );
 };
 
@@ -331,33 +402,45 @@ const RecentTab: React.FC = () => {
   const { isDark } = useAdminTheme();
   const [notifications, setNotifications] = useState<RecentNotif[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [secondsAgo, setSecondsAgo] = useState(0);
 
-  const t = {
-    cardBg: isDark ? 'bg-zinc-900' : 'bg-white',
-    cardBorder: isDark ? 'border-zinc-800' : 'border-zinc-200',
-    textPrimary: isDark ? 'text-zinc-100' : 'text-zinc-900',
-    textSecondary: isDark ? 'text-zinc-400' : 'text-zinc-600',
-    textMuted: isDark ? 'text-zinc-500' : 'text-zinc-500',
-    rowHover: isDark ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50',
-    codeBg: isDark ? 'bg-zinc-800' : 'bg-zinc-100',
-    codeText: isDark ? 'text-zinc-300' : 'text-zinc-700',
-  };
+  const t = getAdminTheme(isDark);
 
   useEffect(() => {
     loadRecent();
   }, []);
 
-  const loadRecent = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
+  // Track seconds since last update
+  useEffect(() => {
+    if (!lastUpdated) return;
+    setSecondsAgo(0);
+    const interval = setInterval(() => {
+      setSecondsAgo(Math.floor((Date.now() - lastUpdated.getTime()) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lastUpdated]);
+
+  const loadRecent = async (isRefresh = false) => {
+    if (isRefresh) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
+    setError(null);
+    const { data, error: fetchErr } = await supabase
       .from('notifications')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(100);
 
-    if (error || !data) {
+    if (fetchErr || !data) {
+      setError(fetchErr?.message || 'Failed to load notifications');
       setIsLoading(false);
+      setIsRefreshing(false);
       return;
     }
 
@@ -377,6 +460,8 @@ const RecentTab: React.FC = () => {
       })) as RecentNotif[]
     );
     setIsLoading(false);
+    setIsRefreshing(false);
+    setLastUpdated(new Date());
   };
 
   const handleDelete = async (id: string) => {
@@ -394,6 +479,21 @@ const RecentTab: React.FC = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className={`flex items-center justify-between p-4 rounded-lg border ${isDark ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-200'}`}>
+        <div className="flex items-center gap-2">
+          <AlertCircle size={14} className="text-red-500 shrink-0" />
+          <p className="text-red-500 text-sm">{error}</p>
+        </div>
+        <button onClick={loadRecent} className="flex items-center gap-1 text-red-500 hover:text-red-400 text-xs font-medium shrink-0">
+          <RefreshCw size={12} />
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   if (notifications.length === 0) {
     return (
       <div className={`${t.cardBg} border ${t.cardBorder} rounded-lg p-8 text-center`}>
@@ -405,6 +505,25 @@ const RecentTab: React.FC = () => {
 
   return (
     <div className={`${t.cardBg} border ${t.cardBorder} rounded-lg overflow-hidden`}>
+      {/* Card header with refresh */}
+      <div className={`flex items-center justify-between px-4 py-3 border-b ${t.cardBorder}`}>
+        <h2 className={`text-sm font-medium ${t.textPrimary}`}>Recent Notifications</h2>
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <span className={`text-xs ${t.textMuted} hidden sm:inline`}>
+              Updated {secondsAgo < 5 ? 'just now' : `${secondsAgo}s ago`}
+            </span>
+          )}
+          <button
+            onClick={() => loadRecent(true)}
+            disabled={isRefreshing}
+            className={`p-1.5 rounded-md ${t.buttonBg} ${t.buttonText} transition-colors disabled:opacity-50`}
+            title="Refresh notifications"
+          >
+            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+          </button>
+        </div>
+      </div>
       {/* Table header */}
       <div className={`grid grid-cols-[100px_1fr_90px_1fr_1fr_60px_40px] gap-2 px-4 py-2.5 border-b ${t.cardBorder} text-[10px] font-medium ${t.textMuted} uppercase tracking-wider`}>
         <span>Time</span>
@@ -417,7 +536,7 @@ const RecentTab: React.FC = () => {
       </div>
 
       {/* Rows */}
-      <div className="divide-y divide-zinc-800/50">
+      <div className={`divide-y ${t.divider}`}>
         {notifications.map((notif) => (
           <div key={notif.id}>
             <div
@@ -481,15 +600,9 @@ const StatsTab: React.FC = () => {
   const { isDark } = useAdminTheme();
   const [stats, setStats] = useState<NotifStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const t = {
-    cardBg: isDark ? 'bg-zinc-900' : 'bg-white',
-    cardBorder: isDark ? 'border-zinc-800' : 'border-zinc-200',
-    textPrimary: isDark ? 'text-zinc-100' : 'text-zinc-900',
-    textSecondary: isDark ? 'text-zinc-400' : 'text-zinc-600',
-    textMuted: isDark ? 'text-zinc-500' : 'text-zinc-500',
-    iconBg: isDark ? 'bg-zinc-800' : 'bg-zinc-100',
-  };
+  const t = getAdminTheme(isDark);
 
   useEffect(() => {
     loadStats();
@@ -497,39 +610,54 @@ const StatsTab: React.FC = () => {
 
   const loadStats = async () => {
     setIsLoading(true);
+    setError(null);
 
-    const now = new Date();
-    const d24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
-    const d7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const d30d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    try {
+      const now = new Date();
+      const d24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+      const d7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const d30d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    const [totalRes, unreadRes, h24Res, d7Res, d30Res] = await Promise.all([
-      supabase.from('notifications').select('*', { count: 'exact', head: true }),
-      supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('read', false),
-      supabase.from('notifications').select('*', { count: 'exact', head: true }).gte('created_at', d24h),
-      supabase.from('notifications').select('*', { count: 'exact', head: true }).gte('created_at', d7d),
-      supabase.from('notifications').select('*', { count: 'exact', head: true }).gte('created_at', d30d),
-    ]);
+      const [totalRes, unreadRes, h24Res, d7Res, d30Res] = await Promise.all([
+        supabase.from('notifications').select('*', { count: 'exact', head: true }),
+        supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('read', false),
+        supabase.from('notifications').select('*', { count: 'exact', head: true }).gte('created_at', d24h),
+        supabase.from('notifications').select('*', { count: 'exact', head: true }).gte('created_at', d7d),
+        supabase.from('notifications').select('*', { count: 'exact', head: true }).gte('created_at', d30d),
+      ]);
 
-    // Type breakdown — fetch a sample of recent notifications and count by type
-    const { data: recentAll } = await supabase
-      .from('notifications')
-      .select('type')
-      .limit(10000);
+      // Check for errors in any of the count queries
+      const firstError = [totalRes, unreadRes, h24Res, d7Res, d30Res].find(r => r.error);
+      if (firstError?.error) {
+        setError(firstError.error.message || 'Failed to load notification stats');
+        setIsLoading(false);
+        return;
+      }
 
-    const byType: Record<string, number> = {};
-    for (const row of recentAll || []) {
-      byType[row.type] = (byType[row.type] || 0) + 1;
+      // Type breakdown — server-side aggregation via RPC
+      const { data: typeCounts, error: rpcError } = await supabase.rpc('get_notification_counts');
+      if (rpcError) {
+        setError(rpcError.message || 'Failed to load type breakdown');
+        setIsLoading(false);
+        return;
+      }
+
+      const byType: Record<string, number> = {};
+      for (const row of typeCounts || []) {
+        byType[row.type] = Number(row.count);
+      }
+
+      setStats({
+        total: totalRes.count || 0,
+        totalUnread: unreadRes.count || 0,
+        last24h: h24Res.count || 0,
+        last7d: d7Res.count || 0,
+        last30d: d30Res.count || 0,
+        byType,
+      });
+    } catch (err: any) {
+      setError(err.message || 'Failed to load notification stats');
     }
-
-    setStats({
-      total: totalRes.count || 0,
-      totalUnread: unreadRes.count || 0,
-      last24h: h24Res.count || 0,
-      last7d: d7Res.count || 0,
-      last30d: d30Res.count || 0,
-      byType,
-    });
     setIsLoading(false);
   };
 
@@ -537,6 +665,21 @@ const StatsTab: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className={`w-6 h-6 ${t.textMuted} animate-spin`} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={`flex items-center justify-between p-4 rounded-lg border ${isDark ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-200'}`}>
+        <div className="flex items-center gap-2">
+          <AlertCircle size={14} className="text-red-500 shrink-0" />
+          <p className="text-red-500 text-sm">{error}</p>
+        </div>
+        <button onClick={loadStats} className="flex items-center gap-1 text-red-500 hover:text-red-400 text-xs font-medium shrink-0">
+          <RefreshCw size={12} />
+          Retry
+        </button>
       </div>
     );
   }
@@ -601,14 +744,7 @@ const AdminNotifications: React.FC = () => {
   const { isDark } = useAdminTheme();
   const [activeTab, setActiveTab] = useState<NotifTab>('send');
 
-  const t = {
-    textPrimary: isDark ? 'text-zinc-100' : 'text-zinc-900',
-    textMuted: isDark ? 'text-zinc-500' : 'text-zinc-500',
-    tabActive: isDark ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-100 text-zinc-900',
-    tabInactive: isDark
-      ? 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100'
-      : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900',
-  };
+  const t = getAdminTheme(isDark);
 
   const renderTab = () => {
     switch (activeTab) {

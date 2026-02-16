@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Users, Trophy, ExternalLink, ShieldCheck, UserMinus, Loader2 } from 'lucide-react';
 import { type FriendWithProfile, getMutualPools } from '../services/friends';
 import { useStore } from '../store/useStore';
+import FocusTrap from './FocusTrap';
 
 interface FriendMiniProfileProps {
   friend: FriendWithProfile | null;
@@ -39,13 +40,17 @@ const FriendMiniProfile: React.FC<FriendMiniProfileProps> = ({ friend, onClose, 
   return (
     <AnimatePresence>
       {friend && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[1200] flex items-end justify-center"
-        >
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+        <FocusTrap onClose={onClose}>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1200] flex items-end justify-center"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${friend.displayName} profile`}
+          >
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
           <motion.div
             initial={{ y: '100%' }}
@@ -98,7 +103,8 @@ const FriendMiniProfile: React.FC<FriendMiniProfileProps> = ({ friend, onClose, 
               </button>
             </div>
           </motion.div>
-        </motion.div>
+          </motion.div>
+        </FocusTrap>
       )}
     </AnimatePresence>
   );

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, X, ArrowRight, Loader2, User as UserIcon, Eye, EyeOff } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { signIn, signUp } from '../services/auth';
+import FocusTrap from './FocusTrap';
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -74,7 +75,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
+        <FocusTrap onClose={onClose}>
           {/* Overlay */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -90,6 +91,9 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '-100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label={isLogin ? 'Sign in' : 'Create account'}
             className="fixed top-0 left-0 right-0 z-[101] max-w-lg mx-auto"
           >
             <div className="bg-[#F2E9D4] rounded-b-[2rem] sm:rounded-b-[2.5rem] p-6 sm:p-8 shadow-2xl">
@@ -134,12 +138,13 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                       exit={{ height: 0, opacity: 0 }}
                       className="space-y-2 overflow-hidden"
                     >
-                      <label className="text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-4">
+                      <label htmlFor="login-display-name" className="text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-4">
                         Full Name
                       </label>
                       <div className="relative">
                         <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-[#83C5BE]" size={18} />
                         <input
+                          id="login-display-name"
                           type="text"
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
@@ -153,12 +158,13 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                   )}
                 </AnimatePresence>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-4">
+                  <label htmlFor="login-email" className="text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-4">
                     Email Address
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-[#83C5BE]" size={18} />
                     <input
+                      id="login-email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -170,12 +176,13 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-4">
+                  <label htmlFor="login-password" className="text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-4">
                     Password
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-[#83C5BE]" size={18} />
                     <input
+                      id="login-password"
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -245,7 +252,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
               </div>
             </div>
           </motion.div>
-        </>
+        </FocusTrap>
       )}
     </AnimatePresence>
   );

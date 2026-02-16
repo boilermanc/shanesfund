@@ -1,10 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const ALLOWED_ORIGIN = "https://shanesfund.vercel.app";
+const FROM_EMAIL = "Shane's Fund <team@sproutify.app>";
+
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+function errorResponse(status: number, message: string) {
+  return new Response(
+    JSON.stringify({ success: false, error: message }),
+    { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -12,6 +22,41 @@ serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const resendApiKey = Deno.env.get("RESEND_API_KEY") ?? "";
+
+    // --- Auth: verify JWT ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return errorResponse(401, "Missing authorization header");
+    }
+
+    // Create a client with the user's JWT to verify identity
+    const supabaseAuth = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      return errorResponse(401, "Invalid or expired token");
+    }
+
+    // --- Admin check: verify user is an active admin ---
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { data: adminUser, error: adminError } = await supabase
+      .from("admin_users")
+      .select("id, role, is_active")
+      .eq("email", user.email)
+      .eq("is_active", true)
+      .single();
+
+    if (adminError || !adminUser) {
+      return errorResponse(403, "Admin access required");
+    }
+
+    // --- Parse request body ---
     const body = await req.json();
     const {
       to,
@@ -20,21 +65,12 @@ serve(async (req) => {
       subject: overrideSubject,
       html_body: overrideHtml,
       variables = {},
-      from,
       triggered_by = "admin_test",
     } = body;
 
     if (!to) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Recipient email (to) is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return errorResponse(400, "Recipient email (to) is required");
     }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const resendApiKey = Deno.env.get("RESEND_API_KEY") ?? "";
-    const supabase = createClient(supabaseUrl, supabaseKey);
 
     let subject = overrideSubject || "";
     let htmlBody = overrideHtml || "";
@@ -50,10 +86,7 @@ serve(async (req) => {
       }
       const { data, error } = await query.eq("is_active", true).single();
       if (error || !data) {
-        return new Response(
-          JSON.stringify({ success: false, error: `Template not found: ${template_name || template_id}` }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return errorResponse(404, `Template not found: ${template_name || template_id}`);
       }
       templateRow = data;
       if (!overrideSubject) subject = data.subject;
@@ -61,10 +94,7 @@ serve(async (req) => {
     }
 
     if (!subject || !htmlBody) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Subject and html_body are required (provide directly or via template)" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return errorResponse(400, "Subject and html_body are required (provide directly or via template)");
     }
 
     // Variable interpolation: replace all {{key}} with values
@@ -74,8 +104,6 @@ serve(async (req) => {
     subject = interpolate(subject, variables);
     htmlBody = interpolate(htmlBody, variables);
 
-    const fromEmail = from || "Shane's Fund <team@sproutify.app>";
-
     // Call Resend REST API
     const resendResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -84,7 +112,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: fromEmail,
+        from: FROM_EMAIL,
         to: [to],
         subject,
         html: htmlBody,
@@ -96,21 +124,21 @@ serve(async (req) => {
     const messageId = resendData.id || null;
     const errorMessage = success ? null : resendData.message || JSON.stringify(resendData);
 
-    // Log to email_logs
+    // Log to email_logs (includes sender's user ID for audit)
     const { data: logData } = await supabase
       .from("email_logs")
       .insert({
         template_id: templateRow?.id || null,
         template_name: templateRow?.name || null,
         to_email: to,
-        from_email: fromEmail,
+        from_email: FROM_EMAIL,
         subject,
         html_body: htmlBody,
         variables,
         resend_message_id: messageId,
         status: success ? "sent" : "failed",
         error_message: errorMessage,
-        triggered_by,
+        triggered_by: `${triggered_by} (user:${user.id})`,
       })
       .select("id")
       .single();
@@ -122,12 +150,9 @@ serve(async (req) => {
         log_id: logData?.id,
         error: errorMessage,
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: success ? 200 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return errorResponse(500, error.message);
   }
 });

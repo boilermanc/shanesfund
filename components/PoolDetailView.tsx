@@ -14,7 +14,9 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { getPool, leavePool } from '../services/pools';
+import type { PoolWithMembers } from '../services/pools';
 import { useStore } from '../store/useStore';
+import FocusTrap from './FocusTrap';
 
 interface PoolMemberDisplay {
   id: string;
@@ -37,7 +39,7 @@ interface PoolDetailViewProps {
 
 const PoolDetailView: React.FC<PoolDetailViewProps> = ({ poolId, onClose, onOpenLedger }) => {
   const { user } = useStore();
-  const [pool, setPool] = useState<any>(null);
+  const [pool, setPool] = useState<PoolWithMembers | null>(null);
   const [members, setMembers] = useState<PoolMemberDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,13 +102,17 @@ const PoolDetailView: React.FC<PoolDetailViewProps> = ({ poolId, onClose, onOpen
   const gameTypeColor = pool?.game_type === 'powerball' ? '#E29578' : '#006D77';
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: '100%' }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: '100%' }}
-      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="fixed inset-0 z-[550] bg-[#EDF6F9] flex flex-col"
-    >
+    <FocusTrap onClose={onClose}>
+      <motion.div
+        initial={{ opacity: 0, x: '100%' }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: '100%' }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="fixed inset-0 z-[550] bg-[#EDF6F9] flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Pool details"
+      >
       {/* Header */}
       <header className="px-4 sm:px-6 pb-4 sm:pb-6 flex items-center justify-between bg-white/40 backdrop-blur-md border-b border-[#FFDDD2] safe-area-top" style={{ paddingTop: 'max(2.5rem, calc(env(safe-area-inset-top, 0px) + 1rem))' }}>
         <button
@@ -319,7 +325,8 @@ const PoolDetailView: React.FC<PoolDetailViewProps> = ({ poolId, onClose, onOpen
           </div>
         </div>
       )}
-    </motion.div>
+      </motion.div>
+    </FocusTrap>
   );
 };
 

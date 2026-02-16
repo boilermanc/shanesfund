@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { Pool, PoolMember, InsertTables, UpdateTables } from '../types/database';
+import type { Pool, PoolMember, PoolMemberWithUser, Contribution, InsertTables, UpdateTables } from '../types/database';
 
 // Fire-and-forget: log a user action to activity_log for the social feed.
 // Auto-fetches pool name if pool_id is provided and pool_name isn't in details.
@@ -9,15 +9,16 @@ async function logActivity(
   action: string,
   details: Record<string, any> = {}
 ) {
+  const logDetails = { ...details };
   try {
-    if (poolId && !details.pool_name) {
+    if (poolId && !logDetails.pool_name) {
       const { data: pool } = await supabase
         .from('pools')
         .select('name')
         .eq('id', poolId)
         .single();
       if (pool?.name) {
-        details.pool_name = pool.name;
+        logDetails.pool_name = pool.name;
       }
     }
 
@@ -25,10 +26,10 @@ async function logActivity(
       user_id: userId,
       pool_id: poolId,
       action,
-      details,
+      details: logDetails,
     });
-  } catch {
-    // Silently ignore — activity logging should never break the main flow
+  } catch (err) {
+    console.error('[logActivity] fire-and-forget failed:', err);
   }
 }
 
@@ -47,18 +48,21 @@ export const getUserPools = async (userId: string): Promise<{ data: PoolWithMemb
     if (error) {
       return { data: null, error: error.message };
     }
-    const poolsWithCounts = await Promise.all(
-      (data || []).map(async (pool) => {
-        const { count } = await supabase
-          .from('pool_members')
-          .select('*', { count: 'exact', head: true })
-          .eq('pool_id', pool.id);
-        return {
-          ...pool,
-          members_count: count || 0,
-        };
-      })
-    );
+    const poolIds = (data || []).map((p) => p.id);
+    const { data: memberRows } = await supabase
+      .from('pool_members')
+      .select('pool_id')
+      .in('pool_id', poolIds);
+
+    const memberCountMap = new Map<string, number>();
+    for (const row of memberRows || []) {
+      memberCountMap.set(row.pool_id, (memberCountMap.get(row.pool_id) || 0) + 1);
+    }
+
+    const poolsWithCounts = (data || []).map((pool) => ({
+      ...pool,
+      members_count: memberCountMap.get(pool.id) || 0,
+    }));
     return { data: poolsWithCounts, error: null };
   } catch (err) {
     return { data: null, error: 'An unexpected error occurred' };
@@ -80,37 +84,27 @@ export const getPool = async (poolId: string): Promise<{ data: PoolWithMembers |
     return { data: null, error: 'An unexpected error occurred' };
   }
 };
-// Create a new pool and add creator as captain
+// Create a new pool and add creator as captain (atomic via RPC)
 export const createPool = async (
   pool: Omit<InsertTables<'pools'>, 'id' | 'invite_code' | 'created_at' | 'updated_at'>
 ): Promise<{ data: PoolWithMembers | null; error: string | null }> => {
   try {
-    // Create the pool
     const { data, error } = await supabase
-      .from('pools')
-      .insert(pool)
-      .select()
+      .rpc('create_pool_with_captain', {
+        p_name: pool.name,
+        p_game_type: pool.game_type,
+        p_captain_id: pool.captain_id,
+        p_is_private: pool.is_private ?? false,
+        p_contribution_amount: pool.contribution_amount ?? 10,
+        p_description: pool.description ?? null,
+        p_settings: pool.settings ?? {},
+      })
       .single();
 
     if (error) {
       return { data: null, error: error.message };
     }
 
-    // Add the creator as a captain member
-    const { error: memberError } = await supabase
-      .from('pool_members')
-      .insert({
-        pool_id: data.id,
-        user_id: pool.captain_id,
-        role: 'captain',
-      });
-
-    if (memberError) {
-      console.error('Failed to add captain as member:', memberError.message);
-      // Pool was created but member wasn't added - still return pool
-    }
-
-    // Return pool with members_count
     return {
       data: { ...data, members_count: 1 },
       error: null
@@ -188,7 +182,7 @@ export const joinPoolByCode = async (
     if (memberError) {
       return { data: null, error: memberError.message };
     }
-    logActivity(userId, pool.id, 'pool_joined', { pool_name: pool.name });
+    logActivity(userId, pool.id, 'pool_joined', { pool_name: pool.name }).catch(err => console.error('[joinPoolByCode] logActivity failed:', err));
     return { data: pool, error: null };
   } catch (err) {
     return { data: null, error: 'An unexpected error occurred' };
@@ -222,7 +216,7 @@ export const leavePool = async (
   }
 };
 // Get pool members
-export const getPoolMembers = async (poolId: string): Promise<{ data: any[] | null; error: string | null }> => {
+export const getPoolMembers = async (poolId: string): Promise<{ data: PoolMemberWithUser[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
       .from('pool_members')
@@ -231,7 +225,7 @@ export const getPoolMembers = async (poolId: string): Promise<{ data: any[] | nu
     if (error) {
       return { data: null, error: error.message };
     }
-    return { data, error: null };
+    return { data: data as unknown as PoolMemberWithUser[], error: null };
   } catch (err) {
     return { data: null, error: 'An unexpected error occurred' };
   }
@@ -262,7 +256,14 @@ export const createContribution = async (
   userId: string,
   amount: number,
   drawDate: string
-): Promise<{ data: any | null; error: string | null }> => {
+): Promise<{ data: Contribution | null; error: string | null }> => {
+  if (amount <= 0) {
+    return { data: null, error: 'Contribution amount must be greater than zero' };
+  }
+  if (amount > 10000) {
+    return { data: null, error: 'Contribution amount cannot exceed $10,000' };
+  }
+
   try {
     const { data, error } = await supabase
       .from('contributions')
@@ -281,7 +282,7 @@ export const createContribution = async (
       return { data: null, error: error.message };
     }
 
-    logActivity(userId, poolId, 'contribution_made', { amount });
+    logActivity(userId, poolId, 'contribution_made', { amount }).catch(err => console.error('[createContribution] logActivity failed:', err));
     return { data, error: null };
   } catch (err) {
     return { data: null, error: 'An unexpected error occurred' };
@@ -312,7 +313,7 @@ export const getPoolByInviteCode = async (
     return { data: null, error: 'An unexpected error occurred' };
   }
 };
-// Win checking functions
+// Win checking — delegated to check-wins edge function (server-side)
 export interface WinResult {
   ticketId: string;
   poolId: string;
@@ -321,122 +322,87 @@ export interface WinResult {
   prizeTier: string | null;
   prizeAmount: number;
 }
-const POWERBALL_PRIZES: Record<string, number> = {
-  'jackpot': 0, // Variable
-  'match_5': 1000000,
-  'match_4_bonus': 50000,
-  'match_4': 100,
-  'match_3_bonus': 100,
-  'match_3': 7,
-  'match_2_bonus': 7,
-  'match_1_bonus': 4,
-  'match_bonus': 4,
+
+// Prize amounts for display only — the actual win determination happens server-side
+const PRIZE_AMOUNTS: Record<string, Record<string, number>> = {
+  powerball: {
+    jackpot: 0, match_5: 1_000_000, match_4_bonus: 50_000, match_4: 100,
+    match_3_bonus: 100, match_3: 7, match_2_bonus: 7, match_1_bonus: 4, match_bonus: 4,
+  },
+  mega_millions: {
+    jackpot: 0, match_5: 1_000_000, match_4_bonus: 10_000, match_4: 500,
+    match_3_bonus: 200, match_3: 10, match_2_bonus: 10, match_1_bonus: 4, match_bonus: 2,
+  },
 };
-const MEGA_MILLIONS_PRIZES: Record<string, number> = {
-  'jackpot': 0, // Variable
-  'match_5': 1000000,
-  'match_4_bonus': 10000,
-  'match_4': 500,
-  'match_3_bonus': 200,
-  'match_3': 10,
-  'match_2_bonus': 10,
-  'match_1_bonus': 4,
-  'match_bonus': 2,
+
+// Map tier name to (numbersMatched, bonusMatched) for display
+const TIER_MATCH_INFO: Record<string, { numbers: number; bonus: boolean }> = {
+  jackpot: { numbers: 5, bonus: true },
+  match_5: { numbers: 5, bonus: false },
+  match_4_bonus: { numbers: 4, bonus: true },
+  match_4: { numbers: 4, bonus: false },
+  match_3_bonus: { numbers: 3, bonus: true },
+  match_3: { numbers: 3, bonus: false },
+  match_2_bonus: { numbers: 2, bonus: true },
+  match_1_bonus: { numbers: 1, bonus: true },
+  match_bonus: { numbers: 0, bonus: true },
 };
-function determinePrizeTier(mainMatches: number, bonusMatch: boolean): string | null {
-  if (mainMatches === 5 && bonusMatch) return 'jackpot';
-  if (mainMatches === 5) return 'match_5';
-  if (mainMatches === 4 && bonusMatch) return 'match_4_bonus';
-  if (mainMatches === 4) return 'match_4';
-  if (mainMatches === 3 && bonusMatch) return 'match_3_bonus';
-  if (mainMatches === 3) return 'match_3';
-  if (mainMatches === 2 && bonusMatch) return 'match_2_bonus';
-  if (mainMatches === 1 && bonusMatch) return 'match_1_bonus';
-  if (mainMatches === 0 && bonusMatch) return 'match_bonus';
-  return null;
-}
+
+const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL || 'https://fhinyhfvezctknrsmzgp.supabase.co'}/functions/v1/check-wins`;
+
 export async function checkTicketsForDraw(
   gameType: 'powerball' | 'mega_millions'
 ): Promise<{ wins: WinResult[]; checkedCount: number; error: string | null }> {
   try {
-    // Get the latest draw for this game
-    const { data: draw, error: drawError } = await supabase
-      .from('lottery_draws')
-      .select('*')
-      .eq('game_type', gameType)
-      .order('draw_date', { ascending: false })
-      .limit(1)
-      .single();
-    if (drawError || !draw) {
-      return { wins: [], checkedCount: 0, error: 'No draw data found' };
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return { wins: [], checkedCount: 0, error: 'Not authenticated' };
     }
-    // Get all unchecked tickets for this game type and draw date
-    const { data: tickets, error: ticketsError } = await supabase
-      .from('tickets')
-      .select('*')
-      .eq('game_type', gameType)
-      .eq('draw_date', draw.draw_date)
-      .eq('checked', false);
-    if (ticketsError) {
-      return { wins: [], checkedCount: 0, error: ticketsError.message };
+
+    const response = await fetch(EDGE_FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ game_type: gameType }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      return { wins: [], checkedCount: 0, error: result.error || 'Win check failed' };
     }
-    if (!tickets || tickets.length === 0) {
-      return { wins: [], checkedCount: 0, error: null };
-    }
+
+    // The edge function returns aggregate prize_tiers: { "match_3": 2, "match_bonus": 1 }
+    // Map them back to the WinResult[] shape the UI expects for display.
+    const gameResult = result.results?.find(
+      (r: any) => r.game_type === gameType
+    );
+
     const wins: WinResult[] = [];
-    const winningNumbers = draw.winning_numbers as number[];
-    const winningBonus = draw.bonus_number as number;
-    for (const ticket of tickets) {
-      const ticketNumbers = ticket.numbers as number[];
-      const ticketBonus = ticket.bonus_number as number;
-      // Count main number matches
-      const mainMatches = ticketNumbers.filter(n => winningNumbers.includes(n)).length;
-      const bonusMatch = ticketBonus === winningBonus;
-      // Determine prize tier
-      const prizeTier = determinePrizeTier(mainMatches, bonusMatch);
-      if (prizeTier) {
-        const prizeTable = gameType === 'mega_millions' ? MEGA_MILLIONS_PRIZES : POWERBALL_PRIZES;
-        const prizeAmount = prizeTable[prizeTier] || 0;
-        // Insert winning record
-        const { error: winError } = await supabase
-          .from('winnings')
-          .insert({
-            ticket_id: ticket.id,
-            pool_id: ticket.pool_id,
-            prize_amount: prizeAmount,
-            prize_tier: prizeTier,
-            numbers_matched: mainMatches,
-            bonus_matched: bonusMatch,
-            draw_date: draw.draw_date,
-          });
-        if (!winError) {
+    if (gameResult?.prize_tiers) {
+      const prizes = PRIZE_AMOUNTS[gameType] || {};
+      for (const [tier, count] of Object.entries(gameResult.prize_tiers)) {
+        const info = TIER_MATCH_INFO[tier];
+        for (let i = 0; i < (count as number); i++) {
           wins.push({
-            ticketId: ticket.id,
-            poolId: ticket.pool_id,
-            numbersMatched: mainMatches,
-            bonusMatched: bonusMatch,
-            prizeTier,
-            prizeAmount,
-          });
-          logActivity(ticket.entered_by, ticket.pool_id, 'win_detected', {
-            amount: prizeAmount,
-            prize_tier: prizeTier,
+            ticketId: '',
+            poolId: '',
+            numbersMatched: info?.numbers ?? 0,
+            bonusMatched: info?.bonus ?? false,
+            prizeTier: tier,
+            prizeAmount: prizes[tier] ?? 0,
           });
         }
-        // Mark ticket as winner
-        await supabase
-          .from('tickets')
-          .update({ checked: true, is_winner: true })
-          .eq('id', ticket.id);
-      } else {
-        // Mark ticket as checked (no win)
-        await supabase
-          .from('tickets')
-          .update({ checked: true, is_winner: false })
-          .eq('id', ticket.id);
       }
     }
-    return { wins, checkedCount: tickets.length, error: null };
+
+    return {
+      wins,
+      checkedCount: gameResult?.tickets_checked ?? 0,
+      error: null,
+    };
   } catch (err) {
     console.error('Error checking tickets:', err);
     return { wins: [], checkedCount: 0, error: 'Failed to check tickets' };

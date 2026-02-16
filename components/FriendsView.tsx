@@ -279,6 +279,9 @@ const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests
                       key={pool.id}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => onOpenPool(pool.id)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPool(pool.id); } }}
+                      role="button"
+                      tabIndex={0}
                       className="min-w-[140px] sm:min-w-[170px] bg-white p-4 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border border-[#FFDDD2] warm-shadow flex flex-col items-center text-center group cursor-pointer hover:border-[#83C5BE] transition-all snap-center first:ml-0"
                     >
                       <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#EDF6F9] mb-3 sm:mb-4 flex items-center justify-center text-[#E29578] group-hover:scale-110 transition-transform">
@@ -323,6 +326,9 @@ const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests
                     key={friend.id}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => onOpenProfile(friend)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenProfile(friend); } }}
+                    role="button"
+                    tabIndex={0}
                     className="bg-white p-3 sm:p-4 rounded-[1.5rem] sm:rounded-[2rem] border border-[#FFDDD2] flex items-center justify-between group cursor-pointer hover:bg-[#EDF6F9]/30 transition-colors"
                   >
                     <div className="flex items-center gap-3 sm:gap-4">

@@ -8,6 +8,7 @@ import {
   DEFAULT_PREFERENCES,
   type NotificationPreferences,
 } from '../services/notifications';
+import FocusTrap from './FocusTrap';
 
 interface NotificationSettingsProps {
   onClose: () => void;
@@ -76,13 +77,17 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ onClose }) 
   };
 
   return (
-    <motion.div
-      initial={{ x: '100%' }}
-      animate={{ x: 0 }}
-      exit={{ x: '100%' }}
-      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="fixed inset-0 z-[570] bg-[#EDF6F9] flex flex-col"
-    >
+    <FocusTrap onClose={onClose}>
+      <motion.div
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="fixed inset-0 z-[570] bg-[#EDF6F9] flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Notification settings"
+      >
       {/* Header */}
       <header className="px-4 sm:px-6 pt-10 sm:pt-14 pb-4 sm:pb-6 flex items-center justify-between bg-white/40 backdrop-blur-md border-b border-[#FFDDD2]">
         <button
@@ -170,7 +175,8 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ onClose }) 
           </p>
         </div>
       </main>
-    </motion.div>
+      </motion.div>
+    </FocusTrap>
   );
 };
 

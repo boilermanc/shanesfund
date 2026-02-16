@@ -5,6 +5,7 @@ import { useInsights } from '../hooks/useInsights';
 import { updateSavingsGoal } from '../services/insights';
 import type { MonthlyWinning, WinningTicketDetail, PoolStat } from '../services/insights';
 import { useStore } from '../store/useStore';
+import FocusTrap from './FocusTrap';
 
 function formatCurrency(amount: number): string {
   return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -17,7 +18,14 @@ const ProgressGauge: React.FC<{ percentage: number; goal: string; label: string;
   const strokeDashoffset = circumference - (clamped / 100) * circumference;
 
   return (
-    <div className="relative flex flex-col items-center justify-center py-4 sm:py-6">
+    <div
+      role="progressbar"
+      aria-valuenow={Math.round(clamped)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label="Savings goal progress"
+      className="relative flex flex-col items-center justify-center py-4 sm:py-6"
+    >
       <svg className="w-40 h-40 sm:w-48 sm:h-48 transform -rotate-90">
         <circle
           cx="50%"
@@ -46,12 +54,12 @@ const ProgressGauge: React.FC<{ percentage: number; goal: string; label: string;
         <span className="text-2xl sm:text-3xl font-black text-[#006D77] tracking-tighter">{Math.round(clamped)}%</span>
         <span className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mt-1">to Goal</span>
       </div>
-      <div className="mt-4 sm:mt-6 flex items-center gap-2 group cursor-pointer relative" onClick={onEdit}>
+      <button type="button" className="mt-4 sm:mt-6 flex items-center gap-2 group cursor-pointer relative" onClick={onEdit}>
         <p className="text-xs sm:text-sm font-bold text-[#006D77]">{label}: <span className="font-black">{goal}</span></p>
         <div className="p-1 rounded-full bg-[#EDF6F9] text-[#83C5BE] group-hover:text-[#E29578] transition-colors">
           <Edit3 size={12} />
         </div>
-      </div>
+      </button>
     </div>
   );
 };
@@ -105,20 +113,24 @@ const EditGoalModal: React.FC<{ currentGoal: number; onSave: (amount: number) =>
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[600] flex items-center justify-center p-4 sm:p-6"
-    >
-      <div className="absolute inset-0 bg-[#006D77]/40 backdrop-blur-xl" onClick={onClose} />
+    <FocusTrap onClose={onClose} autoFocusFirst={false}>
       <motion.div
-        initial={{ y: 50, scale: 0.9, opacity: 0 }}
-        animate={{ y: 0, scale: 1, opacity: 1 }}
-        exit={{ y: 50, scale: 0.9, opacity: 0 }}
-        className="relative w-full max-w-xs bg-[#EDF6F9] rounded-[2.5rem] sm:rounded-[3rem] p-6 sm:p-8 border border-[#FFDDD2] warm-shadow"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[600] flex items-center justify-center p-4 sm:p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit savings goal"
       >
-        <h2 className="text-lg sm:text-xl font-black text-[#006D77] tracking-tighter mb-4">Edit Goal</h2>
+        <div className="absolute inset-0 bg-[#006D77]/40 backdrop-blur-xl" onClick={onClose} />
+        <motion.div
+          initial={{ y: 50, scale: 0.9, opacity: 0 }}
+          animate={{ y: 0, scale: 1, opacity: 1 }}
+          exit={{ y: 50, scale: 0.9, opacity: 0 }}
+          className="relative w-full max-w-xs bg-[#EDF6F9] rounded-[2.5rem] sm:rounded-[3rem] p-6 sm:p-8 border border-[#FFDDD2] warm-shadow"
+        >
+          <h2 className="text-lg sm:text-xl font-black text-[#006D77] tracking-tighter mb-4">Edit Goal</h2>
         <div className="relative mb-4">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-[#83C5BE]">$</span>
           <input
@@ -143,9 +155,10 @@ const EditGoalModal: React.FC<{ currentGoal: number; onSave: (amount: number) =>
           >
             Save
           </button>
-        </div>
+          </div>
+        </motion.div>
       </motion.div>
-    </motion.div>
+    </FocusTrap>
   );
 };
 
@@ -167,7 +180,7 @@ const BarChart: React.FC<{ data: MonthlyWinning[]; onBarClick: (month: string) =
         {data.some(d => d.value > 0) ? (
           <div className="flex items-end justify-between h-32 sm:h-40 md:h-56 px-2">
             {data.map((item, i) => (
-              <div key={i} className="flex flex-col items-center gap-2 sm:gap-3 flex-1 group cursor-pointer" onClick={() => item.value > 0 && onBarClick(item.label)}>
+              <div key={i} className="flex flex-col items-center gap-2 sm:gap-3 flex-1 group cursor-pointer" onClick={() => item.value > 0 && onBarClick(item.label)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (item.value > 0) onBarClick(item.label); } }} role="button" tabIndex={0}>
                 <div className="relative w-full flex justify-center items-end h-full">
                   <motion.div
                     initial={{ height: 0 }}
@@ -203,19 +216,23 @@ interface WinningTicket {
 
 const WinningTicketsModal: React.FC<{ month: string; tickets: WinningTicket[]; onClose: () => void }> = ({ month, tickets, onClose }) => {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[600] flex items-center justify-center p-4 sm:p-6"
-    >
-      <div className="absolute inset-0 bg-[#006D77]/40 backdrop-blur-xl" onClick={onClose} />
+    <FocusTrap onClose={onClose}>
       <motion.div
-        initial={{ y: 50, scale: 0.9, opacity: 0 }}
-        animate={{ y: 0, scale: 1, opacity: 1 }}
-        exit={{ y: 50, scale: 0.9, opacity: 0 }}
-        className="relative w-full max-w-sm bg-[#EDF6F9] rounded-[2.5rem] sm:rounded-[3rem] p-6 sm:p-8 border border-[#FFDDD2] warm-shadow max-h-[80vh] overflow-y-auto"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[600] flex items-center justify-center p-4 sm:p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${month} winnings`}
       >
+        <div className="absolute inset-0 bg-[#006D77]/40 backdrop-blur-xl" onClick={onClose} />
+        <motion.div
+          initial={{ y: 50, scale: 0.9, opacity: 0 }}
+          animate={{ y: 0, scale: 1, opacity: 1 }}
+          exit={{ y: 50, scale: 0.9, opacity: 0 }}
+          className="relative w-full max-w-sm bg-[#EDF6F9] rounded-[2.5rem] sm:rounded-[3rem] p-6 sm:p-8 border border-[#FFDDD2] warm-shadow max-h-[80vh] overflow-y-auto"
+        >
         <div className="flex justify-between items-start mb-6 sm:mb-8">
           <div>
             <h2 className="text-xl sm:text-2xl font-black text-[#006D77] tracking-tighter">{month} Winnings</h2>
@@ -267,9 +284,10 @@ const WinningTicketsModal: React.FC<{ month: string; tickets: WinningTicket[]; o
           className="w-full mt-6 sm:mt-8 py-3 sm:py-4 bg-[#006D77] text-white font-black text-[10px] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.3em] rounded-[1.5rem] sm:rounded-[1.8rem] shadow-lg shadow-[#006D77]/20"
         >
           Close Report
-        </button>
+          </button>
+        </motion.div>
       </motion.div>
-    </motion.div>
+    </FocusTrap>
   );
 };
 
@@ -325,14 +343,14 @@ const WealthInsights: React.FC = () => {
   const setUser = useStore((s) => s.setUser);
   const { insights, loading } = useInsights(user?.id);
 
-  const savingsGoal = (user as any)?.savings_goal as number | null;
+  const savingsGoal = user?.savings_goal ?? null;
 
   const handleSaveGoal = async (amount: number) => {
     if (!user) return;
     setEditingGoal(false);
 
     // Optimistic update
-    setUser({ ...user, savings_goal: amount } as any);
+    setUser({ ...user, savings_goal: amount });
 
     const { error } = await updateSavingsGoal(user.id, amount);
     if (error) {

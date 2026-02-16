@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Bell, User as UserIcon, AlertCircle, ArrowLeft, Send } from 'lucide-react';
-import { Pool } from '../types';
+import type { DisplayPool } from '../types/database';
+import FocusTrap from './FocusTrap';
 
 interface Member {
   id: string;
@@ -12,7 +13,7 @@ interface Member {
 }
 
 interface ContributionLedgerProps {
-  pool: Pool;
+  pool: DisplayPool;
   onClose: () => void;
 }
 
@@ -43,13 +44,17 @@ const ContributionLedger: React.FC<ContributionLedgerProps> = ({ pool, onClose }
   const pendingCount = members.filter(m => !m.paid).length;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: '100%' }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: '100%' }}
-      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="fixed inset-0 z-[550] bg-[#EDF6F9] flex flex-col"
-    >
+    <FocusTrap onClose={onClose}>
+      <motion.div
+        initial={{ opacity: 0, x: '100%' }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: '100%' }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="fixed inset-0 z-[550] bg-[#EDF6F9] flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Contribution ledger"
+      >
       {/* Header */}
       <header className="px-4 sm:px-6 pb-4 sm:pb-6 flex items-center justify-between bg-white/40 backdrop-blur-md border-b border-[#FFDDD2] safe-area-top" style={{ paddingTop: 'max(2.5rem, calc(env(safe-area-inset-top, 0px) + 1rem))' }}>
         <button 
@@ -86,8 +91,15 @@ const ContributionLedger: React.FC<ContributionLedgerProps> = ({ pool, onClose }
               </div>
             </div>
 
-            <div className="h-3 sm:h-4 w-full bg-white/30 rounded-full overflow-hidden border border-white/50">
-              <motion.div 
+            <div
+              role="progressbar"
+              aria-valuenow={Math.round((totalCollected / totalNeeded) * 100)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Contribution collection progress"
+              className="h-3 sm:h-4 w-full bg-white/30 rounded-full overflow-hidden border border-white/50"
+            >
+              <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${(totalCollected / totalNeeded) * 100}%` }}
                 className="h-full bg-[#006D77]"
@@ -198,7 +210,8 @@ const ContributionLedger: React.FC<ContributionLedgerProps> = ({ pool, onClose }
           </AnimatePresence>
         </motion.button>
       </div>
-    </motion.div>
+      </motion.div>
+    </FocusTrap>
   );
 };
 

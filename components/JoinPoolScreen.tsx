@@ -4,12 +4,8 @@ import { X, QrCode, Keyboard, ArrowRight, Check, Users, Loader2, DollarSign, Cre
 import ShaneMascot from './ShaneMascot';
 import { useStore } from '../store/useStore';
 import { getPoolByInviteCode, joinPoolByCode, createContribution } from '../services/pools';
-import type { Pool } from '../types/database';
-
-interface PoolWithMembers extends Pool {
-  members_count?: number;
-  pool_members?: any[];
-}
+import type { PoolWithMembers } from '../services/pools';
+import FocusTrap from './FocusTrap';
 
 interface JoinPoolScreenProps {
   onClose: () => void;
@@ -94,7 +90,7 @@ const JoinPoolScreen: React.FC<JoinPoolScreenProps> = ({ onClose, onJoinSuccess 
     }
 
     if (data) {
-      addPool(data as any);
+      addPool(data);
       setStep('payment');
     }
 
@@ -132,8 +128,8 @@ const JoinPoolScreen: React.FC<JoinPoolScreenProps> = ({ onClose, onJoinSuccess 
     }
 
     // Trigger confetti
-    if (typeof (window as any).confetti === 'function') {
-      (window as any).confetti({
+    if (typeof window.confetti === 'function') {
+      window.confetti({
         particleCount: 150,
         spread: 80,
         origin: { y: 0.6 },
@@ -156,12 +152,16 @@ const JoinPoolScreen: React.FC<JoinPoolScreenProps> = ({ onClose, onJoinSuccess 
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[750] bg-black flex flex-col"
-    >
+    <FocusTrap onClose={onClose}>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[750] bg-black flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Join pool"
+      >
       {step === 'input' && mode === 'scan' ? (
         <div className="absolute inset-0 overflow-hidden">
           <video
@@ -491,7 +491,8 @@ const JoinPoolScreen: React.FC<JoinPoolScreenProps> = ({ onClose, onJoinSuccess 
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+      </motion.div>
+    </FocusTrap>
   );
 };
 

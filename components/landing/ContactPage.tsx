@@ -187,8 +187,9 @@ const SupportForm: React.FC = () => {
       <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
         <div className="grid sm:grid-cols-2 gap-5 sm:gap-6">
           <div className="space-y-2">
-            <label className="text-sm font-bold text-[#006D77]">Full Name</label>
+            <label htmlFor="contact-name" className="text-sm font-bold text-[#006D77]">Full Name</label>
             <input
+              id="contact-name"
               required
               type="text"
               value={formData.name}
@@ -198,8 +199,9 @@ const SupportForm: React.FC = () => {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-bold text-[#006D77]">Email Address</label>
+            <label htmlFor="contact-email" className="text-sm font-bold text-[#006D77]">Email Address</label>
             <input
+              id="contact-email"
               required
               type="email"
               value={formData.email}
@@ -211,8 +213,9 @@ const SupportForm: React.FC = () => {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-bold text-[#006D77]">Subject</label>
+          <label htmlFor="contact-subject" className="text-sm font-bold text-[#006D77]">Subject</label>
           <select
+            id="contact-subject"
             value={formData.subject}
             onChange={(e) => setFormData({...formData, subject: e.target.value})}
             className="w-full bg-[#EDF6F9] border-2 border-[#83C5BE]/30 rounded-xl sm:rounded-2xl px-4 sm:px-5 py-3 sm:py-4 focus:ring-4 focus:ring-[#006D77]/20 focus:border-[#006D77] transition-all outline-none text-[#006D77] appearance-none cursor-pointer"
@@ -227,8 +230,9 @@ const SupportForm: React.FC = () => {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-bold text-[#006D77]">Message</label>
+          <label htmlFor="contact-message" className="text-sm font-bold text-[#006D77]">Message</label>
           <textarea
+            id="contact-message"
             required
             rows={5}
             value={formData.message}

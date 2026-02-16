@@ -16,6 +16,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab }) => {
     { id: 'friends', icon: Heart, label: 'Friends' },
     { id: 'spacer', icon: null, label: '' },
     { id: 'results', icon: ClipboardList, label: 'Results' },
+    { id: 'insights', icon: BarChart3, label: 'Insights' },
     { id: 'profile', icon: User, label: 'Profile' },
   ];
 
@@ -24,6 +25,8 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab }) => {
       initial={{ y: 100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ type: 'spring', damping: 20, stiffness: 100 }}
+      role="navigation"
+      aria-label="Main navigation"
       className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[45] px-3 sm:px-4 bottom-nav-safe md:hidden"
     >
       <div className="relative h-16 sm:h-20 bg-[#EDF6F9]/80 backdrop-blur-xl border border-[#83C5BE] rounded-[2rem] sm:rounded-[2.5rem] px-1 sm:px-2 flex justify-around items-center warm-shadow pointer-events-auto shadow-[0_15px_40px_-10px_rgba(255,221,210,1)]">
@@ -39,18 +42,20 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab }) => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className="relative flex flex-col items-center justify-center p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all outline-none"
+              aria-label={tab.label}
+              aria-current={isActive ? 'page' : undefined}
+              className="relative flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-xl sm:rounded-2xl transition-all outline-none"
             >
               <div className="relative">
                 <motion.div
                   animate={{
-                    scale: isActive ? 1.2 : 1,
+                    scale: isActive ? 1.15 : 1,
                     color: isActive ? '#006D77' : '#83C5BE'
                   }}
                   className={isActive ? 'opacity-100' : 'opacity-60'}
                 >
-                  <Icon size={20} strokeWidth={isActive ? 3 : 2} className="sm:hidden" />
-                  <Icon size={24} strokeWidth={isActive ? 3 : 2} className="hidden sm:block" />
+                  <Icon size={18} strokeWidth={isActive ? 3 : 2} className="sm:hidden" />
+                  <Icon size={22} strokeWidth={isActive ? 3 : 2} className="hidden sm:block" />
                 </motion.div>
                 <AnimatePresence>
                   {tab.id === 'home' && unreadCount > 0 && (
@@ -66,10 +71,12 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab }) => {
                   )}
                 </AnimatePresence>
               </div>
-              
+              <span className={`text-[9px] sm:text-[10px] font-bold mt-0.5 transition-colors ${isActive ? 'text-[#006D77]' : 'text-[#83C5BE]/60'}`}>
+                {tab.label}
+              </span>
               <AnimatePresence>
                 {isActive && (
-                  <motion.div 
+                  <motion.div
                     layoutId="navIndicator"
                     className="absolute -bottom-0.5 sm:-bottom-1 w-1 h-1 sm:w-1.5 sm:h-1.5 bg-[#E29578] rounded-full"
                     transition={{ type: 'spring', damping: 15, stiffness: 300 }}

@@ -3,21 +3,22 @@ import {
   Zap,
   Play,
   Clock,
+  Check,
   CheckCircle2,
   XCircle,
   ChevronDown,
   Copy,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { useAdminTheme } from '../../hooks/useAdminTheme';
+import { useAdminTheme, getAdminTheme } from '../../hooks/useAdminTheme';
 interface ApiConnection {
   id: string;
   name: string;
   provider: string;
   base_url: string;
-  api_key: string;
   additional_config: {
     headers?: Record<string, string>;
     endpoints?: Record<string, string>;
@@ -38,26 +39,11 @@ const ApiTester: React.FC = () => {
   const [customParams, setCustomParams] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingConnections, setIsFetchingConnections] = useState(true);
+  const [connectionsError, setConnectionsError] = useState<string | null>(null);
   const [result, setResult] = useState<TestResult | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Theme classes
-  const t = {
-    cardBg: isDark ? 'bg-zinc-900' : 'bg-white',
-    cardBorder: isDark ? 'border-zinc-800' : 'border-zinc-200',
-    textPrimary: isDark ? 'text-zinc-100' : 'text-zinc-900',
-    textSecondary: isDark ? 'text-zinc-400' : 'text-zinc-600',
-    textMuted: isDark ? 'text-zinc-500' : 'text-zinc-500',
-    inputBg: isDark ? 'bg-zinc-800' : 'bg-zinc-50',
-    inputBorder: isDark ? 'border-zinc-700' : 'border-zinc-300',
-    inputText: isDark ? 'text-zinc-100' : 'text-zinc-900',
-    placeholder: isDark ? 'placeholder-zinc-600' : 'placeholder-zinc-400',
-    codeBg: isDark ? 'bg-zinc-800' : 'bg-zinc-100',
-    codeText: isDark ? 'text-zinc-300' : 'text-zinc-700',
-    buttonBg: isDark ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200',
-    buttonText: isDark ? 'text-zinc-300' : 'text-zinc-700',
-    iconMuted: isDark ? 'text-zinc-700' : 'text-zinc-300',
-    copyButton: isDark ? 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200',
-  };
+  const t = getAdminTheme(isDark);
   useEffect(() => {
     loadConnections();
   }, []);
@@ -65,9 +51,12 @@ const ApiTester: React.FC = () => {
     setIsFetchingConnections(true);
     const { data, error } = await supabase
       .from('api_connections')
-      .select('*')
+      .select('id, name, provider, base_url, additional_config')
       .eq('is_active', true);
-    if (data) {
+    if (error) {
+      setConnectionsError(error.message || 'Failed to load API connections');
+    } else if (data) {
+      setConnectionsError(null);
       setConnections(data);
       if (data.length > 0) {
         setSelectedConnection(data[0]);
@@ -102,11 +91,6 @@ const ApiTester: React.FC = () => {
         body: {
           url: fullUrl,
           method: 'GET',
-          headers: {
-            'authorization': `apikey ${selectedConnection.api_key}`,
-            'content-type': 'application/json',
-            ...selectedConnection.additional_config?.headers
-          },
           connection_id: selectedConnection.id
         }
       });
@@ -150,8 +134,14 @@ const ApiTester: React.FC = () => {
     }
     setIsLoading(false);
   };
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }).catch(() => {
+      setCopiedId('error');
+      setTimeout(() => setCopiedId(null), 2000);
+    });
   };
   const endpoints = selectedConnection?.additional_config?.endpoints || {};
   if (isFetchingConnections) {
@@ -174,11 +164,25 @@ const ApiTester: React.FC = () => {
             <h2 className={`text-sm font-medium ${t.textPrimary}`}>Request</h2>
           </div>
           <div className="p-4 space-y-4">
+            {/* Connection Error */}
+            {connectionsError && (
+              <div className={`flex items-center justify-between p-3 rounded-md border ${isDark ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-200'}`}>
+                <div className="flex items-center gap-2">
+                  <AlertCircle size={14} className="text-red-500 shrink-0" />
+                  <p className="text-red-500 text-sm">{connectionsError}</p>
+                </div>
+                <button onClick={loadConnections} className="flex items-center gap-1 text-red-500 hover:text-red-400 text-xs font-medium shrink-0">
+                  <RefreshCw size={12} />
+                  Retry
+                </button>
+              </div>
+            )}
             {/* Connection Selector */}
             <div className="space-y-2">
-              <label className={`block text-xs font-medium ${t.textSecondary}`}>API Connection</label>
+              <label htmlFor="api-connection" className={`block text-xs font-medium ${t.textSecondary}`}>API Connection</label>
               <div className="relative">
                 <select
+                  id="api-connection"
                   value={selectedConnection?.id || ''}
                   onChange={(e) => {
                     const conn = connections.find(c => c.id === e.target.value);
@@ -198,9 +202,10 @@ const ApiTester: React.FC = () => {
             </div>
             {/* Endpoint Selector */}
             <div className="space-y-2">
-              <label className={`block text-xs font-medium ${t.textSecondary}`}>Endpoint</label>
+              <label htmlFor="api-endpoint" className={`block text-xs font-medium ${t.textSecondary}`}>Endpoint</label>
               <div className="relative">
                 <select
+                  id="api-endpoint"
                   value={selectedEndpoint}
                   onChange={(e) => setSelectedEndpoint(e.target.value)}
                   className={`w-full px-3 py-2 ${t.inputBg} border ${t.inputBorder} rounded-md ${t.inputText} text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-600`}
@@ -217,10 +222,11 @@ const ApiTester: React.FC = () => {
             </div>
             {/* Custom Parameters */}
             <div className="space-y-2">
-              <label className={`block text-xs font-medium ${t.textSecondary}`}>
+              <label htmlFor="api-params" className={`block text-xs font-medium ${t.textSecondary}`}>
                 Query Parameters <span className={t.textMuted}>(optional)</span>
               </label>
               <input
+                id="api-params"
                 type="text"
                 value={customParams}
                 onChange={(e) => setCustomParams(e.target.value)}
@@ -297,10 +303,12 @@ const ApiTester: React.FC = () => {
                 {result.data && (
                   <div className="relative">
                     <button
-                      onClick={() => copyToClipboard(JSON.stringify(result.data, null, 2))}
-                      className={`absolute top-2 right-2 p-1.5 ${t.copyButton} rounded transition-colors`}
+                      onClick={() => copyToClipboard(JSON.stringify(result.data, null, 2), 'response')}
+                      className={`absolute top-2 right-2 p-1.5 rounded transition-colors ${
+                        copiedId === 'response' ? 'text-emerald-500' : copiedId === 'error' ? 'text-red-500' : t.copyButton
+                      }`}
                     >
-                      <Copy size={14} />
+                      {copiedId === 'response' ? <Check size={14} /> : <Copy size={14} />}
                     </button>
                     <pre className={`p-3 ${t.codeBg} rounded-md text-xs ${t.codeText} overflow-auto max-h-64 font-mono`}>
                       {JSON.stringify(result.data, null, 2)}

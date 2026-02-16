@@ -26,6 +26,14 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue,
   }, [totalPoolValue, springValue]);
   // Get first name safely
   const firstName = user?.display_name?.split(' ')[0] || 'Friend';
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'Good Morning';
+    if (hour >= 12 && hour < 17) return 'Good Afternoon';
+    if (hour >= 17 && hour < 21) return 'Good Evening';
+    return 'Good Night';
+  };
   return (
     <div className="space-y-4 sm:space-y-6 md:space-y-8 pt-4 sm:pt-6 md:pt-8">
       {/* Greeting Header */}
@@ -39,7 +47,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue,
               Shane's Fund
             </h2>
             <h1 className="text-[10px] sm:text-xs font-black text-[#006D77] tracking-tight opacity-60">
-              Good Morning, {firstName}
+              {getGreeting()}, {firstName}
             </h1>
           </div>
         </div>

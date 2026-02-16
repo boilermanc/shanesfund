@@ -4,6 +4,8 @@ import { X, ArrowRight, Check, Sparkles, Lock, Globe, Loader2, Copy, Share2, Inf
 import ShaneMascot from './ShaneMascot';
 import { useStore } from '../store/useStore';
 import { createPool } from '../services/pools';
+import type { PoolWithMembers } from '../services/pools';
+import FocusTrap from './FocusTrap';
 
 interface CreatePoolWizardProps {
   onClose: () => void;
@@ -19,7 +21,7 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
   const [isPrivate, setIsPrivate] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [createdPool, setCreatedPool] = useState<any>(null);
+  const [createdPool, setCreatedPool] = useState<PoolWithMembers | null>(null);
   const [copied, setCopied] = useState(false);
 
   const handleNext = () => {
@@ -61,8 +63,8 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
   };
 
   const triggerConfetti = () => {
-    if (typeof (window as any).confetti === 'function') {
-      (window as any).confetti({
+    if (typeof window.confetti === 'function') {
+      window.confetti({
         particleCount: 150,
         spread: 80,
         origin: { y: 0.6 },
@@ -117,12 +119,16 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
   const progress = ((step + 1) / 3) * 100;
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[600] flex items-center justify-center p-3 sm:p-6"
-    >
+    <FocusTrap onClose={onClose} autoFocusFirst={false}>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[600] flex items-center justify-center p-3 sm:p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Create pool"
+      >
       <div
         className="absolute inset-0 bg-[#006D77]/40 backdrop-blur-xl"
         onClick={step !== 3 ? onClose : undefined}
@@ -134,7 +140,14 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
         className="relative w-full max-w-md bg-white rounded-[2rem] sm:rounded-[3.5rem] p-5 sm:p-8 border border-[#FFDDD2] warm-shadow overflow-hidden flex flex-col modal-max-height"
       >
         {step < 3 && (
-          <div className="absolute top-0 left-0 right-0 h-1 sm:h-1.5 bg-[#EDF6F9]">
+          <div
+            role="progressbar"
+            aria-valuenow={Math.round(progress)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Pool creation wizard progress"
+            className="absolute top-0 left-0 right-0 h-1 sm:h-1.5 bg-[#EDF6F9]"
+          >
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
@@ -367,7 +380,8 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
           </AnimatePresence>
         </div>
       </motion.div>
-    </motion.div>
+      </motion.div>
+    </FocusTrap>
   );
 };
 

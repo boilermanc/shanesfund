@@ -76,29 +76,31 @@ export async function getLatestDraws(): Promise<{
   powerball: LotteryDraw | null;
   megaMillions: LotteryDraw | null;
 }> {
-  // Try Supabase first (primary source)
-  const { data: powerballData, error: pbError } = await supabase
-    .from('lottery_draws')
-    .select('*')
-    .eq('game_type', 'powerball')
-    .order('draw_date', { ascending: false })
-    .limit(1)
-    .single();
-  if (pbError && pbError.code !== 'PGRST116') {
-    console.error('Error fetching Powerball:', pbError);
+  // Try Supabase first (primary source) — fetch both in parallel
+  const [pbResult, mmResult] = await Promise.all([
+    supabase
+      .from('lottery_draws')
+      .select('*')
+      .eq('game_type', 'powerball')
+      .order('draw_date', { ascending: false })
+      .limit(1)
+      .single(),
+    supabase
+      .from('lottery_draws')
+      .select('*')
+      .eq('game_type', 'mega_millions')
+      .order('draw_date', { ascending: false })
+      .limit(1)
+      .single(),
+  ]);
+  if (pbResult.error && pbResult.error.code !== 'PGRST116') {
+    console.error('Error fetching Powerball:', pbResult.error);
   }
-  const { data: megaData, error: mmError } = await supabase
-    .from('lottery_draws')
-    .select('*')
-    .eq('game_type', 'mega_millions')
-    .order('draw_date', { ascending: false })
-    .limit(1)
-    .single();
-  if (mmError && mmError.code !== 'PGRST116') {
-    console.error('Error fetching Mega Millions:', mmError);
+  if (mmResult.error && mmResult.error.code !== 'PGRST116') {
+    console.error('Error fetching Mega Millions:', mmResult.error);
   }
-  let powerball = powerballData as LotteryDraw | null;
-  let megaMillions = megaData as LotteryDraw | null;
+  let powerball = pbResult.data as LotteryDraw | null;
+  let megaMillions = mmResult.data as LotteryDraw | null;
   // Fallback to NY Open Data API if Supabase has no data
   if (!powerball || !megaMillions) {
     const apiResults = await fetchLatestFromNYOpenData();
@@ -124,7 +126,7 @@ export async function getDrawHistory(
   return data as LotteryDraw[];
 }
 export function formatJackpot(amount: number | null): string {
-  if (!amount) return 'TBD';
+  if (amount === null || amount === undefined) return 'TBD';
   if (amount >= 1_000_000_000) {
     return `$${(amount / 1_000_000_000).toFixed(1)} BILLION`;
   } else if (amount >= 1_000_000) {

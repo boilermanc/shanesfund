@@ -212,7 +212,7 @@ export interface Database {
           id: string;
           ticket_id: string;
           pool_id: string;
-          prize_amount: number;
+          prize_amount: number | null;
           prize_tier: 'jackpot' | 'match_5' | 'match_4_bonus' | 'match_4' | 'match_3_bonus' | 'match_3' | 'match_2_bonus' | 'match_1_bonus' | 'match_bonus';
           numbers_matched: number;
           bonus_matched: boolean;
@@ -226,7 +226,7 @@ export interface Database {
           id?: string;
           ticket_id: string;
           pool_id: string;
-          prize_amount: number;
+          prize_amount: number | null;
           prize_tier: 'jackpot' | 'match_5' | 'match_4_bonus' | 'match_4' | 'match_3_bonus' | 'match_3' | 'match_2_bonus' | 'match_1_bonus' | 'match_bonus';
           numbers_matched: number;
           bonus_matched?: boolean;
@@ -240,7 +240,7 @@ export interface Database {
           id?: string;
           ticket_id?: string;
           pool_id?: string;
-          prize_amount?: number;
+          prize_amount?: number | null;
           prize_tier?: 'jackpot' | 'match_5' | 'match_4_bonus' | 'match_4' | 'match_3_bonus' | 'match_3' | 'match_2_bonus' | 'match_1_bonus' | 'match_bonus';
           numbers_matched?: number;
           bonus_matched?: boolean;
@@ -669,6 +669,24 @@ export interface Database {
         };
       };
     };
+    Functions: {
+      get_notification_counts: {
+        Args: Record<string, never>;
+        Returns: { type: string; count: number }[];
+      };
+      create_pool_with_captain: {
+        Args: {
+          p_name: string;
+          p_game_type: string;
+          p_captain_id: string;
+          p_is_private?: boolean;
+          p_contribution_amount?: number;
+          p_description?: string | null;
+          p_settings?: Json;
+        };
+        Returns: Database['public']['Tables']['pools']['Row'][];
+      };
+    };
   };
 }
 // Helper types for easier usage
@@ -694,3 +712,32 @@ export type AdminUser = Tables<'admin_users'>;
 export type ContactMessage = Tables<'contact_messages'>;
 export type EmailTemplate = Tables<'email_templates'>;
 export type EmailLog = Tables<'email_logs'>;
+
+// Joined query types (pool_members with nested user data)
+export interface PoolMemberWithUser extends PoolMember {
+  users: Pick<User, 'id' | 'display_name' | 'avatar_url' | 'email'> | null;
+}
+
+// UI display types (not direct DB rows)
+
+export interface Activity {
+  id: string;
+  type: 'scan' | 'join' | 'win' | 'contribution' | 'shane';
+  user_name: string;
+  content: string;
+  time: string;
+  avatar?: string;
+}
+
+export interface DisplayPool {
+  id: string;
+  name: string;
+  total_jackpot: number;
+  current_pool_value: number;
+  participants_count: number;
+  draw_date: string;
+  status: string;
+  game_type: string;
+  contribution_amount: number;
+  members_count: number;
+}

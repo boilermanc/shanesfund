@@ -1,20 +1,28 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Pool } from '../types';
+import type { DisplayPool } from '../types/database';
 import { Users, Calendar, ArrowUpRight } from 'lucide-react';
 
 interface PoolCarouselProps {
-  pools: Pool[];
+  pools: DisplayPool[];
   onJoin?: () => void;
   onPoolClick?: (poolId: string) => void;
 }
 
-const PoolCard: React.FC<{ pool: Pool; onJoin?: () => void; onPoolClick?: (poolId: string) => void }> = ({ pool, onJoin, onPoolClick }) => {
+const PoolCard: React.FC<{ pool: DisplayPool; onJoin?: () => void; onPoolClick?: (poolId: string) => void }> = ({ pool, onJoin, onPoolClick }) => {
+  const expectedTotal = pool.members_count * pool.contribution_amount;
+  const progressPercent = expectedTotal > 0
+    ? Math.min(100, Math.max(0, (pool.current_pool_value / expectedTotal) * 100))
+    : 0;
+
   return (
     <motion.div
       whileHover={{ y: -8 }}
       whileTap={{ scale: 0.97 }}
       onClick={() => onPoolClick?.(pool.id)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPoolClick?.(pool.id); } }}
+      role="button"
+      tabIndex={0}
       className="min-w-[260px] sm:min-w-[300px] md:min-w-0 h-[320px] sm:h-[380px] md:h-auto md:min-h-[380px] relative rounded-[2.5rem] sm:rounded-[3rem] overflow-hidden bg-white p-5 sm:p-7 flex flex-col justify-between group cursor-pointer border border-[#FFDDD2] warm-shadow transition-all duration-300"
     >
       <div className="absolute inset-0 opacity-20 pointer-events-none">
@@ -46,12 +54,20 @@ const PoolCard: React.FC<{ pool: Pool; onJoin?: () => void; onPoolClick?: (poolI
       </div>
 
       <div className="relative z-10 space-y-4 sm:space-y-5">
-        <div className="h-[3px] w-full bg-[#EDF6F9] overflow-hidden rounded-full">
-          <motion.div 
+        <div
+          role="progressbar"
+          aria-valuenow={Math.round(progressPercent)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Pool contribution progress"
+          className="h-[3px] w-full bg-[#EDF6F9] overflow-hidden rounded-full"
+        >
+          <motion.div
             initial={{ x: '-100%' }}
             animate={{ x: '0%' }}
             transition={{ duration: 1.5, delay: 0.5 }}
-            className="h-full w-[65%] bg-gradient-to-r from-[#E29578] to-[#FFDDD2]" 
+            style={{ width: `${Math.max(progressPercent, 2)}%` }}
+            className="h-full bg-gradient-to-r from-[#E29578] to-[#FFDDD2]"
           />
         </div>
         
@@ -70,7 +86,7 @@ const PoolCard: React.FC<{ pool: Pool; onJoin?: () => void; onPoolClick?: (poolI
           onClick={(e) => { e.stopPropagation(); onJoin?.(); }}
           className="w-full py-3 sm:py-4 rounded-2xl sm:rounded-3xl bg-[#E29578] text-white font-black text-xs sm:text-sm shadow-lg shadow-[#FFDDD2] hover:bg-[#006D77] transition-all"
         >
-          Join Pool ${(pool as any).contribution_amount || 5}
+          Join Pool ${pool.contribution_amount || 5}
         </button>
       </div>
     </motion.div>

@@ -2,7 +2,8 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Bell, Trophy, UserPlus, CreditCard, Users, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import type { Notification } from '../services/notificationService';
+import type { Notification } from '../types/database';
+import FocusTrap from './FocusTrap';
 
 interface NotificationsCenterProps {
   onClose: () => void;
@@ -47,13 +48,17 @@ const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onClose }) =>
   };
 
   return (
-    <motion.div
-      initial={{ x: '100%' }}
-      animate={{ x: 0 }}
-      exit={{ x: '100%' }}
-      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="fixed inset-0 z-[570] bg-[#EDF6F9] flex flex-col"
-    >
+    <FocusTrap onClose={onClose}>
+      <motion.div
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="fixed inset-0 z-[570] bg-[#EDF6F9] flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Notifications"
+      >
       {/* Header */}
       <header className="px-4 sm:px-6 pt-10 sm:pt-14 pb-4 sm:pb-6 flex items-center justify-between bg-white/40 backdrop-blur-md border-b border-[#FFDDD2]">
         <button
@@ -107,6 +112,9 @@ const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onClose }) =>
                   onClick={() => {
                     if (!notif.read) markNotificationRead(notif.id);
                   }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!notif.read) markNotificationRead(notif.id); } }}
+                  role="button"
+                  tabIndex={0}
                   className={`bg-white p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border warm-shadow flex items-center justify-between group cursor-pointer transition-all ${
                     notif.read
                       ? 'border-[#FFDDD2]/50 opacity-70'
@@ -138,7 +146,8 @@ const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onClose }) =>
                         e.stopPropagation();
                         removeNotification(notif.id);
                       }}
-                      className="p-1 rounded-lg text-[#83C5BE]/50 hover:text-[#E29578] hover:bg-[#FFDDD2]/30 opacity-0 group-hover:opacity-100 transition-all"
+                      aria-label="Dismiss notification"
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-[#83C5BE]/50 hover:text-[#E29578] hover:bg-[#FFDDD2]/30 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
                     >
                       <X size={14} />
                     </button>
@@ -167,7 +176,8 @@ const NotificationsCenter: React.FC<NotificationsCenterProps> = ({ onClose }) =>
           </div>
         )}
       </main>
-    </motion.div>
+      </motion.div>
+    </FocusTrap>
   );
 };
 

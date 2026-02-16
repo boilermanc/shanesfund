@@ -1,6 +1,17 @@
 import { supabase } from '../lib/supabase';
 import type { Friend, ActivityLog } from '../types/database';
 
+// Sanitize user input for use in PostgREST ilike filter strings.
+// Escapes SQL LIKE wildcards (%, _) and strips characters that are
+// structural in PostgREST filter syntax (, and ) which cannot be escaped.
+function sanitizeFilterInput(input: string): string {
+  return input
+    .replace(/\\/g, '\\\\') // escape backslashes first
+    .replace(/%/g, '\\%')   // SQL LIKE wildcard
+    .replace(/_/g, '\\_')   // SQL LIKE single-char wildcard
+    .replace(/[,)]/g, '');  // PostgREST structural chars (condition separator, group close)
+}
+
 // Enriched friend type with the other user's profile info
 export interface FriendWithProfile {
   id: string;
@@ -113,14 +124,15 @@ export const sendFriendRequest = async (
       return { data: null, error: insertError.message };
     }
 
-    // Create a notification for the recipient
-    await supabase.from('notifications').insert({
+    // Fire-and-forget: notify the recipient
+    supabase.from('notifications').insert({
       user_id: friendId,
       type: 'friend_request',
       title: 'New Friend Request',
       message: 'Someone wants to connect with you!',
       data: { friendship_id: friendRow.id, from_user_id: userId },
-    });
+    }).then(({ error }) => { if (error) console.error('[sendFriendRequest] notification insert failed:', error.message); })
+      .catch(err => console.error('[sendFriendRequest] notification insert failed:', err));
 
     return { data: friendRow, error: null };
   } catch (err) {
@@ -145,14 +157,15 @@ export const acceptFriendRequest = async (
       return { data: null, error: error.message };
     }
 
-    // Notify the original sender that their request was accepted
-    await supabase.from('notifications').insert({
+    // Fire-and-forget: notify the original sender
+    supabase.from('notifications').insert({
       user_id: data.user_id,
       type: 'friend_request',
       title: 'Friend Request Accepted',
       message: 'Your friend request was accepted!',
       data: { friendship_id: data.id },
-    });
+    }).then(({ error }) => { if (error) console.error('[acceptFriendRequest] notification insert failed:', error.message); })
+      .catch(err => console.error('[acceptFriendRequest] notification insert failed:', err));
 
     return { data, error: null };
   } catch (err) {
@@ -455,11 +468,13 @@ export const searchUsers = async (
       return { data: [], error: null };
     }
 
+    const sanitized = sanitizeFilterInput(trimmed);
+
     // Search users
     const { data: users, error: searchError } = await supabase
       .from('users')
       .select('id, display_name, avatar_url, email')
-      .or(`display_name.ilike.%${trimmed}%,email.ilike.%${trimmed}%`)
+      .or(`display_name.ilike.%${sanitized}%,email.ilike.%${sanitized}%`)
       .neq('id', currentUserId)
       .limit(20);
 

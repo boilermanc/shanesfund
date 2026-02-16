@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Mail, Lock, Loader2, AlertCircle, Eye, EyeOff, Sun, Moon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { useAdminTheme } from '../../hooks/useAdminTheme';
+import { useAdminTheme, getAdminTheme } from '../../hooks/useAdminTheme';
 
 interface AdminLoginProps {
   onLoginSuccess: () => void;
@@ -56,21 +56,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
     setIsLoading(false);
   };
 
-  // Theme classes
-  const t = {
-    pageBg: isDark ? 'bg-zinc-950' : 'bg-zinc-100',
-    cardBg: isDark ? 'bg-zinc-900' : 'bg-white',
-    cardBorder: isDark ? 'border-zinc-800' : 'border-zinc-200',
-    textPrimary: isDark ? 'text-zinc-100' : 'text-zinc-900',
-    textSecondary: isDark ? 'text-zinc-400' : 'text-zinc-600',
-    textMuted: isDark ? 'text-zinc-500' : 'text-zinc-500',
-    inputBg: isDark ? 'bg-zinc-800' : 'bg-zinc-50',
-    inputBorder: isDark ? 'border-zinc-700' : 'border-zinc-300',
-    inputText: isDark ? 'text-zinc-100' : 'text-zinc-900',
-    inputPlaceholder: isDark ? 'placeholder-zinc-500' : 'placeholder-zinc-400',
-    iconColor: isDark ? 'text-zinc-500' : 'text-zinc-400',
-    iconHover: isDark ? 'hover:text-zinc-300' : 'hover:text-zinc-600',
-  };
+  const t = getAdminTheme(isDark);
 
   return (
     <div className={`min-h-screen ${t.pageBg} flex items-center justify-center p-4`}>

@@ -8,6 +8,27 @@ export interface AuthResponse {
   user: User | null;
   error: AuthError | null;
 }
+/** Construct a fallback User from Supabase auth data when profile fetch fails */
+export function constructUserFromAuth(
+  authUser: { id: string; email?: string; user_metadata?: Record<string, any> },
+  displayNameOverride?: string
+): User {
+  const now = new Date().toISOString();
+  return {
+    id: authUser.id,
+    email: authUser.email || '',
+    display_name: displayNameOverride || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+    avatar_url: null,
+    subscription_tier: 'free',
+    subscription_status: 'inactive',
+    stripe_customer_id: null,
+    onboarding_completed: false,
+    notification_preferences: {},
+    savings_goal: null,
+    created_at: now,
+    updated_at: now,
+  };
+}
 // Sign up with email and password
 export const signUp = async (
   email: string,
@@ -39,19 +60,7 @@ export const signUp = async (
       if (profileError) {
         // If RLS blocks us, construct user from auth data
         console.log('Profile fetch error, using auth data:', profileError.message);
-        const constructedUser: User = {
-          id: data.user.id,
-          email: data.user.email || email,
-          display_name: displayName,
-          avatar_url: null,
-          subscription_tier: 'free',
-          subscription_status: 'inactive',
-          stripe_customer_id: null,
-          onboarding_completed: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        return { user: constructedUser, error: null };
+        return { user: constructUserFromAuth(data.user, displayName), error: null };
       }
       return { user: profile, error: null };
     }
@@ -82,20 +91,7 @@ export const signIn = async (
         .single();
       if (profileError) {
         console.log('Profile fetch error:', profileError.message);
-        // Construct user from auth data as fallback
-        const constructedUser: User = {
-          id: data.user.id,
-          email: data.user.email || email,
-          display_name: data.user.user_metadata?.full_name || email.split('@')[0],
-          avatar_url: null,
-          subscription_tier: 'free',
-          subscription_status: 'inactive',
-          stripe_customer_id: null,
-          onboarding_completed: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        return { user: constructedUser, error: null };
+        return { user: constructUserFromAuth(data.user), error: null };
       }
       return { user: profile, error: null };
     }
@@ -136,20 +132,7 @@ export const getCurrentUser = async (): Promise<AuthResponse> => {
       .single();
     if (profileError) {
       console.log('getCurrentUser profile error:', profileError.message);
-      // Construct user from auth data as fallback
-      const constructedUser: User = {
-        id: user.id,
-        email: user.email || '',
-        display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-        avatar_url: null,
-        subscription_tier: 'free',
-        subscription_status: 'inactive',
-        stripe_customer_id: null,
-        onboarding_completed: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      return { user: constructedUser, error: null };
+      return { user: constructUserFromAuth(user), error: null };
     }
     return { user: profile, error: null };
   } catch (err) {
@@ -203,20 +186,7 @@ export const onAuthStateChange = (callback: (user: User | null) => void) => {
       if (profile) {
         callback(profile);
       } else {
-        // Fallback to constructed user
-        const constructedUser: User = {
-          id: session.user.id,
-          email: session.user.email || '',
-          display_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
-          avatar_url: null,
-          subscription_tier: 'free',
-          subscription_status: 'inactive',
-          stripe_customer_id: null,
-          onboarding_completed: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        callback(constructedUser);
+        callback(constructUserFromAuth(session.user));
       }
     } else {
       callback(null);

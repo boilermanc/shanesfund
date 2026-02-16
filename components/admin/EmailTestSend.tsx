@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Send,
   Mail,
+  Check,
   CheckCircle2,
   XCircle,
   Clock,
@@ -10,7 +11,7 @@ import {
   Copy,
   AlertCircle,
 } from 'lucide-react';
-import { useAdminTheme } from '../../hooks/useAdminTheme';
+import { useAdminTheme, getAdminTheme } from '../../hooks/useAdminTheme';
 import { getEmailTemplates, sendEmail } from '../../services/email';
 import type { EmailTemplate } from '../../types/database';
 
@@ -35,24 +36,9 @@ const EmailTestSend: React.FC = () => {
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [result, setResult] = useState<SendResult | null>(null);
   const [useCustom, setUseCustom] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const t = {
-    cardBg: isDark ? 'bg-zinc-900' : 'bg-white',
-    cardBorder: isDark ? 'border-zinc-800' : 'border-zinc-200',
-    textPrimary: isDark ? 'text-zinc-100' : 'text-zinc-900',
-    textSecondary: isDark ? 'text-zinc-400' : 'text-zinc-600',
-    textMuted: isDark ? 'text-zinc-500' : 'text-zinc-500',
-    inputBg: isDark ? 'bg-zinc-800' : 'bg-zinc-50',
-    inputBorder: isDark ? 'border-zinc-700' : 'border-zinc-300',
-    inputText: isDark ? 'text-zinc-100' : 'text-zinc-900',
-    placeholder: isDark ? 'placeholder-zinc-600' : 'placeholder-zinc-400',
-    codeBg: isDark ? 'bg-zinc-800' : 'bg-zinc-100',
-    codeText: isDark ? 'text-zinc-300' : 'text-zinc-700',
-    iconMuted: isDark ? 'text-zinc-700' : 'text-zinc-300',
-    copyButton: isDark ? 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200',
-    buttonBg: isDark ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200',
-    buttonText: isDark ? 'text-zinc-300' : 'text-zinc-700',
-  };
+  const t = getAdminTheme(isDark);
 
   useEffect(() => {
     loadTemplates();
@@ -130,8 +116,14 @@ const EmailTestSend: React.FC = () => {
     setIsSending(false);
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }).catch(() => {
+      setCopiedId('error');
+      setTimeout(() => setCopiedId(null), 2000);
+    });
   };
 
   if (isLoadingTemplates) {
@@ -176,8 +168,9 @@ const EmailTestSend: React.FC = () => {
 
           {/* Recipient */}
           <div className="space-y-1.5">
-            <label className={`block text-xs font-medium ${t.textSecondary}`}>To</label>
+            <label htmlFor="email-test-to" className={`block text-xs font-medium ${t.textSecondary}`}>To</label>
             <input
+              id="email-test-to"
               type="email"
               value={toEmail}
               onChange={(e) => setToEmail(e.target.value)}
@@ -190,9 +183,10 @@ const EmailTestSend: React.FC = () => {
             <>
               {/* Template selector */}
               <div className="space-y-1.5">
-                <label className={`block text-xs font-medium ${t.textSecondary}`}>Template</label>
+                <label htmlFor="email-test-template" className={`block text-xs font-medium ${t.textSecondary}`}>Template</label>
                 <div className="relative">
                   <select
+                    id="email-test-template"
                     value={selectedTemplateId}
                     onChange={(e) => handleTemplateChange(e.target.value)}
                     className={`w-full px-3 py-2 ${t.inputBg} border ${t.inputBorder} rounded-md ${t.inputText} text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-600`}
@@ -241,8 +235,9 @@ const EmailTestSend: React.FC = () => {
             <>
               {/* Custom subject */}
               <div className="space-y-1.5">
-                <label className={`block text-xs font-medium ${t.textSecondary}`}>Subject</label>
+                <label htmlFor="email-test-subject" className={`block text-xs font-medium ${t.textSecondary}`}>Subject</label>
                 <input
+                  id="email-test-subject"
                   type="text"
                   value={customSubject}
                   onChange={(e) => setCustomSubject(e.target.value)}
@@ -253,8 +248,9 @@ const EmailTestSend: React.FC = () => {
 
               {/* Custom HTML */}
               <div className="space-y-1.5">
-                <label className={`block text-xs font-medium ${t.textSecondary}`}>HTML Body</label>
+                <label htmlFor="email-test-html" className={`block text-xs font-medium ${t.textSecondary}`}>HTML Body</label>
                 <textarea
+                  id="email-test-html"
                   value={customHtml}
                   onChange={(e) => setCustomHtml(e.target.value)}
                   rows={10}
@@ -344,10 +340,12 @@ const EmailTestSend: React.FC = () => {
                     <div className="flex items-center gap-1.5">
                       <code className={`text-xs font-mono ${t.codeText}`}>{result.message_id}</code>
                       <button
-                        onClick={() => copyToClipboard(result.message_id!)}
-                        className={`p-1 ${t.copyButton} rounded transition-colors`}
+                        onClick={() => copyToClipboard(result.message_id!, 'message_id')}
+                        className={`p-1 rounded transition-colors ${
+                          copiedId === 'message_id' ? 'text-emerald-500' : copiedId === 'error' ? 'text-red-500' : t.copyButton
+                        }`}
                       >
-                        <Copy size={12} />
+                        {copiedId === 'message_id' ? <Check size={12} /> : <Copy size={12} />}
                       </button>
                     </div>
                   </div>

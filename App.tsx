@@ -5,6 +5,7 @@ import { useStore } from './store/useStore';
 import { useAuth } from './hooks/useAuth';
 import { useNotifications } from './hooks/useNotifications';
 import { getUserPools } from './services/pools';
+import type { DisplayPool } from './types/database';
 // Components
 import DashboardHeader from './components/DashboardHeader';
 import PoolCarousel from './components/PoolCarousel';
@@ -34,19 +35,6 @@ import SkeletonLoader from './components/SkeletonLoader';
 import TopNav from './components/TopNav';
 import LandingPage from './components/landing/LandingPage';
 import AdminPage from './components/admin/AdminPage';
-// Temporary type for pool display until components are updated
-interface DisplayPool {
-  id: string;
-  name: string;
-  total_jackpot?: number;
-  current_pool_value?: number;
-  participants_count?: number;
-  draw_date?: string;
-  status?: string;
-  game_type?: string;
-  contribution_amount?: number;
-  members_count?: number;
-}
 // Main App Content (extracted for cleaner routing)
 const MainApp: React.FC = () => {
   const { user: authUser, session, loading: authLoading } = useAuth();
@@ -70,6 +58,17 @@ const MainApp: React.FC = () => {
     fetchPendingRequests,
   } = useStore();
   const [activeTab, setActiveTab] = useState('home');
+  // Update document.title based on active tab
+  useEffect(() => {
+    const titles: Record<string, string> = {
+      home: "Dashboard — Shane's Retirement Fund",
+      friends: "Friends — Shane's Retirement Fund",
+      results: "My Pools — Shane's Retirement Fund",
+      insights: "Insights — Shane's Retirement Fund",
+      profile: "Profile — Shane's Retirement Fund",
+    };
+    document.title = titles[activeTab] || "Shane's Retirement Fund";
+  }, [activeTab]);
   const [showScanner, setShowScanner] = useState(false);
   const [showCreatePool, setShowCreatePool] = useState(false);
   const [showJoinPool, setShowJoinPool] = useState(false);
@@ -129,12 +128,12 @@ const MainApp: React.FC = () => {
     name: pool.name,
     total_jackpot: 0, // Will come from lottery_draws later
     current_pool_value: Number(pool.total_collected) || 0,
-    participants_count: (pool as any).members_count || 0,
+    participants_count: pool.members_count || 0,
     draw_date: new Date().toISOString().split('T')[0],
     status: pool.status,
     game_type: pool.game_type,
     contribution_amount: Number(pool.contribution_amount) || 5,
-    members_count: (pool as any).members_count || 0,
+    members_count: pool.members_count || 0,
   }));
   const renderTabContent = () => {
     switch (activeTab) {
@@ -144,7 +143,7 @@ const MainApp: React.FC = () => {
             {isLoading ? (
               <SkeletonLoader type="header" />
             ) : (
-              <DashboardHeader user={user as any} totalPoolValue={displayPools.reduce((sum, p) => sum + (p.current_pool_value || 0), 0)} onOpenNotifications={() => setShowNotifications(true)} />
+              <DashboardHeader user={user} totalPoolValue={displayPools.reduce((sum, p) => sum + (p.current_pool_value || 0), 0)} onOpenNotifications={() => setShowNotifications(true)} />
             )}
             <section className="space-y-4">
               <div className="flex justify-between items-end px-2">
@@ -162,7 +161,7 @@ const MainApp: React.FC = () => {
               {isLoading ? (
                 <SkeletonLoader type="carousel" />
               ) : (
-                <PoolCarousel pools={displayPools as any} onJoin={() => setShowJoinPool(true)} onPoolClick={(id) => setSelectedPoolIdForDetail(id)} />
+                <PoolCarousel pools={displayPools} onJoin={() => setShowJoinPool(true)} onPoolClick={(id) => setSelectedPoolIdForDetail(id)} />
               )}
             </section>
             <section className="space-y-4 px-2">
@@ -173,7 +172,7 @@ const MainApp: React.FC = () => {
                   <SkeletonLoader type="card" />
                 </>
               ) : (
-                <PoolList pools={displayPools as any} onJoin={(pool) => setSelectedPoolIdForDetail(pool.id)} />
+                <PoolList pools={displayPools} onJoin={(pool) => setSelectedPoolIdForDetail(pool.id)} />
               )}
             </section>
           </div>
@@ -192,7 +191,7 @@ const MainApp: React.FC = () => {
         );
       case 'results':
         return (
-          <TheBoard onOpenPool={(id) => setSelectedPoolIdForDetail(id)} />
+          <TheBoard onOpenPool={(id) => setSelectedPoolIdForDetail(id)} onJoinPool={() => setShowJoinPool(true)} />
         );
       case 'insights':
         return <WealthInsights />;
@@ -268,7 +267,7 @@ const MainApp: React.FC = () => {
         )}
         {selectedPoolForLedger && (
           <ContributionLedger
-            pool={selectedPoolForLedger as any}
+            pool={selectedPoolForLedger}
             onClose={() => setSelectedPoolForLedger(null)}
           />
         )}

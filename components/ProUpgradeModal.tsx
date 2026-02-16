@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { X, Check, Zap, Scan, Search, Trophy, Sparkles } from 'lucide-react';
+import FocusTrap from './FocusTrap';
 
 interface ProUpgradeModalProps {
   onClose: () => void;
@@ -26,12 +27,16 @@ const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ onClose }) => {
   ];
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[600] flex items-end justify-center px-3 sm:px-4 pb-6 sm:pb-10"
-    >
+    <FocusTrap onClose={onClose}>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[600] flex items-end justify-center px-3 sm:px-4 pb-6 sm:pb-10"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Upgrade to Pro"
+      >
       {/* Backdrop */}
       <motion.div 
         initial={{ opacity: 0 }}
@@ -137,7 +142,8 @@ const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ onClose }) => {
           </div>
         </div>
       </motion.div>
-    </motion.div>
+      </motion.div>
+    </FocusTrap>
   );
 };
 

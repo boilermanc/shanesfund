@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Camera, Image, Trash2, Check, User as UserIcon } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import FocusTrap from './FocusTrap';
 
 interface PersonalInfoEditProps {
   onClose: () => void;
@@ -9,7 +10,7 @@ interface PersonalInfoEditProps {
 
 const PersonalInfoEdit: React.FC<PersonalInfoEditProps> = ({ onClose }) => {
   const { user, setUser } = useStore();
-  const [fullName, setFullName] = useState(user?.full_name || '');
+  const [fullName, setFullName] = useState(user?.display_name || '');
   const [tempAvatar, setTempAvatar] = useState(user?.avatar_url || '');
   const [showAvatarPopup, setShowAvatarPopup] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -18,7 +19,7 @@ const PersonalInfoEdit: React.FC<PersonalInfoEditProps> = ({ onClose }) => {
     setIsSaving(true);
     setTimeout(() => {
       if (user) {
-        setUser({ ...user, full_name: fullName, avatar_url: tempAvatar });
+        setUser({ ...user, display_name: fullName, avatar_url: tempAvatar });
       }
       setIsSaving(false);
       onClose();
@@ -32,13 +33,17 @@ const PersonalInfoEdit: React.FC<PersonalInfoEditProps> = ({ onClose }) => {
   ];
 
   return (
-    <motion.div
-      initial={{ x: '100%' }}
-      animate={{ x: 0 }}
-      exit={{ x: '100%' }}
-      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="fixed inset-0 z-[570] bg-[#EDF6F9] flex flex-col"
-    >
+    <FocusTrap onClose={onClose}>
+      <motion.div
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="fixed inset-0 z-[570] bg-[#EDF6F9] flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit profile"
+      >
       {/* Header */}
       <header className="px-4 sm:px-6 pt-10 sm:pt-14 pb-4 sm:pb-6 flex items-center justify-between bg-white/40 backdrop-blur-md border-b border-[#FFDDD2]">
         <button 
@@ -55,9 +60,13 @@ const PersonalInfoEdit: React.FC<PersonalInfoEditProps> = ({ onClose }) => {
         {/* Avatar Section */}
         <div className="flex flex-col items-center">
           <div className="relative">
-            <motion.div 
+            <motion.div
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowAvatarPopup(true)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowAvatarPopup(true); } }}
+              role="button"
+              tabIndex={0}
+              aria-label="Change avatar"
               className="w-28 h-28 sm:w-32 sm:h-32 rounded-[2rem] sm:rounded-[2.5rem] border-4 border-white shadow-xl shadow-[#FFDDD2] overflow-hidden cursor-pointer group"
             >
               <img 
@@ -83,10 +92,11 @@ const PersonalInfoEdit: React.FC<PersonalInfoEditProps> = ({ onClose }) => {
         {/* Input Section */}
         <div className="space-y-4 sm:space-y-6">
           <div className="space-y-2">
-            <label className="text-[10px] sm:text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-3 sm:ml-4">Full Name</label>
+            <label htmlFor="profile-fullname" className="text-[10px] sm:text-[11px] font-black text-[#006D77] uppercase tracking-widest ml-3 sm:ml-4">Full Name</label>
             <div className="relative">
               <UserIcon className="absolute left-5 sm:left-6 top-1/2 -translate-y-1/2 text-[#83C5BE]" size={16} />
               <input
+                id="profile-fullname"
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
@@ -161,7 +171,8 @@ const PersonalInfoEdit: React.FC<PersonalInfoEditProps> = ({ onClose }) => {
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+      </motion.div>
+    </FocusTrap>
   );
 };
 

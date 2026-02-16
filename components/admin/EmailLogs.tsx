@@ -4,10 +4,11 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  Check,
   Copy,
   Mail,
 } from 'lucide-react';
-import { useAdminTheme } from '../../hooks/useAdminTheme';
+import { useAdminTheme, getAdminTheme } from '../../hooks/useAdminTheme';
 import { getEmailLogs } from '../../services/email';
 import type { EmailLog } from '../../types/database';
 
@@ -17,24 +18,9 @@ const EmailLogs: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const t = {
-    cardBg: isDark ? 'bg-zinc-900' : 'bg-white',
-    cardBorder: isDark ? 'border-zinc-800' : 'border-zinc-200',
-    textPrimary: isDark ? 'text-zinc-100' : 'text-zinc-900',
-    textSecondary: isDark ? 'text-zinc-400' : 'text-zinc-600',
-    textMuted: isDark ? 'text-zinc-500' : 'text-zinc-500',
-    inputBg: isDark ? 'bg-zinc-800' : 'bg-zinc-50',
-    inputBorder: isDark ? 'border-zinc-700' : 'border-zinc-300',
-    inputText: isDark ? 'text-zinc-100' : 'text-zinc-900',
-    codeBg: isDark ? 'bg-zinc-800' : 'bg-zinc-100',
-    codeText: isDark ? 'text-zinc-300' : 'text-zinc-700',
-    rowHover: isDark ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50',
-    rowBg: isDark ? 'bg-zinc-800/30' : 'bg-zinc-50',
-    copyButton: isDark ? 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200',
-    buttonBg: isDark ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200',
-    buttonText: isDark ? 'text-zinc-300' : 'text-zinc-700',
-  };
+  const t = getAdminTheme(isDark);
 
   useEffect(() => {
     loadLogs();
@@ -93,8 +79,14 @@ const EmailLogs: React.FC = () => {
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }).catch(() => {
+      setCopiedId('error');
+      setTimeout(() => setCopiedId(null), 2000);
+    });
   };
 
   return (
@@ -139,7 +131,7 @@ const EmailLogs: React.FC = () => {
           <p className={`${t.textMuted} text-sm`}>No emails sent yet</p>
         </div>
       ) : (
-        <div className="divide-y divide-zinc-800/50">
+        <div className={`divide-y ${t.divider}`}>
           {logs.map((log) => (
             <div key={log.id}>
               <button
@@ -210,11 +202,13 @@ const EmailLogs: React.FC = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              copyToClipboard(log.resend_message_id!);
+                              copyToClipboard(log.resend_message_id!, log.id);
                             }}
-                            className={`p-1 ${t.copyButton} rounded transition-colors`}
+                            className={`p-1 rounded transition-colors ${
+                              copiedId === log.id ? 'text-emerald-500' : copiedId === 'error' ? 'text-red-500' : t.copyButton
+                            }`}
                           >
-                            <Copy size={10} />
+                            {copiedId === log.id ? <Check size={10} /> : <Copy size={10} />}
                           </button>
                         </div>
                       </div>

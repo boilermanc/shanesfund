@@ -1,44 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { Ticket, InsertTables, UpdateTables } from '../types/database';
 
-export interface CreateTicketInput {
-  pool_id: string;
-  game_type: 'powerball' | 'mega_millions';
-  numbers: number[];
-  bonus_number: number;
-  multiplier?: number;
-  draw_date: string;
-  entered_by: string;
-  entry_method: 'scan' | 'manual';
-  image_url?: string;
-}
-
-// Create a ticket and log the activity
-export const createTicket = async (
-  ticket: CreateTicketInput
-): Promise<{ data: Ticket | null; error: string | null }> => {
-  try {
-    const { data, error } = await supabase
-      .from('tickets')
-      .insert(ticket)
-      .select()
-      .single();
-    if (error) {
-      return { data: null, error: error.message };
-    }
-    // Fire-and-forget activity log
-    supabase.from('activity_log').insert({
-      user_id: ticket.entered_by,
-      pool_id: ticket.pool_id,
-      action: 'ticket_scanned',
-      details: { entry_method: ticket.entry_method },
-    }).then(() => {});
-    return { data, error: null };
-  } catch (err) {
-    return { data: null, error: 'Failed to create ticket' };
-  }
-};
-
 // Get all tickets for a pool
 export const getPoolTickets = async (
   poolId: string
@@ -100,11 +62,15 @@ export const getTicket = async (
     return { data: null, error: 'An unexpected error occurred' };
   }
 };
-// Add a new ticket
+// Add a new ticket (all ticket creation must go through this function)
 export const addTicket = async (
   ticket: Omit<InsertTables<'tickets'>, 'id' | 'created_at'>
 ): Promise<{ data: Ticket | null; error: string | null }> => {
   try {
+    // Reject duplicate main numbers
+    if (hasDuplicates(ticket.numbers)) {
+      return { data: null, error: 'Ticket numbers must not contain duplicates' };
+    }
     // Validate numbers based on game type
     const isValid = validateTicketNumbers(
       ticket.game_type,
@@ -122,6 +88,14 @@ export const addTicket = async (
     if (error) {
       return { data: null, error: error.message };
     }
+    // Fire-and-forget activity log
+    supabase.from('activity_log').insert({
+      user_id: ticket.entered_by,
+      pool_id: ticket.pool_id,
+      action: 'ticket_scanned',
+      details: { entry_method: ticket.entry_method },
+    }).then(({ error }) => { if (error) console.error('[addTicket] activity log failed:', error.message); })
+      .catch(err => console.error('[addTicket] activity log failed:', err));
     return { data, error: null };
   } catch (err) {
     return { data: null, error: 'An unexpected error occurred' };
@@ -193,6 +167,23 @@ export const uploadTicketImage = async (
   ticketId: string,
   file: File
 ): Promise<{ url: string | null; error: string | null }> => {
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+  const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'heic'];
+  const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return { url: null, error: 'Invalid file type. Please upload a JPEG, PNG, or WebP image.' };
+  }
+
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
+    return { url: null, error: 'Invalid file type. Please upload a JPEG, PNG, or WebP image.' };
+  }
+
+  if (file.size > MAX_SIZE) {
+    return { url: null, error: 'File too large. Maximum size is 10MB.' };
+  }
+
   try {
     const fileExt = file.name.split('.').pop();
     const filePath = `${poolId}/${ticketId}.${fileExt}`;

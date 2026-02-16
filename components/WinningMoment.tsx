@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Users, DollarSign, ArrowRight } from 'lucide-react';
+import FocusTrap from './FocusTrap';
 
 interface WinningMomentProps {
   onClose: () => void;
@@ -8,7 +9,7 @@ interface WinningMomentProps {
 
 const WinningMoment: React.FC<WinningMomentProps> = ({ onClose }) => {
   useEffect(() => {
-    if (typeof (window as any).confetti === 'function') {
+    if (typeof window.confetti === 'function') {
       const duration = 4 * 1000;
       const animationEnd = Date.now() + duration;
       const defaults = { startVelocity: 40, spread: 360, ticks: 100, zIndex: 300 };
@@ -19,12 +20,12 @@ const WinningMoment: React.FC<WinningMomentProps> = ({ onClose }) => {
         const timeLeft = animationEnd - Date.now();
         if (timeLeft <= 0) return clearInterval(interval);
         const particleCount = 60 * (timeLeft / duration);
-        (window as any).confetti(Object.assign({}, defaults, { 
+        window.confetti(Object.assign({}, defaults, { 
           particleCount, 
           origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
           colors: ['#E29578', '#006D77', '#83C5BE', '#FFDDD2']
         }));
-        (window as any).confetti(Object.assign({}, defaults, { 
+        window.confetti(Object.assign({}, defaults, { 
           particleCount, 
           origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
           colors: ['#E29578', '#006D77', '#83C5BE', '#FFDDD2']
@@ -43,12 +44,16 @@ const WinningMoment: React.FC<WinningMomentProps> = ({ onClose }) => {
   ];
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[300] bg-[#EDF6F9]/95 backdrop-blur-lg flex flex-col overflow-y-auto"
-    >
+    <FocusTrap onClose={onClose}>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[300] bg-[#EDF6F9]/95 backdrop-blur-lg flex flex-col overflow-y-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Jackpot win"
+      >
       <div className="flex-1 flex flex-col items-center pt-12 sm:pt-20 px-5 sm:px-7 pb-16 sm:pb-20">
         <motion.div
           initial={{ scale: 0, rotate: -180 }}
@@ -122,7 +127,8 @@ const WinningMoment: React.FC<WinningMomentProps> = ({ onClose }) => {
           <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform" />
         </motion.button>
       </div>
-    </motion.div>
+      </motion.div>
+    </FocusTrap>
   );
 };
 
