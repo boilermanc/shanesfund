@@ -114,3 +114,26 @@ export function preprocessForOcr(video: HTMLVideoElement): HTMLCanvasElement {
   ensureDarkOnLight(canvas);
   return canvas;
 }
+
+/** Capture an image element onto a canvas, upscaled for better OCR resolution */
+export function captureFrameFromImage(img: HTMLImageElement): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  const scale = Math.max(1, 1200 / img.naturalWidth);
+  canvas.width = img.naturalWidth * scale;
+  canvas.height = img.naturalHeight * scale;
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+/** Full preprocessing pipeline for uploaded images */
+export function preprocessImageForOcr(img: HTMLImageElement): HTMLCanvasElement {
+  const canvas = captureFrameFromImage(img);
+  toGrayscale(canvas);
+  boostContrast(canvas, 1.5);
+  applyOtsuThreshold(canvas);
+  ensureDarkOnLight(canvas);
+  return canvas;
+}

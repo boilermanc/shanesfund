@@ -1,9 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Camera, Zap, RefreshCw, Keyboard, ChevronDown, Loader2, AlertCircle } from 'lucide-react';
+import { X, Check, Camera, Zap, RefreshCw, Keyboard, ChevronDown, Loader2, AlertCircle, ImagePlus } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { addTicket, uploadTicketImage } from '../services/tickets';
-import { preprocessForOcr, captureFrame } from '../lib/imagePreprocess';
+import { preprocessForOcr, captureFrame, captureFrameFromImage, preprocessImageForOcr } from '../lib/imagePreprocess';
 import { parseTicketOcr, type ParsedPlay } from '../lib/parseTicketOcr';
 import { getOcrWorker, terminateOcrWorker } from '../lib/ocrWorker';
 
@@ -17,6 +17,7 @@ type ScanPhase = 'preview' | 'processing' | 'review';
 const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialPoolId }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { user, pools } = useStore();
 
   // Shared state
@@ -146,6 +147,74 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
     setError(null);
     setOcrProgress(0);
     setScanPhase('preview');
+  };
+
+  // Upload image from file picker
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset input so the same file can be re-selected
+    e.target.value = '';
+
+    setScanPhase('processing');
+    setOcrProgress(0);
+    setError(null);
+    setOcrRawText('');
+    stopCamera();
+
+    try {
+      // Load file into an Image element
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = objectUrl;
+      });
+
+      // Capture raw frame for display
+      const rawCanvas = captureFrameFromImage(img);
+      const dataUrl = rawCanvas.toDataURL('image/jpeg', 0.85);
+      setCapturedImageUrl(dataUrl);
+
+      // Save blob for upload
+      rawCanvas.toBlob((blob) => {
+        if (blob) setCapturedBlob(blob);
+      }, 'image/jpeg', 0.85);
+
+      // Preprocess for OCR
+      const processedCanvas = preprocessImageForOcr(img);
+      URL.revokeObjectURL(objectUrl);
+
+      // Run OCR
+      const worker = await getOcrWorker((progress) => setOcrProgress(progress));
+      const { data: { text } } = await worker.recognize(processedCanvas);
+      setOcrRawText(text);
+
+      // Parse results
+      const result = parseTicketOcr(text);
+
+      if (result.plays.length > 0) {
+        setParsedPlays(result.plays);
+        setSelectedPlayIndex(0);
+        const play = result.plays[0];
+        setEditableNumbers(play.numbers.map(n => n.toString()));
+        setEditableBonus(play.bonusNumber.toString());
+        if (play.gameType) setSelectedGame(play.gameType);
+      } else {
+        setParsedPlays([]);
+        setEditableNumbers(['', '', '', '', '']);
+        setEditableBonus('');
+      }
+
+      setScanPhase('review');
+    } catch (err) {
+      console.error('Image OCR failed:', err);
+      setError('Failed to process image. Please try again or enter manually.');
+      setScanPhase('review');
+    }
   };
 
   // Select a different parsed play
@@ -475,9 +544,25 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
         )}
       </div>
 
-      {/* ── PREVIEW PHASE: Capture button ── */}
+      {/* Hidden file input for photo upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileUpload}
+        className="hidden"
+      />
+
+      {/* ── PREVIEW PHASE: Capture + Upload buttons ── */}
       {scanPhase === 'preview' && !cameraError && (
-        <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-10 safe-area-bottom z-[420]">
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-6 pb-10 safe-area-bottom z-[420]">
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => fileInputRef.current?.click()}
+            className="p-4 rounded-full bg-white/20 backdrop-blur-md border-2 border-white/30 flex items-center justify-center"
+          >
+            <ImagePlus size={22} className="text-white" />
+          </motion.button>
           <motion.button
             whileTap={{ scale: 0.85 }}
             onClick={handleCapture}
@@ -487,16 +572,25 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
               <Camera size={28} className="text-[#006D77]" />
             </div>
           </motion.button>
+          <div className="w-[54px]" /> {/* Spacer to keep capture button centered */}
         </div>
       )}
 
-      {/* Camera error fallback button */}
+      {/* Camera error fallback buttons */}
       {scanPhase === 'preview' && cameraError && (
-        <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-10 safe-area-bottom z-[420]">
+        <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-3 px-6 pb-10 safe-area-bottom z-[420]">
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => fileInputRef.current?.click()}
+            className="flex-1 max-w-[200px] py-4 rounded-2xl bg-[#E29578] text-white font-black shadow-xl flex items-center justify-center gap-2"
+          >
+            <ImagePlus size={18} />
+            Upload Photo
+          </motion.button>
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsManualEntry(true)}
-            className="px-8 py-4 rounded-2xl bg-[#E29578] text-white font-black shadow-xl flex items-center gap-2"
+            className="flex-1 max-w-[200px] py-4 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-white font-black shadow-xl flex items-center justify-center gap-2"
           >
             <Keyboard size={18} />
             Enter Manually
