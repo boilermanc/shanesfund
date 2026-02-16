@@ -15,37 +15,7 @@ interface AuthState {
   error: string | null;
 }
 
-/** Race a promise against a timeout. Rejects with 'timeout' if too slow. */
-const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
-  Promise.race([
-    promise,
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
-  ]);
-
-/** Clear any Supabase auth data from localStorage */
-const clearSupabaseStorage = () => {
-  try {
-    for (const key of Object.keys(localStorage)) {
-      if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
-        log('[auth] removing stale localStorage key:', key);
-        localStorage.removeItem(key);
-      }
-    }
-  } catch {
-    // localStorage might be unavailable
-  }
-};
-
-const fetchProfile = async (session: Session): Promise<User> => {
-  const { data: profile } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', session.user.id)
-    .single();
-
-  if (profile) return profile;
-
-  // Fallback to constructed user when profile doesn't exist yet
+const constructFallbackUser = (session: Session): User => {
   const now = session.user.created_at || new Date().toISOString();
   return {
     id: session.user.id,
@@ -63,6 +33,18 @@ const fetchProfile = async (session: Session): Promise<User> => {
   };
 };
 
+const fetchProfile = async (session: Session): Promise<User> => {
+  const { data: profile } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profile) return profile;
+
+  return constructFallbackUser(session);
+};
+
 export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
@@ -73,67 +55,51 @@ export const useAuth = () => {
 
   useEffect(() => {
     let mounted = true;
-    let resolved = false; // prevent both paths from setting state
 
-    const setOnce = (state: AuthState) => {
-      if (!mounted || resolved) return;
-      resolved = true;
-      log('[auth] resolved:', { hasUser: !!state.user, loading: state.loading });
-      setAuthState(state);
-    };
+    const handleSession = async (session: Session | null) => {
+      if (!mounted) return;
 
-    const initSession = async () => {
-      log('[auth] initSession started');
+      if (!session) {
+        log('[auth] no session, showing landing page');
+        setAuthState({ user: null, session: null, loading: false, error: null });
+        return;
+      }
+
+      log('[auth] valid session, fetching profile...');
       try {
-        log('[auth] calling getSession (5s timeout)...');
-        const { data: { session }, error } = await withTimeout(
-          supabase.auth.getSession(),
-          5000
-        );
-        log('[auth] getSession returned:', { hasSession: !!session, error: error?.message || null });
-
-        if (error || !session) {
-          if (error) {
-            warn('[auth] session error, clearing:', error.message);
-            clearSupabaseStorage();
-          } else {
-            log('[auth] no session, showing landing page');
-          }
-          setOnce({ user: null, session: null, loading: false, error: null });
-          return;
-        }
-
-        log('[auth] valid session, fetching profile (5s timeout)...');
-        try {
-          const user = await withTimeout(fetchProfile(session), 5000);
+        const user = await fetchProfile(session);
+        if (mounted) {
           log('[auth] profile loaded:', user.display_name);
-          setOnce({ user, session, loading: false, error: null });
-        } catch (profileErr) {
-          console.error('[auth] fetchProfile failed:', profileErr);
-          setOnce({ user: null, session, loading: false, error: 'Failed to load profile' });
+          setAuthState({ user, session, loading: false, error: null });
         }
       } catch (err) {
-        // Timeout or network error — stale session hanging
-        warn('[auth] getSession timed out or crashed, clearing stale session');
-        clearSupabaseStorage();
-        supabase.auth.signOut().catch(() => {});
-        setOnce({ user: null, session: null, loading: false, error: null });
+        // Profile fetch failed but session is valid — use fallback user
+        warn('[auth] profile fetch failed, using fallback:', err);
+        if (mounted) {
+          setAuthState({
+            user: constructFallbackUser(session),
+            session,
+            loading: false,
+            error: null,
+          });
+        }
       }
     };
 
-    initSession();
-
-    // Listen for ongoing auth changes (sign in, sign out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       log('[auth] onAuthStateChange:', event, { hasSession: !!session });
       if (!mounted) return;
 
-      // Skip initial session — handled by initSession() above
-      if (event === 'INITIAL_SESSION') return;
+      // INITIAL_SESSION fires once when Supabase finishes reading storage
+      // and refreshing the token — this is the primary init path
+      if (event === 'INITIAL_SESSION') {
+        await handleSession(session);
+        return;
+      }
 
-      // Token refreshed — update session in state silently (keep existing user)
+      // Token refreshed — update session silently, keep existing user
       if (event === 'TOKEN_REFRESHED') {
-        if (session && mounted) {
+        if (session) {
           setAuthState(prev => ({ ...prev, session }));
         }
         return;
@@ -141,31 +107,31 @@ export const useAuth = () => {
 
       // Signed in or user updated — (re)fetch profile
       if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session) {
-        try {
-          const user = await withTimeout(fetchProfile(session), 5000);
-          if (mounted) {
-            setAuthState({ user, session, loading: false, error: null });
-          }
-        } catch {
-          if (mounted) {
-            // Keep existing user on profile fetch failure, just update session
-            setAuthState(prev => ({ ...prev, session, loading: false }));
-          }
-        }
+        await handleSession(session);
         return;
       }
 
       // Signed out — clear everything
       if (event === 'SIGNED_OUT') {
-        if (mounted) {
-          setAuthState({ user: null, session: null, loading: false, error: null });
-        }
+        setAuthState({ user: null, session: null, loading: false, error: null });
         return;
       }
 
-      // Any other event — log but don't change state
       log('[auth] unhandled auth event:', event);
     });
+
+    // Safety net: if INITIAL_SESSION never fires (shouldn't happen),
+    // stop showing the loading spinner after 15 seconds
+    const safetyTimeout = setTimeout(() => {
+      if (!mounted) return;
+      setAuthState(prev => {
+        if (prev.loading) {
+          warn('[auth] safety timeout — INITIAL_SESSION never fired');
+          return { ...prev, loading: false };
+        }
+        return prev;
+      });
+    }, 15000);
 
     // Re-validate session when the app returns from background
     const handleVisibilityChange = () => {
@@ -186,6 +152,7 @@ export const useAuth = () => {
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
