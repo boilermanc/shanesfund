@@ -11,6 +11,27 @@ interface AuthState {
   error: string | null;
 }
 
+/** Race a promise against a timeout. Rejects with 'timeout' if too slow. */
+const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ]);
+
+/** Clear any Supabase auth data from localStorage */
+const clearSupabaseStorage = () => {
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        console.log('[auth] removing stale localStorage key:', key);
+        localStorage.removeItem(key);
+      }
+    }
+  } catch {
+    // localStorage might be unavailable
+  }
+};
+
 const fetchProfile = async (session: Session): Promise<User> => {
   const { data: profile } = await supabase
     .from('users')
@@ -48,63 +69,65 @@ export const useAuth = () => {
 
   useEffect(() => {
     let mounted = true;
+    let resolved = false; // prevent both paths from setting state
 
-    // Eagerly check for existing session — resolves immediately even if
-    // onAuthStateChange is delayed or never fires (stale/rotated keys)
+    const setOnce = (state: AuthState) => {
+      if (!mounted || resolved) return;
+      resolved = true;
+      console.log('[auth] resolved:', { hasUser: !!state.user, loading: state.loading });
+      setAuthState(state);
+    };
+
     const initSession = async () => {
       console.log('[auth] initSession started');
       try {
-        console.log('[auth] calling getSession...');
-        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('[auth] calling getSession (5s timeout)...');
+        const { data: { session }, error } = await withTimeout(
+          supabase.auth.getSession(),
+          5000
+        );
         console.log('[auth] getSession returned:', { hasSession: !!session, error: error?.message || null });
-
-        if (!mounted) { console.log('[auth] unmounted, bailing'); return; }
 
         if (error || !session) {
           if (error) {
             console.warn('[auth] session error, clearing:', error.message);
-            await supabase.auth.signOut().catch(() => {});
+            clearSupabaseStorage();
           } else {
-            console.log('[auth] no session found, showing landing page');
+            console.log('[auth] no session, showing landing page');
           }
-          setAuthState({ user: null, session: null, loading: false, error: null });
+          setOnce({ user: null, session: null, loading: false, error: null });
           return;
         }
 
-        console.log('[auth] valid session for user:', session.user.id);
+        console.log('[auth] valid session, fetching profile (5s timeout)...');
         try {
-          const user = await fetchProfile(session);
+          const user = await withTimeout(fetchProfile(session), 5000);
           console.log('[auth] profile loaded:', user.display_name);
-          if (mounted) {
-            setAuthState({ user, session, loading: false, error: null });
-          }
+          setOnce({ user, session, loading: false, error: null });
         } catch (profileErr) {
           console.error('[auth] fetchProfile failed:', profileErr);
-          if (mounted) {
-            setAuthState({ user: null, session, loading: false, error: 'Failed to load profile' });
-          }
+          setOnce({ user: null, session, loading: false, error: 'Failed to load profile' });
         }
-      } catch (outerErr) {
-        console.error('[auth] initSession crashed:', outerErr);
-        if (mounted) {
-          setAuthState({ user: null, session: null, loading: false, error: null });
-        }
+      } catch (err) {
+        // Timeout or network error — stale session hanging
+        console.warn('[auth] getSession timed out or crashed, clearing stale session');
+        clearSupabaseStorage();
+        supabase.auth.signOut().catch(() => {});
+        setOnce({ user: null, session: null, loading: false, error: null });
       }
     };
 
-    console.log('[auth] useEffect running, calling initSession');
     initSession();
 
-    // Listen for ongoing auth changes (sign in, sign out, token refresh)
+    // Listen for ongoing auth changes (sign in, sign out)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[auth] onAuthStateChange:', event, { hasSession: !!session });
       if (!mounted) return;
-      // Skip events that don't change auth state
       if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') return;
 
       if (event === 'SIGNED_IN' && session) {
         try {
-          const user = await fetchProfile(session);
+          const user = await withTimeout(fetchProfile(session), 5000);
           if (mounted) {
             setAuthState({ user, session, loading: false, error: null });
           }
@@ -114,7 +137,6 @@ export const useAuth = () => {
           }
         }
       } else {
-        // SIGNED_OUT
         if (mounted) {
           setAuthState({ user: null, session: null, loading: false, error: null });
         }
