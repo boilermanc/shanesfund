@@ -417,7 +417,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 1.05 }}
-      className="fixed inset-0 z-[400] bg-black flex flex-col"
+      className="fixed inset-0 z-[600] bg-black flex flex-col"
     >
       {/* Camera / Captured Image Layer */}
       <div className="absolute inset-0 overflow-hidden">
