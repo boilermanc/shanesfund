@@ -15,6 +15,13 @@ interface AuthState {
   error: string | null;
 }
 
+/** Race a promise against a timeout. Rejects with 'timeout' if too slow. */
+const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ]);
+
 const constructFallbackUser = (session: Session): User => {
   const now = session.user.created_at || new Date().toISOString();
   return {
@@ -55,45 +62,69 @@ export const useAuth = () => {
 
   useEffect(() => {
     let mounted = true;
+    let resolved = false;
+
+    const setOnce = (state: AuthState) => {
+      if (!mounted || resolved) return;
+      resolved = true;
+      log('[auth] resolved:', { hasUser: !!state.user, loading: state.loading });
+      setAuthState(state);
+    };
 
     const handleSession = async (session: Session | null) => {
-      if (!mounted) return;
-
       if (!session) {
         log('[auth] no session, showing landing page');
-        setAuthState({ user: null, session: null, loading: false, error: null });
+        setOnce({ user: null, session: null, loading: false, error: null });
         return;
       }
 
       log('[auth] valid session, fetching profile...');
       try {
-        const user = await fetchProfile(session);
-        if (mounted) {
-          log('[auth] profile loaded:', user.display_name);
-          setAuthState({ user, session, loading: false, error: null });
-        }
-      } catch (err) {
-        // Profile fetch failed but session is valid — use fallback user
-        warn('[auth] profile fetch failed, using fallback:', err);
-        if (mounted) {
-          setAuthState({
-            user: constructFallbackUser(session),
-            session,
-            loading: false,
-            error: null,
-          });
-        }
+        const user = await withTimeout(fetchProfile(session), 10000);
+        log('[auth] profile loaded:', user.display_name);
+        setOnce({ user, session, loading: false, error: null });
+      } catch {
+        // Profile fetch failed/timed out but session is valid — use fallback
+        warn('[auth] profile fetch failed, using fallback user');
+        setOnce({ user: constructFallbackUser(session), session, loading: false, error: null });
       }
     };
 
+    // Primary path: call getSession directly
+    const initSession = async () => {
+      log('[auth] initSession started');
+      try {
+        const { data: { session }, error } = await withTimeout(
+          supabase.auth.getSession(),
+          15000
+        );
+        log('[auth] getSession returned:', { hasSession: !!session, error: error?.message });
+
+        if (error) {
+          warn('[auth] session error:', error.message);
+        }
+
+        await handleSession(error ? null : session);
+      } catch {
+        // Timeout — don't destroy the session, just stop loading.
+        // onAuthStateChange may still recover if token refresh completes.
+        warn('[auth] getSession timed out, stopping loader');
+        setOnce({ user: null, session: null, loading: false, error: null });
+      }
+    };
+
+    initSession();
+
+    // Listen for ongoing auth changes (sign in, sign out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       log('[auth] onAuthStateChange:', event, { hasSession: !!session });
       if (!mounted) return;
 
-      // INITIAL_SESSION fires once when Supabase finishes reading storage
-      // and refreshing the token — this is the primary init path
+      // INITIAL_SESSION — use as fallback if initSession hasn't resolved yet
       if (event === 'INITIAL_SESSION') {
-        await handleSession(session);
+        if (!resolved) {
+          await handleSession(session);
+        }
         return;
       }
 
@@ -107,31 +138,34 @@ export const useAuth = () => {
 
       // Signed in or user updated — (re)fetch profile
       if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session) {
-        await handleSession(session);
+        try {
+          const user = await withTimeout(fetchProfile(session), 10000);
+          if (mounted) {
+            setAuthState({ user, session, loading: false, error: null });
+          }
+        } catch {
+          if (mounted) {
+            setAuthState(prev => ({
+              ...prev,
+              user: prev.user || constructFallbackUser(session),
+              session,
+              loading: false,
+            }));
+          }
+        }
         return;
       }
 
       // Signed out — clear everything
       if (event === 'SIGNED_OUT') {
-        setAuthState({ user: null, session: null, loading: false, error: null });
+        if (mounted) {
+          setAuthState({ user: null, session: null, loading: false, error: null });
+        }
         return;
       }
 
       log('[auth] unhandled auth event:', event);
     });
-
-    // Safety net: if INITIAL_SESSION never fires (shouldn't happen),
-    // stop showing the loading spinner after 15 seconds
-    const safetyTimeout = setTimeout(() => {
-      if (!mounted) return;
-      setAuthState(prev => {
-        if (prev.loading) {
-          warn('[auth] safety timeout — INITIAL_SESSION never fired');
-          return { ...prev, loading: false };
-        }
-        return prev;
-      });
-    }, 15000);
 
     // Re-validate session when the app returns from background
     const handleVisibilityChange = () => {
@@ -152,7 +186,6 @@ export const useAuth = () => {
 
     return () => {
       mounted = false;
-      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
