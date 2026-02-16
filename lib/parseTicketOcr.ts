@@ -2,12 +2,16 @@
  * Parser for lottery ticket OCR text.
  * Extracts plays (5 main numbers + bonus) from raw tesseract output.
  *
- * Typical ticket format:
+ * Typical Powerball format:
  *   A  03 15 27 42 58   PB 14   PP x3
  *   B  07 19 33 44 61   PB 22
  *
- * Mega Millions variant:
- *   A  02 17 35 42 65   MB 14   3X
+ * Typical Mega Millions format (GA lottery — MB label is above the number):
+ *   A  15 16 30 53 61 QP   MB
+ *                           12 QP 2X
+ *
+ * Tesseract often splits the bonus onto a separate line, so we merge
+ * adjacent lines when a single line doesn't produce a valid play.
  */
 
 export interface ParsedPlay {
@@ -56,9 +60,29 @@ export function parseTicketOcr(ocrText: string): ParseResult {
 
   const plays: ParsedPlay[] = [];
 
-  for (const line of lines) {
-    const play = parseLine(line, documentGameType);
-    if (play) plays.push(play);
+  for (let i = 0; i < lines.length; i++) {
+    // Try parsing the line on its own
+    const play = parseLine(lines[i], documentGameType);
+    if (play) {
+      plays.push(play);
+      continue;
+    }
+
+    // Ticket layouts often split the bonus number onto the next line
+    // (e.g. "A 15 16 30 53 61 QP MB" / "12 QP 2X").
+    // Try merging with the next 1–2 lines to reassemble the full play.
+    let merged = false;
+    for (let j = 1; j <= 2 && i + j < lines.length; j++) {
+      const combined = lines.slice(i, i + j + 1).join(' ');
+      const mergedPlay = parseLine(combined, documentGameType);
+      if (mergedPlay) {
+        plays.push(mergedPlay);
+        i += j; // skip the lines we consumed
+        merged = true;
+        break;
+      }
+    }
+    if (merged) continue;
   }
 
   return { plays, rawText: ocrText };
@@ -73,9 +97,9 @@ function parseLine(
 
   // Detect game type from bonus label before normalization mangles letters
   let gameType: 'powerball' | 'mega_millions' | null = null;
-  if (/\bPB[\s\d]/i.test(normalized) || /POWERBALL/i.test(normalized)) {
+  if (/\bPB\b/i.test(normalized) || /POWERBALL/i.test(normalized)) {
     gameType = 'powerball';
-  } else if (/\bMB[\s\d]/i.test(normalized) || /MEGA/i.test(normalized)) {
+  } else if (/\bMB\b/i.test(normalized) || /MEGA/i.test(normalized)) {
     gameType = 'mega_millions';
   }
 
@@ -90,7 +114,7 @@ function parseLine(
     normalized = normalized.replace(bonusMatch[0], ' ');
   }
 
-  // Extract multiplier: "PP x3", "MP x2", "3x", "MEGAPLIER 3", "POWER PLAY 2"
+  // Extract multiplier: "PP x3", "MP x2", "3x", "2X", "MEGAPLIER 3", "POWER PLAY 2"
   let multiplier: number | undefined;
   const multMatch = normalized.match(/(?:PP|MP|MEGAPLIER|POWER\s*PLAY)\s*[xX:\s]*(\d)/i)
     || normalized.match(/(\d)\s*[xX]\s*$/);
@@ -98,6 +122,9 @@ function parseLine(
     multiplier = parseInt(multMatch[1], 10);
     normalized = normalized.replace(multMatch[0], ' ');
   }
+
+  // Strip QP (Quick Pick) markers common on lottery tickets
+  normalized = normalized.replace(/\bQP\b/gi, ' ');
 
   // Now apply OCR error corrections on the remaining text (numbers area)
   normalized = normalized
