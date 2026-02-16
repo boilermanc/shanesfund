@@ -3,9 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Camera, Zap, RefreshCw, Keyboard, ChevronDown, Loader2, AlertCircle, ImagePlus, AlertTriangle, Lock, ArrowRight, ArrowLeft, Users, Sparkles, Plus } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { addTicket, uploadTicketImage } from '../services/tickets';
-import { captureFrame, captureFrameFromImage, cropCanvas, preprocessCanvasForOcr } from '../lib/imagePreprocess';
-import { parseTicketOcr, type ParsedPlay } from '../lib/parseTicketOcr';
-import { getOcrWorker, terminateOcrWorker } from '../lib/ocrWorker';
+import { captureFrame, captureFrameFromImage } from '../lib/imagePreprocess';
 import { validateTicketForPool, validateTicketNumbers, validateDrawDate } from '../utils/ticketValidation';
 import { supabase } from '../lib/supabase';
 
@@ -20,6 +18,14 @@ interface PoolOption {
   name: string;
   game_type: 'powerball' | 'mega_millions';
   members_count: number;
+}
+
+interface ScanPlay {
+  numbers: number[];
+  bonusNumber: number;
+  multiplier?: number;
+  gameType: 'powerball' | 'mega_millions' | null;
+  raw: string;
 }
 
 interface TicketScannerProps {
@@ -56,12 +62,11 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
   const [scanPhase, setScanPhase] = useState<ScanPhase>('preview');
   const [capturedImageUrl, setCapturedImageUrl] = useState<string | null>(null);
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
-  const [ocrProgress, setOcrProgress] = useState(0);
-  const [parsedPlays, setParsedPlays] = useState<ParsedPlay[]>([]);
+  const [parsedPlays, setParsedPlays] = useState<ScanPlay[]>([]);
   const [selectedPlayIndex, setSelectedPlayIndex] = useState(0);
   const [editableNumbers, setEditableNumbers] = useState(['', '', '', '', '']);
   const [editableBonus, setEditableBonus] = useState('');
-  const [ocrRawText, setOcrRawText] = useState('');
+  const [debugText, setDebugText] = useState('');
   const [cameraError, setCameraError] = useState<string | null>(null);
 
   // Start/stop camera
@@ -96,10 +101,9 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
     };
   }, [scanPhase, startCamera, stopCamera]);
 
-  // Cleanup OCR worker and validation timer on unmount
+  // Cleanup validation timer on unmount
   useEffect(() => {
     return () => {
-      terminateOcrWorker();
       if (validationTimerRef.current) clearTimeout(validationTimerRef.current);
     };
   }, []);
@@ -150,71 +154,68 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
     fetchMatchingPools(selectedGame);
   };
 
-  // Map the CSS viewfinder rectangle to normalized video coordinates,
-  // accounting for the object-cover scaling the <video> element uses.
-  const getViewfinderRegion = () => {
-    const video = videoRef.current;
-    if (!video) return { x: 0.05, y: 0.2, w: 0.9, h: 0.35 };
+  // Send captured image to Gemini via Supabase Edge Function
+  const scanWithGemini = async (base64Image: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error('Not authenticated');
 
-    const videoW = video.videoWidth;
-    const videoH = video.videoHeight;
-    const containerW = video.clientWidth || window.innerWidth;
-    const containerH = video.clientHeight || window.innerHeight;
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scan-ticket`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ image: base64Image }),
+      }
+    );
 
-    if (!videoW || !videoH) return { x: 0.05, y: 0.2, w: 0.9, h: 0.35 };
-
-    // Viewfinder CSS dimensions (matches the overlay divs)
-    const isLarger = containerW >= 640;
-    const vfW = isLarger ? 320 : 260;
-    const vfH = isLarger ? 280 : 220;
-
-    // Viewfinder is centered (flex spacers above/below and left/right)
-    const vfLeft = (containerW - vfW) / 2;
-    const vfTop = (containerH - vfH) / 2;
-
-    // object-cover: video scales to fill container, excess is cropped
-    const containerAspect = containerW / containerH;
-    const videoAspect = videoW / videoH;
-
-    let displayW: number, displayH: number, offsetX: number, offsetY: number;
-    if (videoAspect > containerAspect) {
-      // Video wider than container — sides cropped
-      displayH = containerH;
-      displayW = containerH * videoAspect;
-      offsetX = (displayW - containerW) / 2;
-      offsetY = 0;
-    } else {
-      // Video taller than container — top/bottom cropped
-      displayW = containerW;
-      displayH = containerW / videoAspect;
-      offsetX = 0;
-      offsetY = (displayH - containerH) / 2;
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: 'Failed to scan ticket' }));
+      throw new Error(err.error || 'Failed to scan ticket');
     }
 
-    // Convert viewfinder CSS rect to normalized video coordinates
-    const x = (vfLeft + offsetX) / displayW;
-    const y = (vfTop + offsetY) / displayH;
-    const w = vfW / displayW;
-    const h = vfH / displayH;
-
-    // Add padding so edge numbers aren't cut off
-    const pad = 0.03;
-    return {
-      x: Math.max(0, x - pad),
-      y: Math.max(0, y - pad),
-      w: Math.min(1 - Math.max(0, x - pad), w + 2 * pad),
-      h: Math.min(1 - Math.max(0, y - pad), h + 2 * pad),
-    };
+    return response.json();
   };
 
-  // Capture & OCR
+  // Apply Gemini results to the form
+  const applyGeminiResults = (result: { plays?: Array<{ gameType: string; numbers: number[]; bonusNumber: number; multiplier?: number | null; drawDate?: string | null }> }) => {
+    if (result.plays && result.plays.length > 0) {
+      const plays: ScanPlay[] = result.plays.map(p => ({
+        numbers: p.numbers,
+        bonusNumber: p.bonusNumber,
+        multiplier: p.multiplier || undefined,
+        gameType: (p.gameType === 'powerball' || p.gameType === 'mega_millions') ? p.gameType : null,
+        raw: JSON.stringify(p),
+      }));
+      setParsedPlays(plays);
+      setSelectedPlayIndex(0);
+      const play = plays[0];
+      setEditableNumbers(play.numbers.map(n => n.toString()));
+      setEditableBonus(play.bonusNumber.toString());
+      if (play.gameType) setSelectedGame(play.gameType);
+      // Use draw date from ticket if available
+      const firstDrawDate = result.plays[0].drawDate;
+      if (firstDrawDate && /^\d{4}-\d{2}-\d{2}$/.test(firstDrawDate)) {
+        setDrawDate(firstDrawDate);
+      }
+      setDebugText(JSON.stringify(result, null, 2));
+    } else {
+      setParsedPlays([]);
+      setEditableNumbers(['', '', '', '', '']);
+      setEditableBonus('');
+      setDebugText(JSON.stringify(result, null, 2));
+    }
+  };
+
+  // Capture & scan with Gemini
   const handleCapture = async () => {
     if (!videoRef.current) return;
 
     setScanPhase('processing');
-    setOcrProgress(0);
     setError(null);
-    setOcrRawText('');
+    setDebugText('');
 
     try {
       // 1. Capture raw frame for display + upload
@@ -230,35 +231,15 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
       // Stop camera to save battery
       stopCamera();
 
-      // 2. Crop to viewfinder region, then preprocess for OCR
-      const cropped = cropCanvas(rawCanvas, getViewfinderRegion());
-      const processedCanvas = preprocessCanvasForOcr(cropped);
+      // 2. Send full image to Gemini (no cropping needed — AI understands context)
+      const base64 = dataUrl.split(',')[1];
+      const result = await scanWithGemini(base64);
 
-      // 3. Run OCR
-      const worker = await getOcrWorker((progress) => setOcrProgress(progress));
-      const { data: { text } } = await worker.recognize(processedCanvas);
-      setOcrRawText(text);
-
-      // 4. Parse results
-      const result = parseTicketOcr(text);
-
-      if (result.plays.length > 0) {
-        setParsedPlays(result.plays);
-        setSelectedPlayIndex(0);
-        const play = result.plays[0];
-        setEditableNumbers(play.numbers.map(n => n.toString()));
-        setEditableBonus(play.bonusNumber.toString());
-        if (play.gameType) setSelectedGame(play.gameType);
-      } else {
-        setParsedPlays([]);
-        setEditableNumbers(['', '', '', '', '']);
-        setEditableBonus('');
-      }
-
+      applyGeminiResults(result);
       setScanPhase('review');
     } catch (err) {
-      console.error('OCR failed:', err);
-      setError('OCR processing failed. Please try again or enter manually.');
+      console.error('Scan failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to process ticket. Try again or enter manually.');
       setScanPhase('review');
     }
   };
@@ -270,9 +251,8 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
     setParsedPlays([]);
     setEditableNumbers(['', '', '', '', '']);
     setEditableBonus('');
-    setOcrRawText('');
+    setDebugText('');
     setError(null);
-    setOcrProgress(0);
     setScanPhase('preview');
   };
 
@@ -285,9 +265,8 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
     e.target.value = '';
 
     setScanPhase('processing');
-    setOcrProgress(0);
     setError(null);
-    setOcrRawText('');
+    setDebugText('');
     stopCamera();
 
     try {
@@ -311,35 +290,17 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
         if (blob) setCapturedBlob(blob);
       }, 'image/jpeg', 0.85);
 
-      // Preprocess for OCR (use already-captured canvas, not img again)
-      const processedCanvas = preprocessCanvasForOcr(rawCanvas);
       URL.revokeObjectURL(objectUrl);
 
-      // Run OCR
-      const worker = await getOcrWorker((progress) => setOcrProgress(progress));
-      const { data: { text } } = await worker.recognize(processedCanvas);
-      setOcrRawText(text);
+      // Send to Gemini
+      const base64 = dataUrl.split(',')[1];
+      const result = await scanWithGemini(base64);
 
-      // Parse results
-      const result = parseTicketOcr(text);
-
-      if (result.plays.length > 0) {
-        setParsedPlays(result.plays);
-        setSelectedPlayIndex(0);
-        const play = result.plays[0];
-        setEditableNumbers(play.numbers.map(n => n.toString()));
-        setEditableBonus(play.bonusNumber.toString());
-        if (play.gameType) setSelectedGame(play.gameType);
-      } else {
-        setParsedPlays([]);
-        setEditableNumbers(['', '', '', '', '']);
-        setEditableBonus('');
-      }
-
+      applyGeminiResults(result);
       setScanPhase('review');
     } catch (err) {
-      console.error('Image OCR failed:', err);
-      setError('Failed to process image. Please try again or enter manually.');
+      console.error('Image scan failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to process image. Try again or enter manually.');
       setScanPhase('review');
     }
   };
@@ -464,7 +425,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
               playsInline
               className="absolute inset-0 w-full h-full object-cover"
             />
-            {/* Viewfinder overlay */}
+            {/* Viewfinder overlay — visual guide only, no cropping */}
             <div className="absolute inset-0 flex flex-col pointer-events-none">
               <div className="flex-1 bg-black/50" />
               <div className="flex h-[220px] sm:h-[280px]">
@@ -480,7 +441,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
               <div className="flex-1 bg-black/50 flex flex-col items-center pt-6 sm:pt-8">
                 {!cameraError && (
                   <p className="text-white/70 text-[10px] sm:text-xs font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] px-4 text-center">
-                    Position ticket numbers in frame
+                    Point camera at ticket
                   </p>
                 )}
                 {cameraError && (
@@ -622,7 +583,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
         </div>
       )}
 
-      {/* ── PROCESSING PHASE: Progress overlay ── */}
+      {/* ── PROCESSING PHASE: Analyzing overlay ── */}
       {scanPhase === 'processing' && (
         <div className="absolute inset-0 z-[415] flex flex-col items-center justify-center">
           <motion.div
@@ -635,17 +596,9 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
             </div>
             <div className="flex flex-col items-center gap-2">
               <p className="text-white font-black text-sm sm:text-base">
-                {ocrProgress === 0 ? 'Initializing...' : 'Reading ticket...'}
+                Analyzing ticket...
               </p>
-              <div className="w-48 h-2 rounded-full bg-white/20 overflow-hidden">
-                <motion.div
-                  className="h-full bg-[#83C5BE] rounded-full"
-                  initial={{ width: '5%' }}
-                  animate={{ width: `${Math.max(5, ocrProgress)}%` }}
-                  transition={{ duration: 0.3 }}
-                />
-              </div>
-              <p className="text-white/60 text-xs font-bold">{ocrProgress}%</p>
+              <p className="text-white/50 text-xs font-bold">Powered by Gemini AI</p>
             </div>
           </motion.div>
         </div>
@@ -694,7 +647,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
               </div>
               {parsedPlays.length > 0 && (
                 <div className="bg-[#EDF6F9] px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border border-[#FFDDD2]">
-                  <p className="text-[8px] sm:text-[10px] font-black text-[#006D77] uppercase tracking-wider">Scanned OCR</p>
+                  <p className="text-[8px] sm:text-[10px] font-black text-[#006D77] uppercase tracking-wider">AI Scan</p>
                 </div>
               )}
             </div>
@@ -718,7 +671,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
               </div>
             )}
 
-            {/* OCR failed message */}
+            {/* Scan failed message */}
             {parsedPlays.length === 0 && !error && (
               <div className="mb-4 p-4 rounded-2xl bg-[#FFDDD2]/30 border border-[#E29578]/30">
                 <div className="flex items-start gap-2">
@@ -731,15 +684,15 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
               </div>
             )}
 
-            {/* Raw OCR debug (collapsible) */}
-            {ocrRawText && (
+            {/* Debug info (collapsible) */}
+            {debugText && (
               <details className="mb-4">
                 <summary className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest cursor-pointer flex items-center gap-1 select-none">
-                  Raw OCR Text
+                  AI Response
                   <ChevronDown size={12} className="inline" />
                 </summary>
                 <pre className="mt-2 p-3 rounded-xl bg-[#EDF6F9] border border-[#FFDDD2] text-[10px] text-[#006D77] font-mono whitespace-pre-wrap overflow-x-auto max-h-32 overflow-y-auto">
-                  {ocrRawText}
+                  {debugText}
                 </pre>
               </details>
             )}
