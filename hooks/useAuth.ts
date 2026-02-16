@@ -47,7 +47,20 @@ export const useAuth = () => {
   });
 
   useEffect(() => {
+    // Safety timeout: if auth never resolves, stop loading after 10s
+    const timeout = setTimeout(() => {
+      setAuthState(prev => {
+        if (prev.loading) {
+          console.warn('Auth timeout — clearing stale session');
+          supabase.auth.signOut().catch(() => {});
+          return { user: null, session: null, loading: false, error: null };
+        }
+        return prev;
+      });
+    }, 10000);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      clearTimeout(timeout);
       // Token refresh doesn't change the user — skip
       if (event === 'TOKEN_REFRESHED') return;
 
@@ -64,7 +77,10 @@ export const useAuth = () => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
