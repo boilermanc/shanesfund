@@ -52,44 +52,52 @@ export const useAuth = () => {
     // Eagerly check for existing session — resolves immediately even if
     // onAuthStateChange is delayed or never fires (stale/rotated keys)
     const initSession = async () => {
+      console.log('[auth] initSession started');
       try {
+        console.log('[auth] calling getSession...');
         const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('[auth] getSession returned:', { hasSession: !!session, error: error?.message || null });
 
-        if (!mounted) return;
+        if (!mounted) { console.log('[auth] unmounted, bailing'); return; }
 
         if (error || !session) {
-          // No valid session — clear any stale tokens and stop loading
           if (error) {
-            console.warn('Session recovery failed, clearing stale auth:', error.message);
+            console.warn('[auth] session error, clearing:', error.message);
             await supabase.auth.signOut().catch(() => {});
+          } else {
+            console.log('[auth] no session found, showing landing page');
           }
           setAuthState({ user: null, session: null, loading: false, error: null });
           return;
         }
 
-        // Valid session found — load profile
+        console.log('[auth] valid session for user:', session.user.id);
         try {
           const user = await fetchProfile(session);
+          console.log('[auth] profile loaded:', user.display_name);
           if (mounted) {
             setAuthState({ user, session, loading: false, error: null });
           }
-        } catch {
+        } catch (profileErr) {
+          console.error('[auth] fetchProfile failed:', profileErr);
           if (mounted) {
             setAuthState({ user: null, session, loading: false, error: 'Failed to load profile' });
           }
         }
-      } catch {
-        // Network error or client crash — stop loading regardless
+      } catch (outerErr) {
+        console.error('[auth] initSession crashed:', outerErr);
         if (mounted) {
           setAuthState({ user: null, session: null, loading: false, error: null });
         }
       }
     };
 
+    console.log('[auth] useEffect running, calling initSession');
     initSession();
 
     // Listen for ongoing auth changes (sign in, sign out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[auth] onAuthStateChange:', event, { hasSession: !!session });
       if (!mounted) return;
       // Skip events that don't change auth state
       if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') return;
