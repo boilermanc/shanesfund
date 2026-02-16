@@ -214,7 +214,7 @@ const MainApp: React.FC = () => {
             {isLoading ? (
               <SkeletonLoader type="header" />
             ) : (
-              <DashboardHeader user={user} totalPoolValue={displayPools.reduce((sum, p) => sum + (p.current_pool_value || 0), 0)} />
+              <DashboardHeader user={user} totalPoolValue={displayPools.reduce((sum, p) => sum + (p.current_pool_value || 0), 0)} pools={displayPools} />
             )}
             <section className="space-y-4">
               <div className="flex justify-between items-end px-2">

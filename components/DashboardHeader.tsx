@@ -1,14 +1,22 @@
 import React, { useEffect } from 'react';
 import { motion, useSpring, useTransform } from 'framer-motion';
 import ShaneMascot from './ShaneMascot';
+import type { DisplayPool } from '../types/database';
+
+const GAME_NAMES: Record<string, string> = {
+  powerball: 'Powerball',
+  mega_millions: 'Mega Millions',
+};
+
 interface DashboardHeaderProps {
   user: {
     display_name?: string | null;
     avatar_url?: string | null;
   } | null;
   totalPoolValue: number;
+  pools?: DisplayPool[];
 }
-const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue }) => {
+const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue, pools = [] }) => {
   const springValue = useSpring(0, { stiffness: 45, damping: 20 });
   const displayValue = useTransform(springValue, (latest) =>
     new Intl.NumberFormat('en-US', {
@@ -30,6 +38,14 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue 
     if (hour >= 17 && hour < 21) return 'Good Evening';
     return 'Night Owl';
   };
+
+  // Find the pool with the soonest draw date for the "next draw" display
+  const nextPool = pools.length > 0
+    ? pools.reduce((soonest, pool) => pool.draw_date < soonest.draw_date ? pool : soonest)
+    : null;
+
+  const hasPools = pools.length > 0;
+
   return (
     <div className="space-y-4 sm:space-y-6 md:space-y-8 pt-4 sm:pt-6 md:pt-8">
       {/* Greeting Header */}
@@ -83,6 +99,27 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue 
                 <span className="flex h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-[#E29578] animate-pulse" />
                 <p className="text-[9px] sm:text-[10px] text-[#006D77] font-black uppercase tracking-widest">
                   Live Network Equity
+                </p>
+              </div>
+            </>
+          ) : hasPools && nextPool ? (
+            <>
+              <p className="text-[9px] sm:text-[11px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-[#006D77]/60 mb-2 sm:mb-3">
+                Next Drawing
+              </p>
+              {nextPool.total_jackpot > 0 ? (
+                <p className="text-3xl sm:text-4xl md:text-5xl font-black text-[#006D77] tracking-tight">
+                  ${(nextPool.total_jackpot / 1000000).toFixed(0)}M
+                </p>
+              ) : (
+                <p className="text-2xl sm:text-3xl md:text-4xl font-black text-[#006D77] tracking-tight">
+                  {GAME_NAMES[nextPool.game_type] || nextPool.game_type}
+                </p>
+              )}
+              <div className="mt-4 sm:mt-6 flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-white/40 border border-white/60">
+                <span className="flex h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-[#E29578] animate-pulse" />
+                <p className="text-[9px] sm:text-[10px] text-[#006D77] font-black uppercase tracking-widest">
+                  {GAME_NAMES[nextPool.game_type] || nextPool.game_type} · {new Date(nextPool.draw_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                 </p>
               </div>
             </>
