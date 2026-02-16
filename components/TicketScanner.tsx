@@ -620,11 +620,11 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
           >
             {/* Step dots */}
             <div className="flex justify-center gap-1.5 mb-4">
-              {[0, 1, 2].map(i => (
+              {(pool ? [0, 1] : [0, 1, 2]).map(i => (
                 <div
                   key={i}
                   className={`h-1.5 rounded-full transition-all ${
-                    i === 1
+                    (pool ? i === 1 : i === 1)
                       ? 'w-6 bg-[#006D77]'
                       : i === 0
                         ? 'w-1.5 bg-[#006D77]/40'
@@ -809,14 +809,47 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
 
             {/* Actions */}
             <div className="flex flex-col gap-3 sm:gap-4">
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={handleGoToPoolPicker}
-                className="w-full py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] bg-[#E29578] text-white font-black text-base sm:text-lg shadow-xl shadow-[#FFDDD2] btn-shimmer flex items-center justify-center gap-2 sm:gap-3"
-              >
-                Next: Choose Pool
-                <ArrowRight size={18} strokeWidth={3} />
-              </motion.button>
+              {pool ? (
+                /* Pool already known — save directly */
+                saveSuccess ? (
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="w-full py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] bg-green-500 text-white font-black text-base sm:text-lg flex items-center justify-center gap-2"
+                  >
+                    <Check size={20} strokeWidth={3} />
+                    Saved!
+                  </motion.div>
+                ) : (
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleSaveTicket}
+                    disabled={isSaving}
+                    className="w-full py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] bg-[#E29578] text-white font-black text-base sm:text-lg shadow-xl shadow-[#FFDDD2] btn-shimmer flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        Confirm & Save
+                        <Check size={18} strokeWidth={3} />
+                      </>
+                    )}
+                  </motion.button>
+                )
+              ) : (
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleGoToPoolPicker}
+                  className="w-full py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] bg-[#E29578] text-white font-black text-base sm:text-lg shadow-xl shadow-[#FFDDD2] btn-shimmer flex items-center justify-center gap-2 sm:gap-3"
+                >
+                  Next: Choose Pool
+                  <ArrowRight size={18} strokeWidth={3} />
+                </motion.button>
+              )}
               <div className="flex gap-3">
                 <button
                   onClick={handleRetake}

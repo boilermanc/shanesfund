@@ -113,6 +113,7 @@ const MainApp: React.FC = () => {
     document.title = titles[activeTab] || "Shane's Retirement Fund";
   }, [activeTab]);
   const [showScanner, setShowScanner] = useState(false);
+  const [scannerPoolContext, setScannerPoolContext] = useState<{ id: string; name: string; game_type: 'powerball' | 'mega_millions' } | undefined>();
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [showCreatePool, setShowCreatePool] = useState(false);
   const [showJoinPool, setShowJoinPool] = useState(false);
@@ -331,9 +332,10 @@ const MainApp: React.FC = () => {
         )}
         {showScanner && (
           <TicketScanner
-            onClose={() => setShowScanner(false)}
-            onCreatePool={() => { setShowScanner(false); setShowCreatePool(true); }}
-            onManualEntry={() => { setShowScanner(false); setShowManualEntry(true); }}
+            onClose={() => { setShowScanner(false); setScannerPoolContext(undefined); }}
+            pool={scannerPoolContext}
+            onCreatePool={scannerPoolContext ? undefined : () => { setShowScanner(false); setScannerPoolContext(undefined); setShowCreatePool(true); }}
+            onManualEntry={() => { setShowScanner(false); setScannerPoolContext(undefined); setShowManualEntry(true); }}
           />
         )}
         {showManualEntry && (
@@ -370,7 +372,13 @@ const MainApp: React.FC = () => {
           <PoolDetailView
             poolId={selectedPoolIdForDetail}
             onClose={() => setSelectedPoolIdForDetail(null)}
-            onScanTicket={() => setShowScanner(true)}
+            onScanTicket={() => {
+              const p = displayPools.find(dp => dp.id === selectedPoolIdForDetail);
+              if (p) {
+                setScannerPoolContext({ id: p.id, name: p.name, game_type: p.game_type as 'powerball' | 'mega_millions' });
+              }
+              setShowScanner(true);
+            }}
             onManualEntry={() => setShowManualEntry(true)}
             onOpenLedger={() => {
               const pool = displayPools.find(p => p.id === selectedPoolIdForDetail);
