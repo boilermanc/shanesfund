@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Sparkles, Coins, Users, ShieldCheck } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { supabase } from '../lib/supabase';
 import ShaneMascot from './ShaneMascot';
 
 const Onboarding: React.FC = () => {
-  const { setOnboarded } = useStore();
+  const { user, setOnboarded } = useStore();
   const [step, setStep] = useState(0);
 
   const hints = [
@@ -16,11 +17,18 @@ const Onboarding: React.FC = () => {
 
   const expressions: Array<'excited' | 'confident' | 'happy'> = ['excited', 'confident', 'happy'];
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step < hints.length - 1) {
       setStep(step + 1);
     } else {
       setOnboarded(true);
+      // Persist to DB so returning users skip onboarding
+      if (user?.id) {
+        await supabase
+          .from('users')
+          .update({ onboarding_completed: true })
+          .eq('id', user.id);
+      }
     }
   };
 

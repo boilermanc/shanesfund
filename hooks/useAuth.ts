@@ -123,13 +123,24 @@ export const useAuth = () => {
 
     initSession();
 
-    // Listen for ongoing auth changes (sign in, sign out)
+    // Listen for ongoing auth changes (sign in, sign out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       log('[auth] onAuthStateChange:', event, { hasSession: !!session });
       if (!mounted) return;
-      if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') return;
 
-      if (event === 'SIGNED_IN' && session) {
+      // Skip initial session — handled by initSession() above
+      if (event === 'INITIAL_SESSION') return;
+
+      // Token refreshed — update session in state silently (keep existing user)
+      if (event === 'TOKEN_REFRESHED') {
+        if (session && mounted) {
+          setAuthState(prev => ({ ...prev, session }));
+        }
+        return;
+      }
+
+      // Signed in or user updated — (re)fetch profile
+      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session) {
         try {
           const user = await withTimeout(fetchProfile(session), 5000);
           if (mounted) {
@@ -137,19 +148,46 @@ export const useAuth = () => {
           }
         } catch {
           if (mounted) {
-            setAuthState({ user: null, session, loading: false, error: 'Failed to load profile' });
+            // Keep existing user on profile fetch failure, just update session
+            setAuthState(prev => ({ ...prev, session, loading: false }));
           }
         }
-      } else {
+        return;
+      }
+
+      // Signed out — clear everything
+      if (event === 'SIGNED_OUT') {
         if (mounted) {
           setAuthState({ user: null, session: null, loading: false, error: null });
         }
+        return;
       }
+
+      // Any other event — log but don't change state
+      log('[auth] unhandled auth event:', event);
     });
+
+    // Re-validate session when the app returns from background
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible' || !mounted) return;
+      log('[auth] app became visible, refreshing session...');
+      supabase.auth.getSession().then(({ data: { session }, error }) => {
+        if (!mounted) return;
+        if (error) {
+          warn('[auth] visibility recovery failed:', error.message);
+          return;
+        }
+        if (session) {
+          setAuthState(prev => prev.session ? { ...prev, session } : prev);
+        }
+      });
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
