@@ -365,11 +365,15 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
     setError(null);
     setValidationError(null);
 
+    const currentPlay = parsedPlays[selectedPlayIndex];
+    const multiplier = currentPlay?.multiplier ?? null;
+
     const { data: ticket, error: saveError } = await addTicket({
       pool_id: selectedPoolId,
       game_type: selectedGame,
       numbers,
       bonus_number: bonusNumber,
+      multiplier,
       draw_date: drawDate,
       entered_by: user.id,
       entry_method: 'scan',
