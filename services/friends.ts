@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { Friend, ActivityLog } from '../types/database';
+import type { Friend } from '../types/database';
 
 // Sanitize user input for use in PostgREST ilike filter strings.
 // Escapes SQL LIKE wildcards (%, _) and strips characters that are

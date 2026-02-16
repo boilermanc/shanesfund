@@ -21,6 +21,7 @@ const fetchProfile = async (session: Session): Promise<User> => {
   if (profile) return profile;
 
   // Fallback to constructed user when profile doesn't exist yet
+  const now = session.user.created_at || new Date().toISOString();
   return {
     id: session.user.id,
     email: session.user.email || '',
@@ -32,8 +33,8 @@ const fetchProfile = async (session: Session): Promise<User> => {
     onboarding_completed: false,
     notification_preferences: {},
     savings_goal: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: now,
+    updated_at: now,
   };
 };
 

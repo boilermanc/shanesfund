@@ -101,12 +101,15 @@ export async function sendEmail(params: {
 }): Promise<{ data: { success: boolean; message_id?: string; log_id?: string } | null; error: string | null }> {
   try {
     const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      return { data: null, error: 'Not authenticated' };
+    }
     const { data, error } = await supabase.functions.invoke('send-email', {
-      headers: { Authorization: `Bearer ${session?.access_token}` },
+      headers: { Authorization: `Bearer ${session.access_token}` },
       body: params,
     });
     if (error) return { data: null, error: error.message };
-    if (!data.success) return { data: data, error: data.error || 'Send failed' };
+    if (!data?.success) return { data: data, error: data?.error || 'Send failed' };
     return { data, error: null };
   } catch {
     return { data: null, error: 'Failed to send email' };

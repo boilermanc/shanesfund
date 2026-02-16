@@ -42,7 +42,7 @@ async function fetchLatestFromNYOpenData(): Promise<{
             draw_date: r.draw_date.split('T')[0],
             winning_numbers: parts.slice(0, 5),
             bonus_number: parts[5],
-            multiplier: r.multiplier ? parseInt(r.multiplier) : null,
+            multiplier: r.multiplier ? parseInt(r.multiplier, 10) : null,
             jackpot_amount: null,
             created_at: new Date().toISOString(),
           };
@@ -60,8 +60,8 @@ async function fetchLatestFromNYOpenData(): Promise<{
           game_type: 'mega_millions',
           draw_date: r.draw_date.split('T')[0],
           winning_numbers: parts,
-          bonus_number: parseInt(r.mega_ball),
-          multiplier: r.multiplier ? parseInt(r.multiplier) : null,
+          bonus_number: parseInt(r.mega_ball, 10),
+          multiplier: r.multiplier ? parseInt(r.multiplier, 10) : null,
           jackpot_amount: null,
           created_at: new Date().toISOString(),
         };

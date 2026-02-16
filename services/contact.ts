@@ -41,7 +41,7 @@ export async function submitContactMessage(
     // Fire-and-forget: send admin notification
     supabase.functions.invoke('send-email', {
       body: {
-        to: 'team@sproutify.app',
+        to: import.meta.env.VITE_ADMIN_EMAIL || 'admin@shanesfund.com',
         template_name: 'contact_admin_notification',
         variables: {
           name: formData.name,

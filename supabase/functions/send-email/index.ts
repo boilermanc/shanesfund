@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ALLOWED_ORIGIN = "https://shanesfund.vercel.app";
-const FROM_EMAIL = "Shane's Fund <team@sproutify.app>";
+const FROM_EMAIL = Deno.env.get("FROM_EMAIL") || "Shane's Fund <noreply@shanesfund.com>";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
@@ -48,12 +48,24 @@ serve(async (req) => {
     const { data: adminUser, error: adminError } = await supabase
       .from("admin_users")
       .select("id, role, is_active")
-      .eq("email", user.email)
+      .eq("user_id", user.id)
       .eq("is_active", true)
-      .single();
+      .maybeSingle();
 
     if (adminError || !adminUser) {
       return errorResponse(403, "Admin access required");
+    }
+
+    // --- Basic rate limiting: max 50 emails per admin per hour ---
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recentCount } = await supabase
+      .from("email_logs")
+      .select("*", { count: "exact", head: true })
+      .ilike("triggered_by", `%user:${user.id}%`)
+      .gte("created_at", oneHourAgo);
+
+    if ((recentCount ?? 0) >= 50) {
+      return errorResponse(429, "Rate limit exceeded: max 50 emails per hour");
     }
 
     // --- Parse request body ---
@@ -153,6 +165,8 @@ serve(async (req) => {
       { status: success ? 200 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    return errorResponse(500, error.message);
+    const errorMsg = error?.message || "Unknown error";
+    console.error("Email function error:", errorMsg);
+    return errorResponse(500, errorMsg);
   }
 });

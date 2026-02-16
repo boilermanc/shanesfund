@@ -133,14 +133,14 @@ serve(async (req) => {
         winningNumbers = parts.slice(0, 5);
         bonusNumber = parts[5];
         drawDate = result.draw_date.split("T")[0];
-        multiplier = result.multiplier ? parseInt(result.multiplier) : null;
+        multiplier = result.multiplier ? parseInt(result.multiplier, 10) : null;
       } else {
         // Mega Millions: winning_numbers has 5 numbers, mega_ball is a separate field
         const parts = result.winning_numbers.trim().split(/\s+/).map(Number);
         winningNumbers = parts;
-        bonusNumber = parseInt(result.mega_ball);
+        bonusNumber = parseInt(result.mega_ball, 10);
         drawDate = result.draw_date.split("T")[0];
-        multiplier = result.multiplier ? parseInt(result.multiplier) : null;
+        multiplier = result.multiplier ? parseInt(result.multiplier, 10) : null;
       }
 
       // NY Open Data does not provide jackpot amounts.

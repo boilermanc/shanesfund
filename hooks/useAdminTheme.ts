@@ -120,17 +120,25 @@ export function getAdminTheme(isDark: boolean): AdminTheme {
 
 export const useAdminTheme = () => {
   const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('admin-theme');
-      if (stored === 'light' || stored === 'dark') {
-        return stored;
+    try {
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('admin-theme');
+        if (stored === 'light' || stored === 'dark') {
+          return stored;
+        }
       }
+    } catch {
+      // localStorage unavailable (private browsing, quota exceeded)
     }
     return 'dark';
   });
 
   useEffect(() => {
-    localStorage.setItem('admin-theme', theme);
+    try {
+      localStorage.setItem('admin-theme', theme);
+    } catch {
+      // localStorage unavailable
+    }
   }, [theme]);
 
   const toggleTheme = () => {

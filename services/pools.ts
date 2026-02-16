@@ -348,7 +348,7 @@ const TIER_MATCH_INFO: Record<string, { numbers: number; bonus: boolean }> = {
   match_bonus: { numbers: 0, bonus: true },
 };
 
-const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL || 'https://fhinyhfvezctknrsmzgp.supabase.co'}/functions/v1/check-wins`;
+const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-wins`;
 
 export async function checkTicketsForDraw(
   gameType: 'powerball' | 'mega_millions'

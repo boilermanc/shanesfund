@@ -146,7 +146,7 @@ serve(async (req) => {
       ...connection.additional_config?.headers,
     };
 
-    console.log(`Admin ${user.id} calling URL: ${url}`);
+    console.log(`Admin ${user.id} calling URL: ${url} via connection ${connection_id}`);
 
     const response = await fetch(url, {
       method,
@@ -164,7 +164,7 @@ serve(async (req) => {
       responseBody = { raw: responseText };
     }
 
-    // Log to database
+    // Log to database (never log request headers — they contain API keys)
     try {
       await supabase.from("api_logs").insert({
         api_connection_id: connection_id || null,
@@ -176,7 +176,7 @@ serve(async (req) => {
         response_time_ms: responseTime,
         success: response.ok,
         error_message: response.ok ? null : responseBody?.message || "Request failed",
-        triggered_by: "admin_test",
+        triggered_by: `admin_test (user:${user.id})`,
       });
     } catch (dbError) {
       console.error("DB log error:", dbError);

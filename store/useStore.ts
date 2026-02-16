@@ -355,7 +355,7 @@ export const useStore = create<AppState>((set, get) => ({
     ]);
     set({
       notifications: notifResult.data || [],
-      unreadCount: countResult.count,
+      unreadCount: countResult.count ?? 0,
       notificationsLoading: false,
     });
     if (notifResult.error) {
@@ -372,7 +372,7 @@ export const useStore = create<AppState>((set, get) => ({
         const newNotif = payload.new as Notification;
         set((state) => ({
           notifications: [newNotif, ...state.notifications],
-          unreadCount: state.unreadCount + 1,
+          unreadCount: newNotif.read ? state.unreadCount : state.unreadCount + 1,
         }));
       },
       (payload) => {

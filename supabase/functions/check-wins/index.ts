@@ -57,7 +57,7 @@ serve(async (req) => {
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
 
-  // --- Auth: cron secret OR any authenticated user ---
+  // --- Auth: cron secret OR JWT + admin role ---
   const authHeader = req.headers.get("authorization") ?? "";
   const cronHeader = req.headers.get("x-cron-secret") ?? "";
 
@@ -88,6 +88,23 @@ serve(async (req) => {
         JSON.stringify({ success: false, error: "Invalid or expired token" }),
         {
           status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Check admin role
+    const { data: adminRow, error: adminError } = await supabaseAuth
+      .from("admin_users")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (adminError || !adminRow) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Admin access required" }),
+        {
+          status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
