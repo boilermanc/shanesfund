@@ -105,7 +105,45 @@ export function ensureDarkOnLight(canvas: HTMLCanvasElement): void {
   }
 }
 
-/** Full preprocessing pipeline: capture → grayscale → contrast → threshold → ensure polarity */
+/** Crop a canvas to the given rectangle (in 0-1 normalized coordinates) */
+export function cropCanvas(
+  source: HTMLCanvasElement,
+  region: { x: number; y: number; w: number; h: number }
+): HTMLCanvasElement {
+  const sx = Math.round(region.x * source.width);
+  const sy = Math.round(region.y * source.height);
+  const sw = Math.round(region.w * source.width);
+  const sh = Math.round(region.h * source.height);
+
+  const cropped = document.createElement('canvas');
+  // Upscale crop to at least 1200px wide for OCR accuracy
+  const scale = Math.max(1, 1200 / sw);
+  cropped.width = Math.round(sw * scale);
+  cropped.height = Math.round(sh * scale);
+  const ctx = cropped.getContext('2d')!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(source, sx, sy, sw, sh, 0, 0, cropped.width, cropped.height);
+  return cropped;
+}
+
+/** Full preprocessing pipeline from an already-captured canvas */
+export function preprocessCanvasForOcr(source: HTMLCanvasElement): HTMLCanvasElement {
+  // Clone so we don't mutate the display canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = source.width;
+  canvas.height = source.height;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(source, 0, 0);
+
+  toGrayscale(canvas);
+  boostContrast(canvas, 1.5);
+  applyOtsuThreshold(canvas);
+  ensureDarkOnLight(canvas);
+  return canvas;
+}
+
+/** @deprecated Use preprocessCanvasForOcr instead — this re-captures from video which may be stopped */
 export function preprocessForOcr(video: HTMLVideoElement): HTMLCanvasElement {
   const canvas = captureFrame(video);
   toGrayscale(canvas);

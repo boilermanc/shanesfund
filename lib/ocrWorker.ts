@@ -24,7 +24,7 @@ export function getOcrWorker(
       });
       await worker.setParameters({
         tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz :x',
-        tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
+        tessedit_pageseg_mode: PSM.SPARSE_TEXT,
         preserve_interword_spaces: '1',
       });
       return worker;
