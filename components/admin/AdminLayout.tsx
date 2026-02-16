@@ -32,6 +32,11 @@ interface AdminLayoutProps {
   onSectionChange: (section: AdminSection) => void;
 }
 
+// ADMIN PANEL DATA ACCESS:
+// Tables accessed: admin_users, users, pools, pool_members, tickets, winnings,
+// contributions, notifications, api_connections, api_logs, email_templates, email_logs
+// All require RLS policies that restrict to admin role
+
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeSection, onSectionChange }) => {
   const { user, signOut } = useAuth();
   const { isDark, toggleTheme } = useAdminTheme();
@@ -41,11 +46,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeSection, onSe
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    checkAdminAccess();
+    verifyAdmin();
   }, [user]);
 
-  const checkAdminAccess = async () => {
-    if (!user?.email) {
+  const verifyAdmin = async () => {
+    // Use getUser() which verifies the JWT server-side,
+    // rather than trusting the cached session user object
+    const { data: { user: verifiedUser } } = await supabase.auth.getUser();
+    if (!verifiedUser?.id) {
       setIsLoading(false);
       setIsAuthorized(false);
       return;
@@ -55,7 +63,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeSection, onSe
       const { data, error } = await supabase
         .from('admin_users')
         .select('*')
-        .eq('email', user.email)
+        .eq('user_id', verifiedUser.id)
         .eq('is_active', true)
         .maybeSingle();
 
@@ -103,7 +111,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeSection, onSe
   if (!isAuthorized) {
     // Not logged in at all - show login form
     if (!user) {
-      return <AdminLogin onLoginSuccess={() => checkAdminAccess()} />;
+      return <AdminLogin onLoginSuccess={() => verifyAdmin()} />;
     }
 
     // Logged in but not an admin - show access denied

@@ -39,8 +39,10 @@ serve(async (req) => {
       );
     }
 
-    const supabaseAuth = createClient(supabaseUrl, supabaseServiceKey);
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const supabaseAuth = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
 
     if (authError || !user) {
       return new Response(
@@ -49,8 +51,9 @@ serve(async (req) => {
       );
     }
 
-    // Check admin role
-    const { data: adminRow, error: adminError } = await supabaseAuth
+    // Check admin role (use service role client to bypass RLS on admin_users)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: adminRow, error: adminError } = await supabaseAdmin
       .from("admin_users")
       .select("id")
       .eq("user_id", user.id)
@@ -137,7 +140,12 @@ serve(async (req) => {
       } else {
         // Mega Millions: winning_numbers has 5 numbers, mega_ball is a separate field
         const parts = result.winning_numbers.trim().split(/\s+/).map(Number);
-        winningNumbers = parts;
+        if (parts.length < 5) {
+          log(`ERROR: Mega Millions winning_numbers has ${parts.length} numbers, expected 5`);
+          results.push({ game_type: gameType, success: false, error: "Unexpected number format" });
+          continue;
+        }
+        winningNumbers = parts.slice(0, 5);
         bonusNumber = parseInt(result.mega_ball, 10);
         drawDate = result.draw_date.split("T")[0];
         multiplier = result.multiplier ? parseInt(result.multiplier, 10) : null;
@@ -145,12 +153,12 @@ serve(async (req) => {
 
       // NY Open Data does not provide jackpot amounts.
       // Jackpot amounts must be set manually via admin panel or a secondary API.
-      // When null, check-wins will flag jackpot wins for manual review instead of storing $0.
-      const jackpotAmount: number | null = null;
-      log(`${gameType} parsed - Date: ${drawDate}, Numbers: ${winningNumbers}, Bonus: ${bonusNumber}, Multiplier: ${multiplier}, Jackpot: ${jackpotAmount ?? "unknown"}`);
+      // We intentionally omit jackpot_amount from the upsert so we don't overwrite
+      // manually-set values with null on subsequent cron runs.
+      log(`${gameType} parsed - Date: ${drawDate}, Numbers: ${winningNumbers}, Bonus: ${bonusNumber}, Multiplier: ${multiplier}`);
 
       // Upsert into lottery_draws table
-      const { data: insertData, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from("lottery_draws")
         .upsert(
           {
@@ -159,14 +167,12 @@ serve(async (req) => {
             winning_numbers: winningNumbers,
             bonus_number: bonusNumber,
             multiplier: multiplier,
-            jackpot_amount: jackpotAmount,
           },
           {
             onConflict: "game_type,draw_date",
+            ignoreDuplicates: false,
           }
-        )
-        .select()
-        .single();
+        );
 
       if (insertError) {
         log(`ERROR: Failed to save ${gameType} results: ${insertError.message}`);
@@ -181,11 +187,12 @@ serve(async (req) => {
     log(`Completed in ${duration}ms`);
 
     const overallSuccess = results.some(r => r.success);
+    const drawsProcessed = results.filter(r => r.success).length;
 
     return new Response(
       JSON.stringify({
         success: overallSuccess,
-        results,
+        draws_processed: drawsProcessed,
         duration_ms: duration,
       }),
       {
@@ -193,14 +200,15 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     const duration = Date.now() - startTime;
-    log(`FATAL ERROR: ${error.message}`);
+    const message = error instanceof Error ? error.message : String(error);
+    log(`FATAL ERROR: ${message}`);
 
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: message,
         duration_ms: duration,
       }),
       {

@@ -12,6 +12,14 @@ const corsHeaders = {
 const ALLOWED_HOSTS = [
   "data.ny.gov",
   "api.collectapi.com",
+  "dataapi.io",
+  "api.stripe.com",
+];
+
+// Block requests to private/internal IP ranges (SSRF protection)
+const BLOCKED_PATTERNS = [
+  /^10\./, /^172\.(1[6-9]|2\d|3[01])\./, /^192\.168\./,
+  /^169\.254\./, /^127\./, /^0\./, /^localhost$/i,
 ];
 
 function isAllowedUrl(urlString: string): boolean {
@@ -117,6 +125,15 @@ serve(async (req) => {
       );
     }
 
+    // --- Block private IP ranges (SSRF protection) ---
+    const parsedUrl = new URL(url);
+    if (BLOCKED_PATTERNS.some(p => p.test(parsedUrl.hostname))) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Blocked destination" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // --- Look up API key server-side ---
     const { data: connection, error: connError } = await supabase
       .from("api_connections")
@@ -191,10 +208,11 @@ serve(async (req) => {
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error:", error);
+    const message = error instanceof Error ? error.message : String(error);
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

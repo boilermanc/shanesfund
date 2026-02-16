@@ -1,5 +1,10 @@
 import { supabase } from '../lib/supabase';
 import type { Ticket, InsertTables, UpdateTables } from '../types/database';
+import {
+  validateTicketNumbers as validateNumbers,
+  validateTicketForPool,
+  validateDrawDate,
+} from '../utils/ticketValidation';
 
 // Get all tickets for a pool
 export const getPoolTickets = async (
@@ -64,22 +69,46 @@ export const getTicket = async (
 };
 // Add a new ticket (all ticket creation must go through this function)
 export const addTicket = async (
-  ticket: Omit<InsertTables<'tickets'>, 'id' | 'created_at'>
+  ticket: Omit<InsertTables<'tickets'>, 'id' | 'created_at'>,
+  poolGameType?: 'powerball' | 'mega_millions'
 ): Promise<{ data: Ticket | null; error: string | null }> => {
   try {
-    // Reject duplicate main numbers
-    if (hasDuplicates(ticket.numbers)) {
-      return { data: null, error: 'Ticket numbers must not contain duplicates' };
+    // Check if pool is archived — block ticket creation
+    const { data: poolData } = await supabase
+      .from('pools')
+      .select('status')
+      .eq('id', ticket.pool_id)
+      .single();
+    if (poolData?.status === 'archived') {
+      return { data: null, error: 'This pool is archived. No new tickets can be added.' };
     }
-    // Validate numbers based on game type
-    const isValid = validateTicketNumbers(
+
+    // Validate ticket game type matches pool game type
+    if (poolGameType) {
+      const poolCheck = validateTicketForPool(poolGameType, ticket.game_type);
+      if (!poolCheck.valid) {
+        return { data: null, error: poolCheck.error! };
+      }
+    }
+
+    // Validate numbers (ranges, count, duplicates)
+    const numbersCheck = validateNumbers(
       ticket.game_type,
       ticket.numbers,
       ticket.bonus_number
     );
-    if (!isValid) {
-      return { data: null, error: 'Invalid ticket numbers for this game type' };
+    if (!numbersCheck.valid) {
+      return { data: null, error: numbersCheck.errors.join(' ') };
     }
+
+    // Validate draw date hasn't passed
+    if (ticket.draw_date) {
+      const drawCheck = validateDrawDate(ticket.game_type, ticket.draw_date);
+      if (!drawCheck.valid) {
+        return { data: null, error: drawCheck.error! };
+      }
+    }
+
     const { data, error } = await supabase
       .from('tickets')
       .insert(ticket)
@@ -138,29 +167,6 @@ export const deleteTicket = async (
     return { error: 'An unexpected error occurred' };
   }
 };
-// Validate ticket numbers
-export const validateTicketNumbers = (
-  gameType: 'powerball' | 'mega_millions',
-  numbers: number[],
-  bonusNumber: number
-): boolean => {
-  if (numbers.length !== 5) return false;
-  if (gameType === 'powerball') {
-    // Powerball: 5 numbers (1-69) + Powerball (1-26)
-    const validMain = numbers.every((n) => n >= 1 && n <= 69);
-    const validBonus = bonusNumber >= 1 && bonusNumber <= 26;
-    return validMain && validBonus;
-  } else {
-    // Mega Millions: 5 numbers (1-70) + Mega Ball (1-25)
-    const validMain = numbers.every((n) => n >= 1 && n <= 70);
-    const validBonus = bonusNumber >= 1 && bonusNumber <= 25;
-    return validMain && validBonus;
-  }
-};
-// Check if numbers have duplicates
-export const hasDuplicates = (numbers: number[]): boolean => {
-  return new Set(numbers).size !== numbers.length;
-};
 // Upload ticket image
 export const uploadTicketImage = async (
   poolId: string,
@@ -196,10 +202,14 @@ export const uploadTicketImage = async (
       .from('tickets')
       .getPublicUrl(filePath);
     // Update ticket with image URL
-    await supabase
+    const { error: updateError } = await supabase
       .from('tickets')
       .update({ image_url: data.publicUrl })
       .eq('id', ticketId);
+    if (updateError) {
+      console.error('[uploadTicketImage] Failed to update ticket image_url:', updateError.message);
+      return { url: null, error: 'Image uploaded but failed to link to ticket' };
+    }
     return { url: data.publicUrl, error: null };
   } catch (err) {
     return { url: null, error: 'An unexpected error occurred' };

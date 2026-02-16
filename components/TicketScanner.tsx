@@ -1,35 +1,56 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Camera, Zap, RefreshCw, Keyboard, ChevronDown, ChevronUp, Loader2, AlertCircle, ImagePlus } from 'lucide-react';
+import { X, Check, Camera, Zap, RefreshCw, Keyboard, ChevronDown, Loader2, AlertCircle, ImagePlus, AlertTriangle, Lock, ArrowRight, ArrowLeft, Users, Sparkles, Plus } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { addTicket, uploadTicketImage } from '../services/tickets';
 import { captureFrame, captureFrameFromImage, cropCanvas, preprocessCanvasForOcr } from '../lib/imagePreprocess';
 import { parseTicketOcr, type ParsedPlay } from '../lib/parseTicketOcr';
 import { getOcrWorker, terminateOcrWorker } from '../lib/ocrWorker';
+import { validateTicketForPool, validateTicketNumbers, validateDrawDate } from '../utils/ticketValidation';
+import { supabase } from '../lib/supabase';
+
+interface PoolContext {
+  id: string;
+  game_type: 'powerball' | 'mega_millions';
+  name: string;
+}
+
+interface PoolOption {
+  id: string;
+  name: string;
+  game_type: 'powerball' | 'mega_millions';
+  members_count: number;
+}
 
 interface TicketScannerProps {
   onClose: () => void;
   poolId?: string;
+  pool?: PoolContext;
+  onCreatePool?: () => void;
+  onManualEntry?: () => void;
 }
 
-type ScanPhase = 'preview' | 'processing' | 'review';
+type ScanPhase = 'preview' | 'processing' | 'review' | 'pool-picker';
 
-const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialPoolId }) => {
+const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialPoolId, pool, onCreatePool, onManualEntry }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user, pools } = useStore();
 
   // Shared state
-  const [isManualEntry, setIsManualEntry] = useState(false);
-  const [manualNumbers, setManualNumbers] = useState(['', '', '', '', '']);
-  const [manualBonus, setManualBonus] = useState('');
-  const [selectedPoolId, setSelectedPoolId] = useState(initialPoolId || '');
-  const [selectedGame, setSelectedGame] = useState<'powerball' | 'mega_millions'>('powerball');
+  const [selectedPoolId, setSelectedPoolId] = useState(pool?.id || initialPoolId || '');
+  const [selectedGame, setSelectedGame] = useState<'powerball' | 'mega_millions'>(pool?.game_type || 'powerball');
   const [drawDate, setDrawDate] = useState(new Date().toISOString().split('T')[0]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showPoolPicker, setShowPoolPicker] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const validationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Pool picker state (Step 3)
+  const [matchingPools, setMatchingPools] = useState<PoolOption[]>([]);
+  const [poolsLoading, setPoolsLoading] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Scan mode state
   const [scanPhase, setScanPhase] = useState<ScanPhase>('preview');
@@ -67,19 +88,67 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
 
   // Camera lifecycle
   useEffect(() => {
-    if (isManualEntry) return;
     if (scanPhase === 'preview') {
       startCamera();
     }
     return () => {
       stopCamera();
     };
-  }, [isManualEntry, scanPhase, startCamera, stopCamera]);
+  }, [scanPhase, startCamera, stopCamera]);
 
-  // Cleanup OCR worker on unmount
+  // Cleanup OCR worker and validation timer on unmount
   useEffect(() => {
-    return () => { terminateOcrWorker(); };
+    return () => {
+      terminateOcrWorker();
+      if (validationTimerRef.current) clearTimeout(validationTimerRef.current);
+    };
   }, []);
+
+  // Show a validation error banner that auto-dismisses after 5 seconds
+  const showValidationBanner = useCallback((message: string) => {
+    setValidationError(message);
+    if (validationTimerRef.current) clearTimeout(validationTimerRef.current);
+    validationTimerRef.current = setTimeout(() => setValidationError(null), 5000);
+  }, []);
+
+  // Fetch pools matching the detected game type
+  const fetchMatchingPools = useCallback(async (gameType: 'powerball' | 'mega_millions') => {
+    setPoolsLoading(true);
+    try {
+      const { data } = await supabase
+        .from('pools')
+        .select('id, name, game_type, members_count')
+        .eq('game_type', gameType)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+      setMatchingPools((data as PoolOption[]) || []);
+    } catch {
+      setMatchingPools([]);
+    } finally {
+      setPoolsLoading(false);
+    }
+  }, []);
+
+  // Transition from review → pool picker
+  const handleGoToPoolPicker = () => {
+    const numbers = editableNumbers.map(n => parseInt(n)).filter(n => !isNaN(n));
+    const bonusNumber = parseInt(editableBonus);
+
+    if (numbers.length !== 5 || !bonusNumber || isNaN(bonusNumber)) {
+      setError('Please enter all 6 numbers');
+      return;
+    }
+
+    // Validate ticket numbers before moving on
+    const numbersCheck = validateTicketNumbers(selectedGame, numbers, bonusNumber);
+    if (!numbersCheck.valid) {
+      showValidationBanner(numbersCheck.errors[0]);
+      return;
+    }
+
+    setScanPhase('pool-picker');
+    fetchMatchingPools(selectedGame);
+  };
 
   // Viewfinder region (normalized 0-1 coordinates matching the overlay layout)
   // The viewfinder is 260px wide × 220px tall centered in the video area
@@ -247,32 +316,56 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
     if (play.gameType) setSelectedGame(play.gameType);
   };
 
-  // Save ticket
+  // Save ticket (called from pool picker step or manual entry)
   const handleSaveTicket = async () => {
     if (!user?.id) {
       setError('You must be logged in');
       return;
     }
     if (!selectedPoolId) {
-      setError('Please select a pool');
+      showValidationBanner('Please select a pool');
       return;
     }
 
-    const isScanMode = !isManualEntry;
-    const numbers = isScanMode
-      ? editableNumbers.map(n => parseInt(n)).filter(n => !isNaN(n))
-      : manualNumbers.map(n => parseInt(n)).filter(n => !isNaN(n));
-    const bonusNumber = isScanMode
-      ? parseInt(editableBonus)
-      : parseInt(manualBonus);
+    const numbers = editableNumbers.map(n => parseInt(n)).filter(n => !isNaN(n));
+    const bonusNumber = parseInt(editableBonus);
 
     if (numbers.length !== 5 || !bonusNumber || isNaN(bonusNumber)) {
-      setError('Please enter all 6 numbers');
+      showValidationBanner('Please enter all 6 numbers');
+      return;
+    }
+
+    // Determine the pool's game type for validation
+    const poolGameType = pool?.game_type
+      || matchingPools.find(p => p.id === selectedPoolId)?.game_type
+      || pools.find(p => p.id === selectedPoolId)?.game_type as 'powerball' | 'mega_millions' | undefined;
+
+    // Validate ticket game type matches pool
+    if (poolGameType) {
+      const poolCheck = validateTicketForPool(poolGameType, selectedGame);
+      if (!poolCheck.valid) {
+        showValidationBanner(poolCheck.error!);
+        return;
+      }
+    }
+
+    // Validate ticket numbers
+    const numbersCheck = validateTicketNumbers(selectedGame, numbers, bonusNumber);
+    if (!numbersCheck.valid) {
+      showValidationBanner(numbersCheck.errors[0]);
+      return;
+    }
+
+    // Validate draw date hasn't passed
+    const drawCheck = validateDrawDate(selectedGame, drawDate);
+    if (!drawCheck.valid) {
+      showValidationBanner(drawCheck.error!);
       return;
     }
 
     setIsSaving(true);
     setError(null);
+    setValidationError(null);
 
     const { data: ticket, error: saveError } = await addTicket({
       pool_id: selectedPoolId,
@@ -281,17 +374,17 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
       bonus_number: bonusNumber,
       draw_date: drawDate,
       entered_by: user.id,
-      entry_method: isScanMode ? 'scan' : 'manual',
-    });
+      entry_method: 'scan',
+    }, poolGameType);
 
     if (saveError || !ticket) {
-      setError(saveError || 'Failed to create ticket');
+      showValidationBanner(saveError || 'Failed to create ticket');
       setIsSaving(false);
       return;
     }
 
     // Upload captured image (fire-and-forget)
-    if (isScanMode && capturedBlob && ticket.id) {
+    if (capturedBlob && ticket.id) {
       const file = new File([capturedBlob], `ticket-${ticket.id}.jpg`, { type: 'image/jpeg' });
       uploadTicketImage(selectedPoolId, ticket.id, file).catch(err => {
         console.error('Image upload failed:', err);
@@ -299,6 +392,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
     }
 
     setIsSaving(false);
+    setSaveSuccess(true);
 
     if (typeof window.confetti === 'function') {
       window.confetti({
@@ -308,179 +402,10 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
         colors: ['#E29578', '#FFDDD2', '#006D77', '#83C5BE']
       });
     }
-    onClose();
+
+    // Brief success state before closing
+    setTimeout(() => onClose(), 1200);
   };
-
-  const selectedPool = pools.find(p => p.id === selectedPoolId);
-
-  // ──────────────────────────────────────────────
-  // MANUAL ENTRY MODE (unchanged)
-  // ──────────────────────────────────────────────
-  if (isManualEntry) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[400] bg-[#EDF6F9] flex flex-col"
-      >
-        <div className="px-4 sm:px-8 flex justify-between items-center" style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top, 1.5rem))' }}>
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={onClose}
-            className="p-3 rounded-xl bg-white text-[#006D77] shadow-lg border border-[#FFDDD2]"
-          >
-            <X size={20} strokeWidth={3} />
-          </motion.button>
-          <h2 className="text-lg font-black text-[#006D77]">Enter Ticket</h2>
-          <div className="w-11" />
-        </div>
-        <div className="flex-1 overflow-auto px-4 sm:px-8 py-6 space-y-6">
-          {/* Pool Selector */}
-          <div>
-            <label className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-2 block">Select Pool</label>
-            <button
-              onClick={() => setShowPoolPicker(!showPoolPicker)}
-              className="w-full p-4 rounded-2xl bg-white border-2 border-[#FFDDD2] flex items-center justify-between"
-            >
-              <span className="font-bold text-[#006D77]">
-                {selectedPool?.name || 'Choose a pool...'}
-              </span>
-              <ChevronDown size={20} className="text-[#83C5BE]" />
-            </button>
-            <AnimatePresence>
-              {showPoolPicker && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="mt-2 bg-white rounded-2xl border-2 border-[#FFDDD2] overflow-hidden"
-                >
-                  {pools.map(pool => (
-                    <button
-                      key={pool.id}
-                      onClick={() => {
-                        setSelectedPoolId(pool.id);
-                        setSelectedGame(pool.game_type as 'powerball' | 'mega_millions');
-                        setShowPoolPicker(false);
-                      }}
-                      className="w-full p-4 text-left hover:bg-[#EDF6F9] border-b border-[#FFDDD2] last:border-0"
-                    >
-                      <p className="font-bold text-[#006D77]">{pool.name}</p>
-                      <p className="text-xs text-[#83C5BE] capitalize">{pool.game_type?.replace('_', ' ')}</p>
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-          {/* Game Type */}
-          <div>
-            <label className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-2 block">Game</label>
-            <div className="flex gap-3">
-              {(['powerball', 'mega_millions'] as const).map(game => (
-                <button
-                  key={game}
-                  onClick={() => setSelectedGame(game)}
-                  className={`flex-1 py-3 rounded-xl font-black text-sm transition-all ${
-                    selectedGame === game
-                      ? 'bg-[#006D77] text-white'
-                      : 'bg-white border-2 border-[#FFDDD2] text-[#006D77]'
-                  }`}
-                >
-                  {game === 'powerball' ? 'Powerball' : 'Mega Millions'}
-                </button>
-              ))}
-            </div>
-          </div>
-          {/* Draw Date */}
-          <div>
-            <label htmlFor="ticket-draw-date" className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-2 block">Draw Date</label>
-            <input
-              id="ticket-draw-date"
-              type="date"
-              value={drawDate}
-              onChange={(e) => setDrawDate(e.target.value)}
-              className="w-full p-4 rounded-2xl bg-white border-2 border-[#FFDDD2] font-bold text-[#006D77]"
-            />
-          </div>
-          {/* Numbers Entry */}
-          <div>
-            <label className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-2 block">
-              Main Numbers (1-{selectedGame === 'powerball' ? '69' : '70'})
-            </label>
-            <div className="flex gap-2">
-              {manualNumbers.map((num, i) => (
-                <input
-                  key={i}
-                  type="number"
-                  min="1"
-                  max={selectedGame === 'powerball' ? 69 : 70}
-                  value={num}
-                  onChange={(e) => {
-                    const newNumbers = [...manualNumbers];
-                    newNumbers[i] = e.target.value;
-                    setManualNumbers(newNumbers);
-                  }}
-                  className="flex-1 p-3 rounded-xl bg-white border-2 border-[#FFDDD2] font-black text-center text-[#006D77] text-lg"
-                  placeholder="#"
-                />
-              ))}
-            </div>
-          </div>
-          {/* Bonus Number */}
-          <div>
-            <label htmlFor="ticket-bonus-number" className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-2 block">
-              {selectedGame === 'powerball' ? 'Powerball' : 'Mega Ball'} (1-{selectedGame === 'powerball' ? '26' : '25'})
-            </label>
-            <input
-              id="ticket-bonus-number"
-              type="number"
-              min="1"
-              max={selectedGame === 'powerball' ? 26 : 25}
-              value={manualBonus}
-              onChange={(e) => setManualBonus(e.target.value)}
-              className={`w-24 p-3 rounded-xl border-2 font-black text-center text-lg ${
-                selectedGame === 'powerball'
-                  ? 'bg-[#FFDDD2] border-[#E29578] text-[#E29578]'
-                  : 'bg-[#EDF6F9] border-[#006D77] text-[#006D77]'
-              }`}
-              placeholder="#"
-            />
-          </div>
-          {error && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-red-500 text-sm font-bold text-center"
-            >
-              {error}
-            </motion.p>
-          )}
-        </div>
-        {/* Bottom Actions */}
-        <div className="p-4 sm:p-6 bg-white border-t border-[#FFDDD2] safe-area-bottom">
-          <div className="flex gap-3">
-            <button
-              onClick={() => setIsManualEntry(false)}
-              className="flex-1 py-4 rounded-2xl bg-[#FFDDD2] text-[#006D77] font-black flex items-center justify-center gap-2"
-            >
-              <Camera size={18} />
-              Scan Instead
-            </button>
-            <button
-              onClick={handleSaveTicket}
-              disabled={isSaving}
-              className="flex-1 py-4 rounded-2xl bg-[#E29578] text-white font-black flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
-              {isSaving ? 'Saving...' : 'Save Ticket'}
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    );
-  }
 
   // ──────────────────────────────────────────────
   // SCAN MODE
@@ -553,10 +478,10 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
         >
           <X size={20} strokeWidth={3} />
         </motion.button>
-        {scanPhase === 'preview' && (
+        {scanPhase === 'preview' && onManualEntry && (
           <motion.button
             whileHover={{ scale: 1.05 }}
-            onClick={() => setIsManualEntry(true)}
+            onClick={onManualEntry}
             className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 sm:gap-2"
           >
             <Keyboard size={14} />
@@ -564,6 +489,45 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
           </motion.button>
         )}
       </div>
+
+      {/* Pool context banner (scan mode) */}
+      {pool && (
+        <div className="absolute left-0 right-0 px-4 sm:px-8 z-[411]" style={{ top: 'calc(max(2.5rem, env(safe-area-inset-top, 2.5rem)) + 56px)' }}>
+          <div className="flex items-center gap-2 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-black/40 backdrop-blur-md border border-white/10">
+            <span
+              className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-white shrink-0 ${
+                pool.game_type === 'powerball' ? 'bg-[#E29578]' : 'bg-[#006D77]'
+              }`}
+            >
+              <span className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-white/20 flex items-center justify-center text-[6px] sm:text-[7px] font-black leading-none">
+                {pool.game_type === 'powerball' ? 'PB' : 'MM'}
+              </span>
+              {pool.game_type === 'powerball' ? 'Powerball' : 'Mega Millions'}
+              <Lock size={8} className="opacity-60" />
+            </span>
+            <span className="text-xs sm:text-sm font-bold text-white/90 truncate">{pool.name}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Validation error banner (scan mode - review phase only, pool-picker has its own) */}
+      <AnimatePresence>
+        {validationError && scanPhase === 'review' && (
+          <motion.div
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -20, opacity: 0 }}
+            onClick={() => setValidationError(null)}
+            className="absolute left-4 right-4 sm:left-8 sm:right-8 z-[421] cursor-pointer"
+            style={{ top: pool ? 'calc(max(2.5rem, env(safe-area-inset-top, 2.5rem)) + 110px)' : 'calc(max(2.5rem, env(safe-area-inset-top, 2.5rem)) + 56px)' }}
+          >
+            <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-[#FEE2E2] border border-[#FCA5A5] flex items-start gap-2">
+              <AlertTriangle size={16} className="text-[#991B1B] shrink-0 mt-0.5" />
+              <p className="text-xs sm:text-sm font-bold text-[#991B1B]">{validationError}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hidden file input for photo upload */}
       <input
@@ -608,14 +572,16 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
             <ImagePlus size={18} />
             Upload Photo
           </motion.button>
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setIsManualEntry(true)}
-            className="flex-1 max-w-[200px] py-4 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-white font-black shadow-xl flex items-center justify-center gap-2"
-          >
-            <Keyboard size={18} />
-            Enter Manually
-          </motion.button>
+          {onManualEntry && (
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={onManualEntry}
+              className="flex-1 max-w-[200px] py-4 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-white font-black shadow-xl flex items-center justify-center gap-2"
+            >
+              <Keyboard size={18} />
+              Enter Manually
+            </motion.button>
+          )}
         </div>
       )}
 
@@ -658,6 +624,22 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
             transition={{ type: 'spring', damping: 25, stiffness: 150 }}
             className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] sm:rounded-t-[32px] border-t-4 sm:border-t-8 border-[#83C5BE] p-5 sm:p-8 shadow-[0_-15px_50px_rgba(0,0,0,0.2)] z-[420] safe-area-bottom max-h-[85vh] overflow-auto"
           >
+            {/* Step dots */}
+            <div className="flex justify-center gap-1.5 mb-4">
+              {[0, 1, 2].map(i => (
+                <div
+                  key={i}
+                  className={`h-1.5 rounded-full transition-all ${
+                    i === 1
+                      ? 'w-6 bg-[#006D77]'
+                      : i === 0
+                        ? 'w-1.5 bg-[#006D77]/40'
+                        : 'w-1.5 bg-[#FFDDD2]'
+                  }`}
+                />
+              ))}
+            </div>
+
             {/* Header */}
             <div className="flex justify-between items-start mb-4 sm:mb-6">
               <div>
@@ -725,68 +707,27 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
               </details>
             )}
 
-            {/* Pool Selector */}
-            <div className="mb-4">
-              <button
-                onClick={() => setShowPoolPicker(!showPoolPicker)}
-                className="w-full p-3 rounded-xl bg-[#EDF6F9] border border-[#FFDDD2] flex items-center justify-between"
+            {/* Game type badge */}
+            <div className="flex items-center gap-2 mb-4">
+              <span
+                className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-white ${
+                  selectedGame === 'powerball' ? 'bg-[#E29578]' : 'bg-[#006D77]'
+                }`}
               >
-                <span className="text-sm font-bold text-[#006D77]">
-                  {selectedPool?.name || 'Select pool to save to...'}
+                <span className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-white/20 flex items-center justify-center text-[6px] sm:text-[7px] font-black leading-none">
+                  {selectedGame === 'powerball' ? 'PB' : 'MM'}
                 </span>
-                <ChevronDown size={16} className="text-[#83C5BE]" />
-              </button>
-              <AnimatePresence>
-                {showPoolPicker && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="mt-2 bg-white rounded-xl border-2 border-[#FFDDD2] overflow-hidden max-h-40 overflow-y-auto"
-                  >
-                    {pools.map(pool => (
-                      <button
-                        key={pool.id}
-                        onClick={() => {
-                          setSelectedPoolId(pool.id);
-                          setSelectedGame(pool.game_type as 'powerball' | 'mega_millions');
-                          setShowPoolPicker(false);
-                        }}
-                        className="w-full p-3 text-left hover:bg-[#EDF6F9] border-b border-[#FFDDD2] last:border-0"
-                      >
-                        <p className="font-bold text-sm text-[#006D77]">{pool.name}</p>
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Game Type Toggle */}
-            <div className="flex gap-2 mb-4">
-              {(['powerball', 'mega_millions'] as const).map(game => (
-                <button
-                  key={game}
-                  onClick={() => setSelectedGame(game)}
-                  className={`flex-1 py-2 rounded-xl font-black text-xs transition-all ${
-                    selectedGame === game
-                      ? 'bg-[#006D77] text-white'
-                      : 'bg-[#EDF6F9] text-[#006D77] border border-[#FFDDD2]'
-                  }`}
-                >
-                  {game === 'powerball' ? 'Powerball' : 'Mega Millions'}
-                </button>
-              ))}
-            </div>
-
-            {/* Draw Date */}
-            <div className="mb-4">
-              <input
-                type="date"
-                value={drawDate}
-                onChange={(e) => setDrawDate(e.target.value)}
-                className="w-full p-3 rounded-xl bg-[#EDF6F9] border border-[#FFDDD2] font-bold text-sm text-[#006D77]"
-              />
+                {selectedGame === 'powerball' ? 'Powerball' : 'Mega Millions'}
+                <Lock size={8} className="opacity-60" />
+              </span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={drawDate}
+                  onChange={(e) => setDrawDate(e.target.value)}
+                  className="p-1.5 sm:p-2 rounded-lg bg-[#EDF6F9] border border-[#FFDDD2] font-bold text-[10px] sm:text-xs text-[#006D77]"
+                />
+              </div>
             </div>
 
             {/* Editable number balls */}
@@ -859,21 +800,11 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
             <div className="flex flex-col gap-3 sm:gap-4">
               <motion.button
                 whileTap={{ scale: 0.98 }}
-                onClick={handleSaveTicket}
-                disabled={isSaving || !selectedPoolId}
-                className="w-full py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] bg-[#E29578] text-white font-black text-base sm:text-lg shadow-xl shadow-[#FFDDD2] btn-shimmer flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50"
+                onClick={handleGoToPoolPicker}
+                className="w-full py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] bg-[#E29578] text-white font-black text-base sm:text-lg shadow-xl shadow-[#FFDDD2] btn-shimmer flex items-center justify-center gap-2 sm:gap-3"
               >
-                {isSaving ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    Confirm & Save
-                    <Check size={18} strokeWidth={3} />
-                  </>
-                )}
+                Next: Choose Pool
+                <ArrowRight size={18} strokeWidth={3} />
               </motion.button>
               <div className="flex gap-3">
                 <button
@@ -883,14 +814,190 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
                   <RefreshCw size={16} />
                   Retake
                 </button>
-                <button
-                  onClick={() => setIsManualEntry(true)}
-                  className="flex-1 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2rem] bg-[#EDF6F9] text-[#006D77] font-black text-xs sm:text-sm uppercase tracking-widest flex items-center justify-center gap-2 border border-[#FFDDD2]"
-                >
-                  <Keyboard size={16} />
-                  Manual
-                </button>
+                {onManualEntry && (
+                  <button
+                    onClick={onManualEntry}
+                    className="flex-1 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2rem] bg-[#EDF6F9] text-[#006D77] font-black text-xs sm:text-sm uppercase tracking-widest flex items-center justify-center gap-2 border border-[#FFDDD2]"
+                  >
+                    <Keyboard size={16} />
+                    Manual
+                  </button>
+                )}
               </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── POOL PICKER PHASE: Choose which pool to save to ── */}
+      <AnimatePresence>
+        {scanPhase === 'pool-picker' && (
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 150 }}
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] sm:rounded-t-[32px] border-t-4 sm:border-t-8 border-[#83C5BE] p-5 sm:p-8 shadow-[0_-15px_50px_rgba(0,0,0,0.2)] z-[420] safe-area-bottom flex flex-col"
+            style={{ maxHeight: '70vh' }}
+          >
+            {/* Step dots */}
+            <div className="flex justify-center gap-1.5 mb-4">
+              {[0, 1, 2].map(i => (
+                <div
+                  key={i}
+                  className={`h-1.5 rounded-full transition-all ${
+                    i === 2
+                      ? 'w-6 bg-[#006D77]'
+                      : 'w-1.5 bg-[#FFDDD2]'
+                  }`}
+                />
+              ))}
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-4">
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setScanPhase('review')}
+                className="p-2 rounded-xl bg-[#EDF6F9] text-[#006D77] border border-[#FFDDD2]"
+              >
+                <ArrowLeft size={18} strokeWidth={3} />
+              </motion.button>
+              <h3 className="text-lg sm:text-xl font-black text-[#006D77] tracking-tight">Add to Pool</h3>
+            </div>
+
+            {/* Game type filter badge */}
+            <div className="flex items-center gap-2 mb-4">
+              <span
+                className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-white ${
+                  selectedGame === 'powerball' ? 'bg-[#E29578]' : 'bg-[#006D77]'
+                }`}
+              >
+                <span className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-white/20 flex items-center justify-center text-[6px] sm:text-[7px] font-black leading-none">
+                  {selectedGame === 'powerball' ? 'PB' : 'MM'}
+                </span>
+                {selectedGame === 'powerball' ? 'Powerball' : 'Mega Millions'}
+              </span>
+              <span className="text-[10px] sm:text-xs text-[#83C5BE] font-bold">
+                Showing {selectedGame === 'powerball' ? 'Powerball' : 'Mega Millions'} pools
+              </span>
+            </div>
+
+            {/* Validation error banner */}
+            <AnimatePresence>
+              {validationError && (
+                <motion.div
+                  initial={{ y: -20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -20, opacity: 0 }}
+                  onClick={() => setValidationError(null)}
+                  className="mb-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-[#FEE2E2] border border-[#FCA5A5] flex items-start gap-2 cursor-pointer"
+                >
+                  <AlertTriangle size={16} className="text-[#991B1B] shrink-0 mt-0.5" />
+                  <p className="text-xs sm:text-sm font-bold text-[#991B1B]">{validationError}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Pool list */}
+            <div className="flex-1 overflow-y-auto -mx-1 px-1 space-y-2 mb-4">
+              {poolsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 size={24} className="text-[#83C5BE] animate-spin" />
+                </div>
+              ) : matchingPools.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-[#EDF6F9] flex items-center justify-center mb-4 border border-[#FFDDD2]">
+                    <Sparkles size={24} className="text-[#83C5BE]" />
+                  </div>
+                  <p className="text-base font-black text-[#006D77] mb-1">
+                    No {selectedGame === 'powerball' ? 'Powerball' : 'Mega Millions'} pools yet
+                  </p>
+                  <p className="text-xs text-[#83C5BE] font-bold">Create one to get started</p>
+                </div>
+              ) : (
+                matchingPools.map((p) => (
+                  <motion.button
+                    key={p.id}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setSelectedPoolId(p.id)}
+                    className={`w-full p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-3 text-left transition-all ${
+                      selectedPoolId === p.id
+                        ? 'border-2 border-[#006D77] bg-white shadow-lg'
+                        : 'bg-[#EDF6F9] border border-[#FFDDD2]'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-black text-sm sm:text-base text-[#006D77] truncate">{p.name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span
+                          className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[7px] sm:text-[8px] font-black uppercase tracking-wider text-white ${
+                            p.game_type === 'powerball' ? 'bg-[#E29578]' : 'bg-[#006D77]'
+                          }`}
+                        >
+                          {p.game_type === 'powerball' ? 'PB' : 'MM'}
+                        </span>
+                        <span className="flex items-center gap-1 text-[10px] sm:text-xs text-[#83C5BE] font-bold">
+                          <Users size={10} />
+                          {p.members_count || 0}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Radio indicator */}
+                    <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      selectedPoolId === p.id
+                        ? 'border-[#006D77] bg-[#006D77]'
+                        : 'border-[#FFDDD2]'
+                    }`}>
+                      {selectedPoolId === p.id && (
+                        <Check size={12} className="text-white" strokeWidth={3} />
+                      )}
+                    </div>
+                  </motion.button>
+                ))
+              )}
+            </div>
+
+            {/* Bottom actions */}
+            <div className="flex flex-col gap-2 sm:gap-3 shrink-0">
+              {saveSuccess ? (
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="w-full py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] bg-green-500 text-white font-black text-base sm:text-lg flex items-center justify-center gap-2"
+                >
+                  <Check size={20} strokeWidth={3} />
+                  Saved!
+                </motion.div>
+              ) : (
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleSaveTicket}
+                  disabled={isSaving || !selectedPoolId}
+                  className="w-full py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] bg-[#E29578] text-white font-black text-base sm:text-lg shadow-xl shadow-[#FFDDD2] btn-shimmer flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      Save to Pool
+                      <Check size={18} strokeWidth={3} />
+                    </>
+                  )}
+                </motion.button>
+              )}
+              {onCreatePool && !saveSuccess && (
+                <button
+                  onClick={() => { onClose(); onCreatePool(); }}
+                  className="w-full py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2rem] bg-white border-2 border-[#006D77] text-[#006D77] font-black text-sm sm:text-base flex items-center justify-center gap-2"
+                >
+                  <Plus size={16} strokeWidth={3} />
+                  Create New Pool
+                </button>
+              )}
             </div>
           </motion.div>
         )}

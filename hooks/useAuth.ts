@@ -4,6 +4,10 @@ import { signOut as authSignOut } from '../services/auth';
 import type { User } from '../types/database';
 import type { Session } from '@supabase/supabase-js';
 
+const DEBUG = import.meta.env.DEV;
+const log = (...args: unknown[]) => { if (DEBUG) console.log(...args); };
+const warn = (...args: unknown[]) => { if (DEBUG) console.warn(...args); };
+
 interface AuthState {
   user: User | null;
   session: Session | null;
@@ -23,7 +27,7 @@ const clearSupabaseStorage = () => {
   try {
     for (const key of Object.keys(localStorage)) {
       if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
-        console.log('[auth] removing stale localStorage key:', key);
+        log('[auth] removing stale localStorage key:', key);
         localStorage.removeItem(key);
       }
     }
@@ -74,35 +78,35 @@ export const useAuth = () => {
     const setOnce = (state: AuthState) => {
       if (!mounted || resolved) return;
       resolved = true;
-      console.log('[auth] resolved:', { hasUser: !!state.user, loading: state.loading });
+      log('[auth] resolved:', { hasUser: !!state.user, loading: state.loading });
       setAuthState(state);
     };
 
     const initSession = async () => {
-      console.log('[auth] initSession started');
+      log('[auth] initSession started');
       try {
-        console.log('[auth] calling getSession (5s timeout)...');
+        log('[auth] calling getSession (5s timeout)...');
         const { data: { session }, error } = await withTimeout(
           supabase.auth.getSession(),
           5000
         );
-        console.log('[auth] getSession returned:', { hasSession: !!session, error: error?.message || null });
+        log('[auth] getSession returned:', { hasSession: !!session, error: error?.message || null });
 
         if (error || !session) {
           if (error) {
-            console.warn('[auth] session error, clearing:', error.message);
+            warn('[auth] session error, clearing:', error.message);
             clearSupabaseStorage();
           } else {
-            console.log('[auth] no session, showing landing page');
+            log('[auth] no session, showing landing page');
           }
           setOnce({ user: null, session: null, loading: false, error: null });
           return;
         }
 
-        console.log('[auth] valid session, fetching profile (5s timeout)...');
+        log('[auth] valid session, fetching profile (5s timeout)...');
         try {
           const user = await withTimeout(fetchProfile(session), 5000);
-          console.log('[auth] profile loaded:', user.display_name);
+          log('[auth] profile loaded:', user.display_name);
           setOnce({ user, session, loading: false, error: null });
         } catch (profileErr) {
           console.error('[auth] fetchProfile failed:', profileErr);
@@ -110,7 +114,7 @@ export const useAuth = () => {
         }
       } catch (err) {
         // Timeout or network error — stale session hanging
-        console.warn('[auth] getSession timed out or crashed, clearing stale session');
+        warn('[auth] getSession timed out or crashed, clearing stale session');
         clearSupabaseStorage();
         supabase.auth.signOut().catch(() => {});
         setOnce({ user: null, session: null, loading: false, error: null });
@@ -121,7 +125,7 @@ export const useAuth = () => {
 
     // Listen for ongoing auth changes (sign in, sign out)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[auth] onAuthStateChange:', event, { hasSession: !!session });
+      log('[auth] onAuthStateChange:', event, { hasSession: !!session });
       if (!mounted) return;
       if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') return;
 

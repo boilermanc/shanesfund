@@ -1,5 +1,8 @@
 import { supabase } from '../lib/supabase';
 import type { User } from '../types/database';
+
+const DEBUG = import.meta.env.DEV;
+const log = (...args: unknown[]) => { if (DEBUG) console.log(...args); };
 export interface AuthError {
   message: string;
   status?: number;
@@ -59,7 +62,7 @@ export const signUp = async (
         .single();
       if (profileError) {
         // If RLS blocks us, construct user from auth data
-        console.log('Profile fetch error, using auth data:', profileError.message);
+        log('Profile fetch error, using auth data:', profileError.message);
         return { user: constructUserFromAuth(data.user, displayName), error: null };
       }
       return { user: profile, error: null };
@@ -90,7 +93,7 @@ export const signIn = async (
         .eq('id', data.user.id)
         .single();
       if (profileError) {
-        console.log('Profile fetch error:', profileError.message);
+        log('Profile fetch error:', profileError.message);
         return { user: constructUserFromAuth(data.user), error: null };
       }
       return { user: profile, error: null };
@@ -131,7 +134,7 @@ export const getCurrentUser = async (): Promise<AuthResponse> => {
       .eq('id', user.id)
       .single();
     if (profileError) {
-      console.log('getCurrentUser profile error:', profileError.message);
+      log('getCurrentUser profile error:', profileError.message);
       return { user: constructUserFromAuth(user), error: null };
     }
     return { user: profile, error: null };

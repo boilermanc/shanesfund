@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import type { DisplayPool } from '../types/database';
-import { Users, Calendar, ArrowUpRight } from 'lucide-react';
+import { Users, Calendar, ArrowUpRight, Lock, Plus } from 'lucide-react';
 
 interface PoolCarouselProps {
   pools: DisplayPool[];
@@ -39,18 +39,39 @@ const PoolCard: React.FC<{ pool: DisplayPool; onJoin?: () => void; onPoolClick?:
             <ArrowUpRight size={18} />
           </div>
         </div>
-        
+
+        <div className="flex items-center mb-2">
+          <span
+            className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-white ${
+              pool.game_type === 'powerball' ? 'bg-[#E29578]' : 'bg-[#006D77]'
+            }`}
+          >
+            <span className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-white/20 flex items-center justify-center text-[6px] sm:text-[7px] font-black leading-none">
+              {pool.game_type === 'powerball' ? 'PB' : 'MM'}
+            </span>
+            {pool.game_type === 'powerball' ? 'Powerball' : 'Mega Millions'}
+            <Lock size={8} className="opacity-60" />
+          </span>
+        </div>
+
         <h3 className="text-xl sm:text-2xl font-black tracking-tight mb-1 text-[#006D77] leading-tight">
           {pool.name}
         </h3>
-        <div className="flex items-center gap-1.5 mt-1">
-          <p className="text-[10px] sm:text-[11px] text-[#83C5BE] font-extrabold uppercase tracking-widest">Est. Jackpot</p>
-          <div className="h-1 w-1 rounded-full bg-[#FFDDD2]" />
-          <p className="text-[10px] sm:text-xs font-bold text-[#E29578]">Trending</p>
-        </div>
-        <p className="text-2xl sm:text-3xl font-black text-[#006D77] tracking-tighter mt-2">
-          ${(pool.total_jackpot / 1000000).toFixed(0)}M
-        </p>
+        {pool.total_jackpot > 0 ? (
+          <>
+            <p className="text-[10px] sm:text-[11px] text-[#83C5BE] font-extrabold uppercase tracking-widest mt-1">Est. Jackpot</p>
+            <p className="text-2xl sm:text-3xl font-black text-[#006D77] tracking-tighter mt-2">
+              ${(pool.total_jackpot / 1000000).toFixed(0)}M
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-[10px] sm:text-[11px] text-[#83C5BE] font-extrabold uppercase tracking-widest mt-1">Next Draw</p>
+            <p className="text-lg sm:text-xl font-black text-[#006D77] tracking-tight mt-2">
+              {new Date(pool.draw_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </p>
+          </>
+        )}
       </div>
 
       <div className="relative z-10 space-y-4 sm:space-y-5">
@@ -74,7 +95,7 @@ const PoolCard: React.FC<{ pool: DisplayPool; onJoin?: () => void; onPoolClick?:
         <div className="flex justify-between items-center text-[9px] sm:text-[10px] text-[#83C5BE] font-black uppercase tracking-widest">
           <div className="flex items-center gap-1.5 sm:gap-2">
             <Users size={14} />
-            <span>{pool.participants_count} Players</span>
+            <span>{pool.members_count} Players</span>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2">
             <Calendar size={14} />
@@ -86,7 +107,7 @@ const PoolCard: React.FC<{ pool: DisplayPool; onJoin?: () => void; onPoolClick?:
           onClick={(e) => { e.stopPropagation(); onJoin?.(); }}
           className="w-full py-3 sm:py-4 rounded-2xl sm:rounded-3xl bg-[#E29578] text-white font-black text-xs sm:text-sm shadow-lg shadow-[#FFDDD2] hover:bg-[#006D77] transition-all"
         >
-          Join Pool ${pool.contribution_amount || 5}
+          {pool.contribution_amount > 0 ? `Join Pool $${pool.contribution_amount}` : 'View Pool'}
         </button>
       </div>
     </motion.div>
@@ -94,12 +115,32 @@ const PoolCard: React.FC<{ pool: DisplayPool; onJoin?: () => void; onPoolClick?:
 };
 
 const PoolCarousel: React.FC<PoolCarouselProps> = ({ pools, onJoin, onPoolClick }) => {
+  const activePools = pools.filter((p) => p.status !== 'archived');
+
+  if (activePools.length === 0) {
+    return (
+      <div className="bg-white p-8 rounded-[2rem] border border-[#FFDDD2] text-center space-y-3 mx-2">
+        <div className="w-12 h-12 rounded-2xl bg-[#EDF6F9] flex items-center justify-center text-[#83C5BE] mx-auto">
+          <Plus size={24} />
+        </div>
+        <p className="text-sm font-black text-[#006D77]">No active pools</p>
+        <p className="text-[10px] font-bold text-[#83C5BE]">Create or join a pool to start playing together.</p>
+        <button
+          onClick={() => onJoin?.()}
+          className="mt-2 px-6 py-3 rounded-2xl bg-[#E29578] text-white font-black text-xs shadow-lg shadow-[#FFDDD2] hover:bg-[#006D77] transition-all"
+        >
+          Join a Pool
+        </button>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Mobile: horizontal scroll carousel */}
       <div className="md:hidden relative w-full overflow-x-auto pb-4 sm:pb-6 pt-2 -mx-2">
         <div className="flex gap-4 sm:gap-6 px-2 min-w-full">
-          {pools.map((pool) => (
+          {activePools.map((pool) => (
             <PoolCard key={pool.id} pool={pool} onJoin={onJoin} onPoolClick={onPoolClick} />
           ))}
           <div className="min-w-[16px] sm:min-w-[24px]" />
@@ -107,7 +148,7 @@ const PoolCarousel: React.FC<PoolCarouselProps> = ({ pools, onJoin, onPoolClick 
       </div>
       {/* Desktop: grid layout */}
       <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
-        {pools.map((pool) => (
+        {activePools.map((pool) => (
           <PoolCard key={pool.id} pool={pool} onJoin={onJoin} onPoolClick={onPoolClick} />
         ))}
       </div>

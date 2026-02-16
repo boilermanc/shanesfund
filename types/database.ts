@@ -713,9 +713,22 @@ export type ContactMessage = Tables<'contact_messages'>;
 export type EmailTemplate = Tables<'email_templates'>;
 export type EmailLog = Tables<'email_logs'>;
 
-// Joined query types (pool_members with nested user data)
+// Joined query types (Supabase select with FK joins)
+
 export interface PoolMemberWithUser extends PoolMember {
   users: Pick<User, 'id' | 'display_name' | 'avatar_url' | 'email'> | null;
+}
+
+export interface TicketWithUser extends Ticket {
+  users: { display_name: string | null } | null;
+}
+
+export interface FriendWithUser extends Friend {
+  users: Pick<User, 'id' | 'display_name' | 'avatar_url' | 'email'> | null;
+}
+
+export interface WinningWithTicket extends Winning {
+  tickets: { numbers: number[]; bonus_number: number; game_type: string } | null;
 }
 
 // UI display types (not direct DB rows)
@@ -737,7 +750,7 @@ export interface DisplayPool {
   participants_count: number;
   draw_date: string;
   status: string;
-  game_type: string;
+  game_type: 'powerball' | 'mega_millions';
   contribution_amount: number;
   members_count: number;
 }

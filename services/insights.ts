@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import type { WinningWithTicket } from '../types/database';
 
 export interface MonthlyWinning {
   label: string;
@@ -170,7 +171,7 @@ export async function getUserInsights(
       const key = getMonthKey(w.draw_date);
       monthMap.set(key, (monthMap.get(key) || 0) + (w.prize_amount || 0));
 
-      const ticket = w.tickets as any;
+      const ticket = (w as WinningWithTicket).tickets;
       if (ticket) {
         const existing = ticketsByKey.get(key) || [];
         existing.push({

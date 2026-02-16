@@ -11,8 +11,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-console.log('[supabase] init:', { url: supabaseUrl, keyPrefix: supabaseAnonKey.substring(0, 20) + '...' });
-
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,

@@ -145,6 +145,7 @@ serve(async (req) => {
       tickets_checked: number;
       wins_found: number;
       prize_tiers: Record<string, number>;
+      jackpot_amount: number | null;
       success: boolean;
       error?: string;
     }> = [];
@@ -172,6 +173,7 @@ serve(async (req) => {
           tickets_checked: 0,
           wins_found: 0,
           prize_tiers: {},
+          jackpot_amount: null,
           success: false,
           error: "No draw data found",
         });
@@ -196,6 +198,7 @@ serve(async (req) => {
           tickets_checked: 0,
           wins_found: 0,
           prize_tiers: {},
+          jackpot_amount: draw.jackpot_amount ?? null,
           success: false,
           error: ticketsError.message,
         });
@@ -210,6 +213,7 @@ serve(async (req) => {
           tickets_checked: 0,
           wins_found: 0,
           prize_tiers: {},
+          jackpot_amount: draw.jackpot_amount ?? null,
           success: true,
         });
         continue;
@@ -272,25 +276,34 @@ serve(async (req) => {
             prizeTiers[prizeTier] = (prizeTiers[prizeTier] || 0) + 1;
 
             // Log the win in activity_log
-            await supabase.from("activity_log").insert({
+            const { error: activityError } = await supabase.from("activity_log").insert({
               user_id: ticket.entered_by,
               pool_id: ticket.pool_id,
               action: "win_detected",
               details: { amount: prizeAmount, prize_tier: prizeTier, needs_review: prizeAmount === null },
             });
+            if (activityError) {
+              log(`WARNING: Failed to log activity for ticket ${ticket.id}: ${activityError.message}`);
+            }
           }
 
           // Mark ticket as winner
-          await supabase
+          const { error: updateWinError } = await supabase
             .from("tickets")
             .update({ checked: true, is_winner: true })
             .eq("id", ticket.id);
+          if (updateWinError) {
+            log(`WARNING: Failed to mark ticket ${ticket.id} as winner: ${updateWinError.message}`);
+          }
         } else {
           // Mark ticket as checked (no win)
-          await supabase
+          const { error: updateCheckError } = await supabase
             .from("tickets")
             .update({ checked: true, is_winner: false })
             .eq("id", ticket.id);
+          if (updateCheckError) {
+            log(`WARNING: Failed to mark ticket ${ticket.id} as checked: ${updateCheckError.message}`);
+          }
         }
       }
 
@@ -301,6 +314,7 @@ serve(async (req) => {
         tickets_checked: tickets.length,
         wins_found: winsFound,
         prize_tiers: prizeTiers,
+        jackpot_amount: draw.jackpot_amount ?? null,
         success: true,
       });
     }
@@ -325,14 +339,15 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     const duration = Date.now() - startTime;
-    log(`FATAL ERROR: ${error.message}`);
+    const message = error instanceof Error ? error.message : String(error);
+    log(`FATAL ERROR: ${message}`);
 
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: message,
         duration_ms: duration,
       }),
       {

@@ -2,12 +2,14 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { X, Check, Zap, Scan, Search, Trophy, Sparkles } from 'lucide-react';
 import FocusTrap from './FocusTrap';
+import { useStore } from '../store/useStore';
 
 interface ProUpgradeModalProps {
   onClose: () => void;
 }
 
 const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ onClose }) => {
+  const showToast = useStore((s) => s.showToast);
   const features = [
     { 
       icon: <Zap size={18} />, 
@@ -129,9 +131,10 @@ const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ onClose }) => {
           </div>
 
           <div className="space-y-3 sm:space-y-4">
-            <motion.button 
+            <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
+              onClick={() => { showToast('Coming soon!', 'info'); onClose(); }}
               className="w-full py-4 sm:py-5 rounded-[2rem] sm:rounded-[2.5rem] bg-[#E29578] text-white font-black text-base sm:text-lg btn-shimmer shadow-xl shadow-[#E29578]/30 hover:shadow-[#E29578]/40 transition-all flex items-center justify-center gap-2"
             >
               Start 7-Day Free Trial

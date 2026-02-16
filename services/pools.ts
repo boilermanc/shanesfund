@@ -44,7 +44,7 @@ export const getUserPools = async (userId: string): Promise<{ data: PoolWithMemb
       .from('pools')
       .select('*, pool_members!inner(user_id, role)')
       .eq('pool_members.user_id', userId)
-      .eq('status', 'active');
+      .in('status', ['active', 'archived']);
     if (error) {
       return { data: null, error: error.message };
     }
@@ -133,12 +133,27 @@ export const updatePool = async (
     return { data: null, error: 'An unexpected error occurred' };
   }
 };
-// Delete a pool (archive it)
+// Archive a pool
 export const archivePool = async (poolId: string): Promise<{ error: string | null }> => {
   try {
     const { error } = await supabase
       .from('pools')
       .update({ status: 'archived' })
+      .eq('id', poolId);
+    if (error) {
+      return { error: error.message };
+    }
+    return { error: null };
+  } catch (err) {
+    return { error: 'An unexpected error occurred' };
+  }
+};
+// Unarchive a pool (set back to active)
+export const unarchivePool = async (poolId: string): Promise<{ error: string | null }> => {
+  try {
+    const { error } = await supabase
+      .from('pools')
+      .update({ status: 'active' })
       .eq('id', poolId);
     if (error) {
       return { error: error.message };
@@ -383,6 +398,9 @@ export async function checkTicketsForDraw(
     const wins: WinResult[] = [];
     if (gameResult?.prize_tiers) {
       const prizes = PRIZE_AMOUNTS[gameType] || {};
+      // Use the actual jackpot amount from the draw data (returned by the edge function)
+      // instead of the static 0 in PRIZE_AMOUNTS
+      const jackpotAmount = gameResult.jackpot_amount ?? 0;
       for (const [tier, count] of Object.entries(gameResult.prize_tiers)) {
         const info = TIER_MATCH_INFO[tier];
         for (let i = 0; i < (count as number); i++) {
@@ -392,7 +410,7 @@ export async function checkTicketsForDraw(
             numbersMatched: info?.numbers ?? 0,
             bonusMatched: info?.bonus ?? false,
             prizeTier: tier,
-            prizeAmount: prizes[tier] ?? 0,
+            prizeAmount: tier === 'jackpot' ? jackpotAmount : (prizes[tier] ?? 0),
           });
         }
       }

@@ -1,8 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { X, Copy, Share2, Smartphone, QrCode } from 'lucide-react';
+import { X, Copy, Share2, QrCode } from 'lucide-react';
 import ShaneMascot from './ShaneMascot';
 import FocusTrap from './FocusTrap';
+import { useStore } from '../store/useStore';
 
 interface InviteShareScreenProps {
   poolName: string;
@@ -11,6 +12,17 @@ interface InviteShareScreenProps {
 }
 
 const InviteShareScreen: React.FC<InviteShareScreenProps> = ({ poolName, inviteCode, onClose }) => {
+  const showToast = useStore((s) => s.showToast);
+
+  const handleCopyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteCode);
+      showToast('Code copied!', 'success');
+    } catch {
+      showToast('Failed to copy', 'error');
+    }
+  };
+
   const handleShare = async () => {
     if (navigator.share) {
       try {
@@ -19,9 +31,12 @@ const InviteShareScreen: React.FC<InviteShareScreenProps> = ({ poolName, inviteC
           text: `Retire early with me! Join my syndicate on Shane's Retirement Fund. Use code: ${inviteCode}`,
           url: window.location.href,
         });
-      } catch (err) {
-        console.log('Share failed', err);
+      } catch {
+        // User cancelled share — not an error
       }
+    } else {
+      // Fallback: copy to clipboard
+      handleCopyCode();
     }
   };
 
@@ -81,7 +96,7 @@ const InviteShareScreen: React.FC<InviteShareScreenProps> = ({ poolName, inviteC
           <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.3em] sm:tracking-[0.4em]">Pool Access Code</p>
           <div className="bg-white border-2 border-dashed border-[#83C5BE] px-5 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl inline-flex items-center gap-3 sm:gap-4">
             <span className="text-xl sm:text-2xl font-black text-[#006D77] tracking-[0.15em] sm:tracking-[0.2em] font-mono">{inviteCode}</span>
-            <button className="text-[#83C5BE] hover:text-[#006D77] transition-colors">
+            <button onClick={handleCopyCode} className="text-[#83C5BE] hover:text-[#006D77] transition-colors">
               <Copy size={18} />
             </button>
           </div>

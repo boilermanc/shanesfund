@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { Friend } from '../types/database';
+import type { Friend, FriendWithUser, ActivityLog } from '../types/database';
 
 // Sanitize user input for use in PostgREST ilike filter strings.
 // Escapes SQL LIKE wildcards (%, _) and strips characters that are
@@ -294,14 +294,14 @@ export const getFriends = async (
     const friends: FriendWithProfile[] = [];
 
     for (const row of sentFriends || []) {
-      const user = (row as any).users;
+      const user = (row as FriendWithUser).users;
       if (user) {
         friends.push(mapToFriendWithProfile(row, user));
       }
     }
 
     for (const row of receivedFriends || []) {
-      const user = (row as any).users;
+      const user = (row as FriendWithUser).users;
       if (user) {
         friends.push(mapToFriendWithProfile(row, user));
       }
@@ -486,17 +486,13 @@ export const searchUsers = async (
       return { data: [], error: null };
     }
 
-    // Get all friendships involving current user and these results
+    // Get all friendships involving current user, then filter client-side
+    // to find ones that also involve the search result users
     const resultIds = users.map((u) => u.id);
     const { data: friendships } = await supabase
       .from('friends')
       .select('*')
-      .or(`user_id.eq.${currentUserId},friend_id.eq.${currentUserId}`)
-      .or(
-        resultIds
-          .map((id) => `user_id.eq.${id},friend_id.eq.${id}`)
-          .join(',')
-      );
+      .or(`user_id.eq.${currentUserId},friend_id.eq.${currentUserId}`);
 
     // Build a map of userId -> friendship status
     const statusMap = new Map<string, UserSearchResult['friendshipStatus']>();

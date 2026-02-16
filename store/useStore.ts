@@ -95,6 +95,9 @@ interface AppState {
   notifications: Notification[];
   unreadCount: number;
   notificationsLoading: boolean;
+  // Toast state
+  toast: { message: string; type: 'info' | 'success' | 'error' } | null;
+  showToast: (message: string, type?: 'info' | 'success' | 'error') => void;
   // Auth actions
   setUser: (user: User | null) => void;
   setAuthenticated: (isAuthenticated: boolean) => void;
@@ -132,6 +135,9 @@ interface AppState {
   markAllNotificationsRead: (userId: string) => Promise<void>;
   removeNotification: (notificationId: string) => Promise<void>;
 }
+
+let _toastTimer: ReturnType<typeof setTimeout> | null = null;
+
 export const useStore = create<AppState>((set, get) => ({
   // Initial state
   user: null,
@@ -154,6 +160,16 @@ export const useStore = create<AppState>((set, get) => ({
   notifications: [],
   unreadCount: 0,
   notificationsLoading: false,
+  // Toast
+  toast: null,
+  showToast: (message, type = 'info') => {
+    if (_toastTimer) clearTimeout(_toastTimer);
+    set({ toast: { message, type } });
+    _toastTimer = setTimeout(() => {
+      set({ toast: null });
+      _toastTimer = null;
+    }, 3000);
+  },
   // Auth actions
   setUser: (user) => set({ 
     user, 
@@ -377,11 +393,15 @@ export const useStore = create<AppState>((set, get) => ({
       },
       (payload) => {
         const updated = payload.new as Notification;
-        set((state) => ({
-          notifications: state.notifications.map((n) =>
+        set((state) => {
+          const newNotifications = state.notifications.map((n) =>
             n.id === updated.id ? updated : n
-          ),
-        }));
+          );
+          return {
+            notifications: newNotifications,
+            unreadCount: newNotifications.filter((n) => !n.read).length,
+          };
+        });
       },
       (payload) => {
         const old = payload.old as { id: string };

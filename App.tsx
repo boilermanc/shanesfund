@@ -44,6 +44,8 @@ import { useStore } from './store/useStore';
 import { useAuth } from './hooks/useAuth';
 import { useNotifications } from './hooks/useNotifications';
 import { getUserPools } from './services/pools';
+import { supabase } from './lib/supabase';
+import { getNextDrawDate } from './utils/drawSchedule';
 import type { DisplayPool } from './types/database';
 // Components
 import DashboardHeader from './components/DashboardHeader';
@@ -61,6 +63,7 @@ import type { FriendWithProfile } from './services/friends';
 import AuthScreen from './components/AuthScreen';
 import Onboarding from './components/Onboarding';
 import TicketScanner from './components/TicketScanner';
+import ManualTicketEntry from './components/ManualTicketEntry';
 import WinningMoment from './components/WinningMoment';
 import ProUpgradeModal from './components/ProUpgradeModal';
 import CreatePoolWizard from './components/CreatePoolWizard';
@@ -69,14 +72,16 @@ import SettingsModal from './components/SettingsModal';
 import ShaneWinnerAlert from './components/ShaneWinnerAlert';
 import ContributionLedger from './components/ContributionLedger';
 import PoolDetailView from './components/PoolDetailView';
-import NotificationsCenter from './components/NotificationsCenter';
+import NotificationBell from './components/NotificationBell';
+import NotificationPanel from './components/NotificationPanel';
 import SkeletonLoader from './components/SkeletonLoader';
 import TopNav from './components/TopNav';
+import Toast from './components/Toast';
 import LandingPage from './components/landing/LandingPage';
 import AdminPage from './components/admin/AdminPage';
 // Main App Content (extracted for cleaner routing)
 const MainApp: React.FC = () => {
-  const { user: authUser, session, loading: authLoading } = useAuth();
+  const { user: authUser, loading: authLoading } = useAuth();
   const {
     user,
     pools,
@@ -87,7 +92,6 @@ const MainApp: React.FC = () => {
     setUser,
     setPools,
     setLoading,
-    setAuthenticated,
     setWinnerAlert,
     pendingRequests,
     removeFriend: storeRemoveFriend,
@@ -109,6 +113,7 @@ const MainApp: React.FC = () => {
     document.title = titles[activeTab] || "Shane's Retirement Fund";
   }, [activeTab]);
   const [showScanner, setShowScanner] = useState(false);
+  const [showManualEntry, setShowManualEntry] = useState(false);
   const [showCreatePool, setShowCreatePool] = useState(false);
   const [showJoinPool, setShowJoinPool] = useState(false);
   const [showProUpgrade, setShowProUpgrade] = useState(false);
@@ -118,16 +123,17 @@ const MainApp: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<FriendWithProfile | null>(null);
   const [pendingRequestToReview, setPendingRequestToReview] = useState<FriendWithProfile | null>(null);
+  const [jackpots, setJackpots] = useState<Record<string, number>>({});
+  const [winData, setWinData] = useState<Record<string, any> | null>(null);
   // Wire up realtime notifications
   useNotifications(user?.id);
-  // Sync auth state with store
+  // Sync auth state with store (setUser already sets isAuthenticated)
   useEffect(() => {
     if (!authLoading) {
       setUser(authUser);
-      setAuthenticated(!!authUser);
       setLoading(false);
     }
-  }, [authUser, authLoading, setUser, setAuthenticated, setLoading]);
+  }, [authUser, authLoading, setUser, setLoading]);
   // Load pools when authenticated
   useEffect(() => {
     const loadPools = async () => {
@@ -144,20 +150,45 @@ const MainApp: React.FC = () => {
       loadPools();
     }
   }, [isAuthenticated, user?.id, setPools, setLoading]);
+  // Fetch latest jackpot amounts from lottery_draws
+  useEffect(() => {
+    const fetchJackpots = async () => {
+      const { data, error } = await supabase
+        .from('lottery_draws')
+        .select('game_type, jackpot_amount')
+        .order('draw_date', { ascending: false })
+        .limit(10);
+      if (error) {
+        console.error('Failed to fetch jackpots:', error.message);
+        return;
+      }
+      const draws = data as { game_type: string; jackpot_amount: number | null }[] | null;
+      if (draws) {
+        const map: Record<string, number> = {};
+        for (const draw of draws) {
+          if (!map[draw.game_type] && draw.jackpot_amount != null) {
+            map[draw.game_type] = draw.jackpot_amount;
+          }
+        }
+        setJackpots(map);
+      }
+    };
+    if (isAuthenticated) fetchJackpots();
+  }, [isAuthenticated]);
   // Transform pools for display components (bridge between old and new types)
   // NOTE: This must be above early returns to maintain consistent hook call order
   const displayPools: DisplayPool[] = useMemo(() => pools.map(pool => ({
     id: pool.id,
     name: pool.name,
-    total_jackpot: 0, // Will come from lottery_draws later
+    total_jackpot: jackpots[pool.game_type] || 0,
     current_pool_value: Number(pool.total_collected) || 0,
     participants_count: pool.members_count || 0,
-    draw_date: new Date().toISOString().split('T')[0],
+    draw_date: getNextDrawDate(pool.game_type).toISOString().split('T')[0],
     status: pool.status,
     game_type: pool.game_type,
     contribution_amount: Number(pool.contribution_amount) || 5,
     members_count: pool.members_count || 0,
-  })), [pools]);
+  })), [pools, jackpots]);
   // Show loading while checking auth
   if (authLoading) {
     return (
@@ -183,7 +214,7 @@ const MainApp: React.FC = () => {
             {isLoading ? (
               <SkeletonLoader type="header" />
             ) : (
-              <DashboardHeader user={user} totalPoolValue={displayPools.reduce((sum, p) => sum + (p.current_pool_value || 0), 0)} onOpenNotifications={() => setShowNotifications(true)} />
+              <DashboardHeader user={user} totalPoolValue={displayPools.reduce((sum, p) => sum + (p.current_pool_value || 0), 0)} />
             )}
             <section className="space-y-4">
               <div className="flex justify-between items-end px-2">
@@ -212,7 +243,7 @@ const MainApp: React.FC = () => {
                   <SkeletonLoader type="card" />
                 </>
               ) : (
-                <PoolList pools={displayPools} onJoin={(pool) => setSelectedPoolIdForDetail(pool.id)} />
+                <PoolList pools={displayPools} onSelectPool={(pool) => setSelectedPoolIdForDetail(pool.id)} />
               )}
             </section>
           </div>
@@ -252,8 +283,16 @@ const MainApp: React.FC = () => {
         user={user}
       />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 safe-area-top">
-        <div className="flex justify-center pt-4 sm:pt-6 pb-3 sm:pb-4 md:hidden">
+        <div className="flex justify-between items-center pt-4 sm:pt-6 pb-3 sm:pb-4 md:hidden">
           <img src="/logo.png" alt="Shane's Retirement Fund" className="h-16 sm:h-24 w-auto" />
+          <NotificationBell
+            onClick={() => setShowNotifications(true)}
+            onWinDetected={(notification) => {
+              const data = (notification.data || {}) as Record<string, any>;
+              setWinData(data);
+              setWinnerAlert(true);
+            }}
+          />
         </div>
         <div className="md:pt-20">
           <AnimatePresence mode="wait">
@@ -282,10 +321,26 @@ const MainApp: React.FC = () => {
       {/* Modals & Overlays */}
       <AnimatePresence>
         {showNotifications && (
-          <NotificationsCenter onClose={() => setShowNotifications(false)} />
+          <NotificationPanel
+            onClose={() => setShowNotifications(false)}
+            onOpenPool={(poolId) => {
+              setShowNotifications(false);
+              setSelectedPoolIdForDetail(poolId);
+            }}
+          />
         )}
         {showScanner && (
-          <TicketScanner onClose={() => setShowScanner(false)} />
+          <TicketScanner
+            onClose={() => setShowScanner(false)}
+            onCreatePool={() => { setShowScanner(false); setShowCreatePool(true); }}
+            onManualEntry={() => { setShowScanner(false); setShowManualEntry(true); }}
+          />
+        )}
+        {showManualEntry && (
+          <ManualTicketEntry
+            onClose={() => setShowManualEntry(false)}
+            onCreatePool={() => { setShowManualEntry(false); setShowCreatePool(true); }}
+          />
         )}
         {showCreatePool && (
           <CreatePoolWizard
@@ -315,6 +370,8 @@ const MainApp: React.FC = () => {
           <PoolDetailView
             poolId={selectedPoolIdForDetail}
             onClose={() => setSelectedPoolIdForDetail(null)}
+            onScanTicket={() => setShowScanner(true)}
+            onManualEntry={() => setShowManualEntry(true)}
             onOpenLedger={() => {
               const pool = displayPools.find(p => p.id === selectedPoolIdForDetail);
               if (pool) {
@@ -357,8 +414,12 @@ const MainApp: React.FC = () => {
       />
       <ShaneWinnerAlert
         isVisible={showWinnerAlert}
-        onClose={() => setWinnerAlert(false)}
+        onClose={() => { setWinnerAlert(false); setWinData(null); }}
+        prizeAmount={winData?.prize_amount}
+        poolName={winData?.pool_name}
+        prizeTier={winData?.prize_tier}
       />
+      <Toast />
     </div>
   );
 };

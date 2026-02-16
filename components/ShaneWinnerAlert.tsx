@@ -6,9 +6,12 @@ import ShaneMascot from './ShaneMascot';
 interface ShaneWinnerAlertProps {
   isVisible: boolean;
   onClose: () => void;
+  prizeAmount?: number;
+  poolName?: string;
+  prizeTier?: string;
 }
 
-const ShaneWinnerAlert: React.FC<ShaneWinnerAlertProps> = ({ isVisible, onClose }) => {
+const ShaneWinnerAlert: React.FC<ShaneWinnerAlertProps> = ({ isVisible, onClose, prizeAmount, poolName, prizeTier }) => {
   return (
     <AnimatePresence>
       {isVisible && (
@@ -28,9 +31,17 @@ const ShaneWinnerAlert: React.FC<ShaneWinnerAlertProps> = ({ isVisible, onClose 
           >
             <div className="flex items-center gap-1.5 sm:gap-2">
               <Sparkles size={12} className="text-[#E29578] fill-[#E29578]" />
-              <p className="text-white text-[10px] sm:text-xs font-black uppercase tracking-widest whitespace-nowrap">
-                We got a winner!
-              </p>
+              <div>
+                <p className="text-white text-[10px] sm:text-xs font-black uppercase tracking-widest whitespace-nowrap">
+                  {poolName ? `${poolName} won!` : 'We got a winner!'}
+                </p>
+                {prizeAmount != null && (
+                  <p className="text-[#83C5BE] text-[9px] sm:text-[10px] font-bold mt-0.5">
+                    Prize: ${prizeAmount.toFixed(2)}
+                    {prizeTier ? ` · ${prizeTier.replace(/_/g, ' ')}` : ''}
+                  </p>
+                )}
+              </div>
             </div>
             {/* Pointer */}
             <div className="absolute -bottom-2 right-0 w-3 h-3 sm:w-4 sm:h-4 bg-[#006D77] rotate-45 border-r border-b border-white/20" />

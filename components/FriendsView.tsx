@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, UserPlus, Users, Zap, ExternalLink, ThumbsUp, Trophy, TrendingUp, Check, Clock, Loader2 } from 'lucide-react';
+import { Search, UserPlus, Users, Zap, ExternalLink, Trophy, TrendingUp, Check, Clock, Loader2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { searchUsers, type FriendWithProfile, type UserSearchResult } from '../services/friends';
-import ShaneMascot from './ShaneMascot';
+const showToast = () => useStore.getState().showToast('Coming soon!', 'info');
 
 interface FriendsViewProps {
   onOpenProfile: (friend: FriendWithProfile) => void;
@@ -138,7 +138,10 @@ const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests
               className="w-full bg-[#EDF6F9] border-none rounded-[1.5rem] sm:rounded-[2rem] py-3 sm:py-4 pl-11 sm:pl-14 pr-4 sm:pr-6 text-sm sm:text-base text-[#006D77] font-bold outline-none focus:ring-2 ring-[#83C5BE]/20 transition-all placeholder:text-[#83C5BE]"
             />
           </div>
-          <button className="bg-[#E29578] text-white px-4 sm:px-6 rounded-[1.5rem] sm:rounded-[2rem] font-black text-[9px] sm:text-xs uppercase tracking-widest flex items-center gap-1.5 sm:gap-2 shadow-lg shadow-[#E29578]/20 active:scale-95 transition-all whitespace-nowrap">
+          <button
+            onClick={showToast}
+            className="bg-[#E29578] text-white px-4 sm:px-6 rounded-[1.5rem] sm:rounded-[2rem] font-black text-[9px] sm:text-xs uppercase tracking-widest flex items-center gap-1.5 sm:gap-2 shadow-lg shadow-[#E29578]/20 active:scale-95 transition-all whitespace-nowrap"
+          >
             <ExternalLink size={14} />
             Invite
           </button>
@@ -375,26 +378,14 @@ const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests
                     key={activity.id}
                     className={`p-4 sm:p-6 flex gap-3 sm:gap-4 items-start ${i !== activities.length - 1 ? 'border-b border-[#FFDDD2]/40' : ''}`}
                   >
-                    {activity.type === 'shane' ? (
-                      <div className="shrink-0 scale-75 sm:scale-100 origin-top-left">
-                        <ShaneMascot size="sm" expression="normal" animate />
-                      </div>
-                    ) : (
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl overflow-hidden shrink-0 border border-[#83C5BE]/30">
-                        <img src={getAvatarUrl(activity.avatar || null, activity.user_name)} className="w-full h-full object-cover" alt="" />
-                      </div>
-                    )}
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl overflow-hidden shrink-0 border border-[#83C5BE]/30">
+                      <img src={getAvatarUrl(activity.avatar || null, activity.user_name)} className="w-full h-full object-cover" alt="" />
+                    </div>
                     <div className="flex-1">
                       <p className="text-[11px] sm:text-xs font-bold text-[#006D77] leading-relaxed">
                         <span className="font-black">{activity.user_name}</span> {activity.content}
                       </p>
                       <p className="text-[8px] sm:text-[9px] font-black text-[#83C5BE] uppercase tracking-widest mt-1.5 sm:mt-2">{activity.time}</p>
-
-                      {activity.type === 'shane' && (
-                        <button className="mt-2 sm:mt-3 bg-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-[#FFDDD2] text-[9px] sm:text-[10px] font-black text-[#E29578] uppercase tracking-widest flex items-center gap-1.5 sm:gap-2 shadow-sm active:scale-95 transition-all">
-                          <ThumbsUp size={12} fill="currentColor" /> High Five
-                        </button>
-                      )}
                     </div>
                   </div>
                 ))}
