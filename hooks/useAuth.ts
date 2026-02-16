@@ -47,38 +47,74 @@ export const useAuth = () => {
   });
 
   useEffect(() => {
-    // Safety timeout: if auth never resolves, stop loading after 10s
-    const timeout = setTimeout(() => {
-      setAuthState(prev => {
-        if (prev.loading) {
-          console.warn('Auth timeout — clearing stale session');
-          supabase.auth.signOut().catch(() => {});
-          return { user: null, session: null, loading: false, error: null };
+    let mounted = true;
+
+    // Eagerly check for existing session — resolves immediately even if
+    // onAuthStateChange is delayed or never fires (stale/rotated keys)
+    const initSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (!mounted) return;
+
+        if (error || !session) {
+          // No valid session — clear any stale tokens and stop loading
+          if (error) {
+            console.warn('Session recovery failed, clearing stale auth:', error.message);
+            await supabase.auth.signOut().catch(() => {});
+          }
+          setAuthState({ user: null, session: null, loading: false, error: null });
+          return;
         }
-        return prev;
-      });
-    }, 10000);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      clearTimeout(timeout);
-      // Token refresh doesn't change the user — skip
-      if (event === 'TOKEN_REFRESHED') return;
-
-      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session) {
+        // Valid session found — load profile
         try {
           const user = await fetchProfile(session);
-          setAuthState({ user, session, loading: false, error: null });
+          if (mounted) {
+            setAuthState({ user, session, loading: false, error: null });
+          }
         } catch {
-          setAuthState({ user: null, session, loading: false, error: 'Failed to load profile' });
+          if (mounted) {
+            setAuthState({ user: null, session, loading: false, error: 'Failed to load profile' });
+          }
+        }
+      } catch {
+        // Network error or client crash — stop loading regardless
+        if (mounted) {
+          setAuthState({ user: null, session: null, loading: false, error: null });
+        }
+      }
+    };
+
+    initSession();
+
+    // Listen for ongoing auth changes (sign in, sign out, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      // Skip events that don't change auth state
+      if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') return;
+
+      if (event === 'SIGNED_IN' && session) {
+        try {
+          const user = await fetchProfile(session);
+          if (mounted) {
+            setAuthState({ user, session, loading: false, error: null });
+          }
+        } catch {
+          if (mounted) {
+            setAuthState({ user: null, session, loading: false, error: 'Failed to load profile' });
+          }
         }
       } else {
-        // SIGNED_OUT, or INITIAL_SESSION with no session
-        setAuthState({ user: null, session: null, loading: false, error: null });
+        // SIGNED_OUT
+        if (mounted) {
+          setAuthState({ user: null, session: null, loading: false, error: null });
+        }
       }
     });
 
     return () => {
-      clearTimeout(timeout);
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
