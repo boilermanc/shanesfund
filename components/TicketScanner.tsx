@@ -744,19 +744,36 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
               </details>
             )}
 
-            {/* Game type badge */}
+            {/* Game type toggle + draw date */}
             <div className="flex items-center gap-2 mb-4">
-              <span
-                className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-white ${
-                  selectedGame === 'powerball' ? 'bg-[#E29578]' : 'bg-[#006D77]'
-                }`}
-              >
-                <span className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-white/20 flex items-center justify-center text-[6px] sm:text-[7px] font-black leading-none">
-                  {selectedGame === 'powerball' ? 'PB' : 'MM'}
+              {pool ? (
+                // Locked to pool's game type
+                <span
+                  className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-white ${
+                    selectedGame === 'powerball' ? 'bg-[#E29578]' : 'bg-[#006D77]'
+                  }`}
+                >
+                  <span className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-white/20 flex items-center justify-center text-[6px] sm:text-[7px] font-black leading-none">
+                    {selectedGame === 'powerball' ? 'PB' : 'MM'}
+                  </span>
+                  {selectedGame === 'powerball' ? 'Powerball' : 'Mega Millions'}
+                  <Lock size={8} className="opacity-60" />
                 </span>
-                {selectedGame === 'powerball' ? 'Powerball' : 'Mega Millions'}
-                <Lock size={8} className="opacity-60" />
-              </span>
+              ) : (
+                // Tappable toggle between PB / MM
+                <button
+                  onClick={() => setSelectedGame(g => g === 'powerball' ? 'mega_millions' : 'powerball')}
+                  className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-white transition-colors ${
+                    selectedGame === 'powerball' ? 'bg-[#E29578]' : 'bg-[#006D77]'
+                  }`}
+                >
+                  <span className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-white/20 flex items-center justify-center text-[6px] sm:text-[7px] font-black leading-none">
+                    {selectedGame === 'powerball' ? 'PB' : 'MM'}
+                  </span>
+                  {selectedGame === 'powerball' ? 'Powerball' : 'Mega Millions'}
+                  <RefreshCw size={8} className="opacity-60" />
+                </button>
+              )}
               <div className="flex items-center gap-2">
                 <input
                   type="date"
