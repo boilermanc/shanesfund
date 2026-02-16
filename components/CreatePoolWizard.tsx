@@ -95,9 +95,9 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
     if (canShare) {
       try {
         await navigator.share(shareData);
-      } catch (err: any) {
+      } catch (err) {
         // User cancelled share - that's fine, don't fallback
-        if (err?.name !== 'AbortError') {
+        if (err instanceof Error && err.name !== 'AbortError') {
           copyInviteCode();
         }
       }

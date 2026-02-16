@@ -33,7 +33,7 @@ const PoolCard: React.FC<{ pool: DisplayPool; onJoin?: () => void; onPoolClick?:
       <div className="relative z-10">
         <div className="flex justify-between items-start mb-6 sm:mb-8">
           <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl sm:rounded-3xl bg-[#EDF6F9] flex items-center justify-center border border-[#FFDDD2] shadow-sm">
-            <img src={`https://picsum.photos/seed/${pool.id}/64`} className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl opacity-90" alt="pool" />
+            <img src={`https://picsum.photos/seed/${pool.id}/64`} className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl opacity-90" alt="pool" loading="lazy" />
           </div>
           <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl glass border border-white group-hover:bg-[#E29578] group-hover:text-white transition-all text-[#006D77]">
             <ArrowUpRight size={18} />

@@ -722,7 +722,7 @@ export interface PoolMemberWithUser extends PoolMember {
 
 export interface Activity {
   id: string;
-  type: 'scan' | 'join' | 'win' | 'contribution' | 'shane';
+  type: 'scan' | 'join' | 'win' | 'contribution';
   user_name: string;
   content: string;
   time: string;

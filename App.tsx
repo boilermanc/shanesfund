@@ -1,6 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// Error Boundary to prevent white-screen crashes
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('App error boundary caught:', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-[#EDF6F9] p-6">
+          <div className="text-center max-w-md">
+            <img src="/logo.png" alt="Shane's Retirement Fund" className="h-20 w-auto mx-auto mb-6" />
+            <h1 className="text-2xl font-black text-[#006D77] mb-2">Something went wrong</h1>
+            <p className="text-sm text-[#83C5BE] mb-6">
+              {this.state.error?.message || 'An unexpected error occurred.'}
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-3 bg-[#006D77] text-white font-bold rounded-2xl"
+            >
+              Reload App
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { useStore } from './store/useStore';
 import { useAuth } from './hooks/useAuth';
 import { useNotifications } from './hooks/useNotifications';
@@ -123,7 +162,7 @@ const MainApp: React.FC = () => {
     return <Onboarding />;
   }
   // Transform pools for display components (bridge between old and new types)
-  const displayPools: DisplayPool[] = pools.map(pool => ({
+  const displayPools: DisplayPool[] = useMemo(() => pools.map(pool => ({
     id: pool.id,
     name: pool.name,
     total_jackpot: 0, // Will come from lottery_draws later
@@ -134,7 +173,7 @@ const MainApp: React.FC = () => {
     game_type: pool.game_type,
     contribution_amount: Number(pool.contribution_amount) || 5,
     members_count: pool.members_count || 0,
-  }));
+  })), [pools]);
   const renderTabContent = () => {
     switch (activeTab) {
       case 'home':
@@ -325,10 +364,12 @@ const MainApp: React.FC = () => {
 // App with Routes
 const App: React.FC = () => {
   return (
-    <Routes>
-      <Route path="/admin/*" element={<AdminPage />} />
-      <Route path="/*" element={<MainApp />} />
-    </Routes>
+    <ErrorBoundary>
+      <Routes>
+        <Route path="/admin/*" element={<AdminPage />} />
+        <Route path="/*" element={<MainApp />} />
+      </Routes>
+    </ErrorBoundary>
   );
 };
 export default App;

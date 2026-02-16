@@ -269,13 +269,16 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
               <p className="text-sm text-[#83C5BE] font-medium">No draw history yet</p>
             </div>
           ) : (
-            history.map((draw) => (
+            history.map((draw) => {
+              const drawPool = draw.game_type === 'powerball' ? powerballPool : megaMillionsPool;
+              return (
               <div
                 key={draw.id}
-                onClick={() => onOpenPool?.(draw.id)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPool?.(draw.id); } }}
+                onClick={() => { if (drawPool) { onOpenPool?.(drawPool.id); } else { onJoinPool?.(); } }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (drawPool) { onOpenPool?.(drawPool.id); } else { onJoinPool?.(); } } }}
                 role="button"
                 tabIndex={0}
+                aria-label={`${draw.game_type === 'powerball' ? 'Powerball' : 'Mega Millions'} draw on ${formatDrawDate(draw.draw_date)}`}
                 className="bg-white p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[#FFDDD2] flex items-center justify-between group cursor-pointer active:scale-95 transition-all"
               >
                 <div className="flex flex-col gap-1">
@@ -303,12 +306,13 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
                     {formatJackpot(draw.jackpot_amount)}
                   </p>
                   <div className="flex items-center gap-1 justify-end mt-1">
-                    <span className="text-[7px] sm:text-[8px] font-black text-[#83C5BE] uppercase tracking-widest">View Details</span>
+                    <span className="text-[7px] sm:text-[8px] font-black text-[#83C5BE] uppercase tracking-widest">{drawPool ? 'View Pool' : 'Join Pool'}</span>
                     <ChevronRight size={12} className="text-[#83C5BE]" />
                   </div>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </motion.section>

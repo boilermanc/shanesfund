@@ -66,19 +66,19 @@ const PoolDetailView: React.FC<PoolDetailViewProps> = ({ poolId, onClose, onOpen
     if (!pool?.invite_code) return;
     try {
       await navigator.clipboard.writeText(pool.invite_code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     } catch {
       // Fallback for older browsers
       const textArea = document.createElement('textarea');
       textArea.value = pool.invite_code;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
       document.body.appendChild(textArea);
       textArea.select();
-      document.execCommand('copy');
+      try { document.execCommand('copy'); } catch { /* ignore */ }
       document.body.removeChild(textArea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleLeavePool = async () => {
@@ -266,6 +266,7 @@ const PoolDetailView: React.FC<PoolDetailViewProps> = ({ poolId, onClose, onOpen
                           src={member.users.avatar_url}
                           className="w-full h-full rounded-xl sm:rounded-2xl object-cover"
                           alt=""
+                          loading="lazy"
                         />
                       ) : (
                         <div className="w-full h-full rounded-xl sm:rounded-2xl bg-[#83C5BE]/20 flex items-center justify-center">

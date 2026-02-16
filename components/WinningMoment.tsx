@@ -16,7 +16,7 @@ const WinningMoment: React.FC<WinningMomentProps> = ({ onClose }) => {
 
       const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
 
-      const interval: any = setInterval(function() {
+      const interval: ReturnType<typeof setInterval> = setInterval(function() {
         const timeLeft = animationEnd - Date.now();
         if (timeLeft <= 0) return clearInterval(interval);
         const particleCount = 60 * (timeLeft / duration);
@@ -103,7 +103,7 @@ const WinningMoment: React.FC<WinningMomentProps> = ({ onClose }) => {
               >
                 <div className="flex items-center gap-3 sm:gap-4">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#EDF6F9] p-0.5">
-                    <img src={winner.avatar} className="w-full h-full rounded-xl sm:rounded-2xl object-cover border-2 border-white shadow-sm" alt="" />
+                    <img src={winner.avatar} className="w-full h-full rounded-xl sm:rounded-2xl object-cover border-2 border-white shadow-sm" alt="" loading="lazy" />
                   </div>
                   <p className="font-black text-[#006D77] text-xs sm:text-sm">{winner.name}</p>
                 </div>

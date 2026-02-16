@@ -130,10 +130,14 @@ export async function getUserInsights(
     );
 
     // 5. Get total ticket counts per pool (for win rate calculation)
-    const { data: ticketRows } = await supabase
+    const { data: ticketRows, error: ticketError } = await supabase
       .from('tickets')
       .select('pool_id')
       .in('pool_id', poolIds);
+
+    if (ticketError) {
+      return { data: null, error: ticketError.message };
+    }
 
     const ticketCounts = new Map<string, number>();
     for (const row of ticketRows || []) {

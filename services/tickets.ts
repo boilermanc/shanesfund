@@ -185,8 +185,7 @@ export const uploadTicketImage = async (
   }
 
   try {
-    const fileExt = file.name.split('.').pop();
-    const filePath = `${poolId}/${ticketId}.${fileExt}`;
+    const filePath = `${poolId}/${ticketId}.${ext}`;
     const { error: uploadError } = await supabase.storage
       .from('tickets')
       .upload(filePath, file, { upsert: true });

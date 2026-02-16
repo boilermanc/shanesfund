@@ -34,9 +34,10 @@ const ContributionLedger: React.FC<ContributionLedgerProps> = ({ pool, onClose }
   const handleRequestReminders = () => {
     if (remindersSent) return;
     setRemindersSent(true);
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setRemindersSent(false);
     }, 3000);
+    return () => clearTimeout(timer);
   };
 
   const totalCollected = members.reduce((acc, m) => m.paid ? acc + m.amount : acc, 0);
@@ -128,7 +129,7 @@ const ContributionLedger: React.FC<ContributionLedgerProps> = ({ pool, onClose }
             >
               <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                 <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#EDF6F9] p-0.5 border border-[#FFDDD2] shrink-0">
-                  <img src={member.avatar} className="w-full h-full rounded-xl sm:rounded-2xl object-cover" alt="" />
+                  <img src={member.avatar} className="w-full h-full rounded-xl sm:rounded-2xl object-cover" alt="" loading="lazy" />
                 </div>
                 <div className="min-w-0">
                   <p className="font-black text-[#006D77] text-xs sm:text-sm truncate">{member.name}</p>
