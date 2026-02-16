@@ -144,6 +144,20 @@ const MainApp: React.FC = () => {
       loadPools();
     }
   }, [isAuthenticated, user?.id, setPools, setLoading]);
+  // Transform pools for display components (bridge between old and new types)
+  // NOTE: This must be above early returns to maintain consistent hook call order
+  const displayPools: DisplayPool[] = useMemo(() => pools.map(pool => ({
+    id: pool.id,
+    name: pool.name,
+    total_jackpot: 0, // Will come from lottery_draws later
+    current_pool_value: Number(pool.total_collected) || 0,
+    participants_count: pool.members_count || 0,
+    draw_date: new Date().toISOString().split('T')[0],
+    status: pool.status,
+    game_type: pool.game_type,
+    contribution_amount: Number(pool.contribution_amount) || 5,
+    members_count: pool.members_count || 0,
+  })), [pools]);
   // Show loading while checking auth
   if (authLoading) {
     return (
@@ -161,19 +175,6 @@ const MainApp: React.FC = () => {
   if (!isOnboarded) {
     return <Onboarding />;
   }
-  // Transform pools for display components (bridge between old and new types)
-  const displayPools: DisplayPool[] = useMemo(() => pools.map(pool => ({
-    id: pool.id,
-    name: pool.name,
-    total_jackpot: 0, // Will come from lottery_draws later
-    current_pool_value: Number(pool.total_collected) || 0,
-    participants_count: pool.members_count || 0,
-    draw_date: new Date().toISOString().split('T')[0],
-    status: pool.status,
-    game_type: pool.game_type,
-    contribution_amount: Number(pool.contribution_amount) || 5,
-    members_count: pool.members_count || 0,
-  })), [pools]);
   const renderTabContent = () => {
     switch (activeTab) {
       case 'home':
