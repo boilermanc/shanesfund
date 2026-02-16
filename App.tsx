@@ -372,11 +372,8 @@ const MainApp: React.FC = () => {
           <PoolDetailView
             poolId={selectedPoolIdForDetail}
             onClose={() => setSelectedPoolIdForDetail(null)}
-            onScanTicket={() => {
-              const p = displayPools.find(dp => dp.id === selectedPoolIdForDetail);
-              if (p) {
-                setScannerPoolContext({ id: p.id, name: p.name, game_type: p.game_type as 'powerball' | 'mega_millions' });
-              }
+            onScanTicket={(poolCtx: { id: string; name: string; game_type: 'powerball' | 'mega_millions' }) => {
+              setScannerPoolContext(poolCtx);
               setShowScanner(true);
             }}
             onManualEntry={() => setShowManualEntry(true)}

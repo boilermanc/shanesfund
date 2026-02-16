@@ -42,7 +42,7 @@ interface PoolMemberDisplay {
 interface PoolDetailViewProps {
   poolId: string;
   onClose: () => void;
-  onScanTicket?: () => void;
+  onScanTicket?: (poolContext: { id: string; name: string; game_type: 'powerball' | 'mega_millions' }) => void;
   onManualEntry?: () => void;
   onOpenLedger?: () => void;
 }
@@ -489,11 +489,11 @@ const PoolDetailView: React.FC<PoolDetailViewProps> = ({ poolId, onClose, onScan
                       </div>
 
                       {/* Add Ticket Button */}
-                      {onScanTicket && (
+                      {onScanTicket && pool && (
                         <motion.button
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.97 }}
-                          onClick={onScanTicket}
+                          onClick={() => onScanTicket({ id: pool.id, name: pool.name, game_type: pool.game_type })}
                           className="w-full py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-white font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg"
                           style={{ color: gameTypeColor }}
                         >
@@ -618,11 +618,11 @@ const PoolDetailView: React.FC<PoolDetailViewProps> = ({ poolId, onClose, onScan
                     <Camera size={32} className="text-[#83C5BE] mx-auto mb-3" />
                     <p className="font-black text-[#006D77] mb-1">No tickets yet</p>
                     <p className="text-xs text-[#83C5BE] mb-4">Scan or enter your first ticket to get started</p>
-                    {onScanTicket && (
+                    {onScanTicket && pool && (
                       <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.97 }}
-                        onClick={onScanTicket}
+                        onClick={() => onScanTicket({ id: pool.id, name: pool.name, game_type: pool.game_type })}
                         className="px-5 py-2.5 rounded-2xl bg-[#E29578] text-white font-black text-sm"
                       >
                         Scan Ticket
@@ -928,7 +928,7 @@ const PoolDetailView: React.FC<PoolDetailViewProps> = ({ poolId, onClose, onScan
                         Scan Ticket
                       </span>
                       <button
-                        onClick={() => { setFabOpen(false); onScanTicket?.(); }}
+                        onClick={() => { setFabOpen(false); if (pool) onScanTicket?.({ id: pool.id, name: pool.name, game_type: pool.game_type }); }}
                         className="w-11 h-11 rounded-full bg-[#83C5BE] text-white shadow-lg flex items-center justify-center"
                       >
                         <Camera size={20} />
