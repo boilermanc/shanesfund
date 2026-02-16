@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, X, ArrowRight, Loader2, User as UserIcon, Eye, EyeOff } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -7,9 +7,13 @@ import FocusTrap from './FocusTrap';
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialMode?: 'login' | 'signup';
 }
-const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
-  const [isLogin, setIsLogin] = useState(true);
+const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, initialMode = 'login' }) => {
+  const [isLogin, setIsLogin] = useState(initialMode === 'login');
+  useEffect(() => {
+    if (isOpen) setIsLogin(initialMode === 'login');
+  }, [isOpen, initialMode]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');

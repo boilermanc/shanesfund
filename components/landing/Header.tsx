@@ -11,6 +11,7 @@ const Header: React.FC<HeaderProps> = ({ onScrollToSignup }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [loginMode, setLoginMode] = useState<'login' | 'signup'>('login');
 
   useEffect(() => {
     const handleScroll = () => {
@@ -34,7 +35,8 @@ const Header: React.FC<HeaderProps> = ({ onScrollToSignup }) => {
   const navLinks = [
     { label: 'How It Works', id: 'how-it-works' },
     { label: 'Pricing', id: 'pricing' },
-    { label: 'FAQ', id: 'faq' }
+    { label: 'FAQ', id: 'faq' },
+    { label: 'Terms', id: 'terms-signup' }
   ];
 
   return (
@@ -73,7 +75,14 @@ const Header: React.FC<HeaderProps> = ({ onScrollToSignup }) => {
               {navLinks.map((link) => (
                 <button
                   key={link.id}
-                  onClick={() => scrollToSection(link.id)}
+                  onClick={() => {
+                    if (link.id === 'terms-signup') {
+                      setLoginMode('signup');
+                      setIsLoginOpen(true);
+                    } else {
+                      scrollToSection(link.id);
+                    }
+                  }}
                   className="text-sm font-bold text-[#006D77]/70 hover:text-[#006D77] transition-colors"
                 >
                   {link.label}
@@ -84,7 +93,7 @@ const Header: React.FC<HeaderProps> = ({ onScrollToSignup }) => {
             {/* Desktop Buttons */}
             <div className="hidden md:flex items-center gap-3">
               <button
-                onClick={() => setIsLoginOpen(true)}
+                onClick={() => { setLoginMode('login'); setIsLoginOpen(true); }}
                 className="px-5 py-2.5 rounded-full text-sm font-bold text-[#006D77] hover:bg-[#006D77]/10 transition-colors"
               >
                 Login
@@ -120,7 +129,15 @@ const Header: React.FC<HeaderProps> = ({ onScrollToSignup }) => {
                 {navLinks.map((link) => (
                   <button
                     key={link.id}
-                    onClick={() => scrollToSection(link.id)}
+                    onClick={() => {
+                      if (link.id === 'terms-signup') {
+                        setLoginMode('signup');
+                        setIsLoginOpen(true);
+                        setIsMobileMenuOpen(false);
+                      } else {
+                        scrollToSection(link.id);
+                      }
+                    }}
                     className="block w-full text-left px-4 py-3 rounded-xl text-[#006D77] font-bold hover:bg-[#006D77]/5 transition-colors"
                   >
                     {link.label}
@@ -129,6 +146,7 @@ const Header: React.FC<HeaderProps> = ({ onScrollToSignup }) => {
                 <div className="pt-2 flex gap-3">
                   <button
                     onClick={() => {
+                      setLoginMode('login');
                       setIsLoginOpen(true);
                       setIsMobileMenuOpen(false);
                     }}
@@ -152,7 +170,7 @@ const Header: React.FC<HeaderProps> = ({ onScrollToSignup }) => {
         </AnimatePresence>
       </motion.header>
 
-      <LoginModal isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} />
+      <LoginModal isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} initialMode={loginMode} />
     </>
   );
 };
