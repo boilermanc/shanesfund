@@ -10,13 +10,15 @@ import FocusTrap from './FocusTrap';
 interface CreatePoolWizardProps {
   onClose: () => void;
   onComplete: (poolName: string, game: string) => void;
+  initialGameType?: 'powerball' | 'mega_millions';
 }
 
-const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete }) => {
+const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete, initialGameType }) => {
   const { user, addPool } = useStore();
+  const skipGameStep = !!initialGameType;
   const [step, setStep] = useState(0);
   const [poolName, setPoolName] = useState('');
-  const [selectedGame, setSelectedGame] = useState<'powerball' | 'mega_millions' | null>(null);
+  const [selectedGame, setSelectedGame] = useState<'powerball' | 'mega_millions' | null>(initialGameType || null);
   const [contribution, setContribution] = useState(5);
   const [isPrivate, setIsPrivate] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -25,7 +27,9 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
   const [copied, setCopied] = useState(false);
 
   const handleNext = () => {
-    if (step < 2) {
+    if (step === 0 && skipGameStep) {
+      setStep(2); // skip game picker when game type already known
+    } else if (step < 2) {
       setStep(step + 1);
     } else {
       handleCreatePool();
@@ -116,7 +120,9 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
     { speech: "Set the rules, captain!", label: "Rules", expression: 'thoughtful' as const }
   ];
 
-  const progress = ((step + 1) / 3) * 100;
+  const totalSteps = skipGameStep ? 2 : 3;
+  const currentStepIndex = skipGameStep && step === 2 ? 1 : step;
+  const progress = ((currentStepIndex + 1) / totalSteps) * 100;
 
   return (
     <FocusTrap onClose={onClose} autoFocusFirst={false}>

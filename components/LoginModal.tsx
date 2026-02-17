@@ -105,7 +105,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, initialMode = 
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-2xl sm:text-3xl font-black text-[#006D77] tracking-tight">
-                    {isLogin ? 'Welcome Back' : 'Join the Syndicate'}
+                    {isLogin ? 'Welcome Back' : 'Join the Pool'}
                   </h2>
                   <p className="text-sm text-[#83C5BE] font-semibold mt-1">
                     {isLogin ? 'Sign in to your account' : 'Create your account'}

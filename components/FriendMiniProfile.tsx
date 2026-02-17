@@ -70,7 +70,7 @@ const FriendMiniProfile: React.FC<FriendMiniProfileProps> = ({ friend, onClose, 
               <h3 className="text-2xl sm:text-3xl font-black text-[#006D77] tracking-tighter">{friend.displayName}</h3>
               <div className="flex items-center gap-1.5 sm:gap-2 mt-2 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-[#EDF6F9] border border-[#FFDDD2]">
                 <ShieldCheck size={12} className="text-[#006D77]" />
-                <span className="text-[9px] sm:text-[10px] font-black text-[#006D77] uppercase tracking-widest">Verified Syndicate Member</span>
+                <span className="text-[9px] sm:text-[10px] font-black text-[#006D77] uppercase tracking-widest">Verified Pool Member</span>
               </div>
             </div>
 

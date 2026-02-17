@@ -28,7 +28,7 @@ const InviteShareScreen: React.FC<InviteShareScreenProps> = ({ poolName, inviteC
       try {
         await navigator.share({
           title: `Join my pool: ${poolName}`,
-          text: `Retire early with me! Join my syndicate on Shane's Retirement Fund. Use code: ${inviteCode}`,
+          text: `Retire early with me! Join my pool on Shane's Retirement Fund. Use code: ${inviteCode}`,
           url: window.location.href,
         });
       } catch {
@@ -113,7 +113,7 @@ const InviteShareScreen: React.FC<InviteShareScreenProps> = ({ poolName, inviteC
           </button>
           
           <p className="text-[9px] sm:text-[10px] text-center font-black text-[#83C5BE] uppercase tracking-[0.15em] sm:tracking-[0.2em] px-6 sm:px-10">
-            Invitees will be prompted to scan or enter code to join your syndicate.
+            Invitees will be prompted to scan or enter code to join your pool.
           </p>
         </div>
       </main>

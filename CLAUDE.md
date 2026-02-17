@@ -3,7 +3,7 @@ You are an AI assistant working on this repository.
 Follow the rules in this file strictly.
 ---
 ## Project Overview
-**Shane's Retirement Fund** — A mobile-first lottery syndicate web app that lets users pool resources, join lottery groups, and manage collective wealth with friends.
+**Shane's Retirement Fund** — A mobile-first lottery pool web app that lets users pool resources, join lottery groups, and manage collective wealth with friends.
 - **Live Site:** https://shanesfund.vercel.app
 - **Repo:** https://github.com/boilermanc/shanesfund
 The project prioritizes:

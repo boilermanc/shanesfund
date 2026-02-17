@@ -240,7 +240,7 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
           {isChecking ? (
             <>
               <Loader2 size={18} className="animate-spin" />
-              Checking Syndicate Tickets...
+              Checking Pool Tickets...
             </>
           ) : (
             <>

@@ -20,7 +20,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1Jc6U0YgOnkSZdDB_pgyxYF
    `npm run dev`
 # Shane's Retirement Fund
 
-A mobile-first lottery syndicate web application that lets users pool resources, join lottery groups, and manage collective wealth with friends.
+A mobile-first lottery pool web application that lets users pool resources, join lottery groups, and manage collective wealth with friends.
 
 **Live Site:** https://shanesfund.vercel.app  
 **Repository:** https://github.com/boilermanc/shanesfund
@@ -43,7 +43,7 @@ A mobile-first lottery syndicate web application that lets users pool resources,
 ## Features
 
 - **Authentication Screen** — Login/signup with custom branding
-- **Pool Management** — Create and join lottery syndicates
+- **Pool Management** — Create and join lottery pools
 - **Pool Carousel & Lists** — Browse available pools
 - **Ticket Scanner** — Camera-based lottery ticket input
 - **Friends System** — Invite friends, accept requests

@@ -65,7 +65,7 @@ const ContributionLedger: React.FC<ContributionLedgerProps> = ({ pool, onClose }
           <ArrowLeft size={20} />
         </button>
         <div className="text-center">
-          <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.15em] sm:tracking-[0.2em]">Syndicate Ledger</p>
+          <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.15em] sm:tracking-[0.2em]">Pool Ledger</p>
           <h2 className="text-base sm:text-lg font-black text-[#006D77] tracking-tight">Draw: Friday, Jan 30</h2>
         </div>
         <div className="w-9 sm:w-10" />

@@ -32,7 +32,7 @@ interface TicketScannerProps {
   onClose: () => void;
   poolId?: string;
   pool?: PoolContext;
-  onCreatePool?: () => void;
+  onCreatePool?: (gameType?: 'powerball' | 'mega_millions') => void;
   onManualEntry?: () => void;
 }
 
@@ -1025,7 +1025,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
               )}
               {onCreatePool && !saveSuccess && (
                 <button
-                  onClick={() => { onClose(); onCreatePool(); }}
+                  onClick={() => { onClose(); onCreatePool(selectedGame); }}
                   className="w-full py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2rem] bg-white border-2 border-[#006D77] text-[#006D77] font-black text-sm sm:text-base flex items-center justify-center gap-2"
                 >
                   <Plus size={16} strokeWidth={3} />

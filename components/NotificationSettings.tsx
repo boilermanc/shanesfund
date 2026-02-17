@@ -114,7 +114,7 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ onClose }) 
             <div className="space-y-1.5 sm:space-y-2">
               <h3 className="text-base sm:text-lg font-black tracking-tight leading-none">Smart Alerts</h3>
               <p className="text-[10px] sm:text-[11px] font-bold text-white/60 leading-relaxed uppercase tracking-widest">
-                Shane only pings you when the retirement needle moves or your syndicate needs leadership.
+                Shane only pings you when the retirement needle moves or your pool needs leadership.
               </p>
             </div>
           </div>
@@ -128,7 +128,7 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ onClose }) 
           <>
             {/* Categories */}
             <div className="space-y-4 sm:space-y-6">
-              <h3 className="text-[10px] sm:text-[11px] font-black text-[#83C5BE] uppercase tracking-[0.3em] sm:tracking-[0.4em] ml-3 sm:ml-4">Syndicate Pulse</h3>
+              <h3 className="text-[10px] sm:text-[11px] font-black text-[#83C5BE] uppercase tracking-[0.3em] sm:tracking-[0.4em] ml-3 sm:ml-4">Pool Pulse</h3>
               <div className="space-y-3 sm:space-y-4">
                 <SettingItem
                   icon={<Trophy size={18} />}

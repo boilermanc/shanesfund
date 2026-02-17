@@ -14,7 +14,7 @@ const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ onClose }) => {
     { 
       icon: <Zap size={18} />, 
       title: 'Unlimited Pools', 
-      desc: 'Create and lead as many syndicates as you can manage.' 
+      desc: 'Create and lead as many pools as you can manage.' 
     },
     { 
       icon: <Scan size={18} />, 
@@ -95,7 +95,7 @@ const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ onClose }) => {
         {/* Content */}
         <div className="text-center mb-6 sm:mb-8">
           <h2 className="text-2xl sm:text-3xl font-black text-[#006D77] tracking-tighter leading-tight mb-2">
-            Supercharge your Syndicate.
+            Supercharge your Pool.
           </h2>
           <p className="text-[#83C5BE] text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em]">
             The Elite Retirement Experience

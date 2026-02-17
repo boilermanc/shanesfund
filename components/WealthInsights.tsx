@@ -236,7 +236,7 @@ const WinningTicketsModal: React.FC<{ month: string; tickets: WinningTicket[]; o
         <div className="flex justify-between items-start mb-6 sm:mb-8">
           <div>
             <h2 className="text-xl sm:text-2xl font-black text-[#006D77] tracking-tighter">{month} Winnings</h2>
-            <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.15em] sm:tracking-[0.2em] mt-1">Syndicate Results</p>
+            <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.15em] sm:tracking-[0.2em] mt-1">Pool Results</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl sm:rounded-2xl bg-white text-[#006D77] shadow-sm">
             <X size={18} />

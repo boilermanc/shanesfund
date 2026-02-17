@@ -116,6 +116,7 @@ const MainApp: React.FC = () => {
   const [scannerPoolContext, setScannerPoolContext] = useState<{ id: string; name: string; game_type: 'powerball' | 'mega_millions' } | undefined>();
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [showCreatePool, setShowCreatePool] = useState(false);
+  const [createPoolGameType, setCreatePoolGameType] = useState<'powerball' | 'mega_millions' | undefined>();
   const [showJoinPool, setShowJoinPool] = useState(false);
   const [showProUpgrade, setShowProUpgrade] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -237,7 +238,7 @@ const MainApp: React.FC = () => {
               )}
             </section>
             <section className="space-y-4 px-2">
-              <h3 className="text-xl font-black text-[#006D77] tracking-tight">Syndicates</h3>
+              <h3 className="text-xl font-black text-[#006D77] tracking-tight">Pools</h3>
               {isLoading ? (
                 <>
                   <SkeletonLoader type="card" />
@@ -334,7 +335,7 @@ const MainApp: React.FC = () => {
           <TicketScanner
             onClose={() => { setShowScanner(false); setScannerPoolContext(undefined); }}
             pool={scannerPoolContext}
-            onCreatePool={scannerPoolContext ? undefined : () => { setShowScanner(false); setScannerPoolContext(undefined); setShowCreatePool(true); }}
+            onCreatePool={scannerPoolContext ? undefined : (gameType?: 'powerball' | 'mega_millions') => { setShowScanner(false); setScannerPoolContext(undefined); setCreatePoolGameType(gameType); setShowCreatePool(true); }}
             onManualEntry={() => { setShowScanner(false); setScannerPoolContext(undefined); setShowManualEntry(true); }}
           />
         )}
@@ -346,8 +347,9 @@ const MainApp: React.FC = () => {
         )}
         {showCreatePool && (
           <CreatePoolWizard
-            onClose={() => setShowCreatePool(false)}
-            onComplete={() => setShowCreatePool(false)}
+            onClose={() => { setShowCreatePool(false); setCreatePoolGameType(undefined); }}
+            onComplete={() => { setShowCreatePool(false); setCreatePoolGameType(undefined); }}
+            initialGameType={createPoolGameType}
           />
         )}
         {showJoinPool && (

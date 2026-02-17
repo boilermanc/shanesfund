@@ -106,7 +106,7 @@ const PoolList: React.FC<PoolListProps> = ({ pools, onJoin, onSelectPool }) => {
           <div className="w-12 h-12 rounded-2xl bg-[#EDF6F9] flex items-center justify-center text-[#83C5BE] mx-auto">
             <Users size={24} />
           </div>
-          <p className="text-sm font-black text-[#006D77]">No syndicates yet</p>
+          <p className="text-sm font-black text-[#006D77]">No pools yet</p>
           <p className="text-[10px] font-bold text-[#83C5BE]">Create or join a pool to start playing together.</p>
         </div>
       ) : (

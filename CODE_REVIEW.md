@@ -131,7 +131,7 @@
 
 #### 20. Hardcoded Profile Stats
 - **File:** `components/ProfileView.tsx:95-118`
-- **Issue:** "5 Active Pools", "$142.50 Won", "35%" progress, "Pro Member", "Syndicate Leader" are all static strings not connected to real data.
+- **Issue:** "5 Active Pools", "$142.50 Won", "35%" progress, "Pro Member", "Pool Leader" are all static strings not connected to real data.
 
 #### 21. Hardcoded Progress Bar
 - **File:** `components/PoolCarousel.tsx:55`

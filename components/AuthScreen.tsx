@@ -76,7 +76,7 @@ const AuthScreen: React.FC = () => {
         {/* Title */}
         <div className="mb-8 text-center">
           <h2 className="text-3xl font-black text-[#006D77] tracking-tighter">
-            {isLogin ? 'Welcome Back' : 'Join the Syndicate'}
+            {isLogin ? 'Welcome Back' : 'Join the Pool'}
           </h2>
           <p className="text-[#83C5BE] font-bold text-sm mt-2 leading-relaxed px-4">
             {isLogin ? "Secure your future, one draw at a time." : 'Start managing your collective wealth with Shane.'}
