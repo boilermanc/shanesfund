@@ -115,23 +115,13 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
     validationTimerRef.current = setTimeout(() => setValidationError(null), 5000);
   }, []);
 
-  // Fetch pools matching the detected game type
-  const fetchMatchingPools = useCallback(async (gameType: 'powerball' | 'mega_millions') => {
-    setPoolsLoading(true);
-    try {
-      const { data } = await supabase
-        .from('pools')
-        .select('id, name, game_type, members_count')
-        .eq('game_type', gameType)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
-      setMatchingPools((data as PoolOption[]) || []);
-    } catch {
-      setMatchingPools([]);
-    } finally {
-      setPoolsLoading(false);
-    }
-  }, []);
+  // Filter user's pools matching the detected game type (from Zustand store)
+  const fetchMatchingPools = useCallback((gameType: 'powerball' | 'mega_millions') => {
+    const matched = pools
+      .filter(p => p.game_type === gameType && p.status === 'active')
+      .map(p => ({ id: p.id, name: p.name, game_type: p.game_type, members_count: p.members_count || 0 }));
+    setMatchingPools(matched);
+  }, [pools]);
 
   // Transition from review → pool picker
   const handleGoToPoolPicker = () => {
