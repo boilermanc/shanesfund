@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import type { User, Activity, Notification } from '../types/database';
 import type { PoolWithMembers } from '../services/pools';
 import type { FriendWithProfile, PoolWithFriendCount } from '../services/friends';
+import type { SyndicateWithMembers } from '../services/syndicates';
 import * as friendsService from '../services/friends';
+import * as syndicatesService from '../services/syndicates';
 import {
   fetchNotifications as fetchNotificationsApi,
   getUnreadCount as getUnreadCountApi,
@@ -90,6 +92,9 @@ interface AppState {
   // Shared wealth state
   sharedWealth: number;
   sharedWealthLoading: boolean;
+  // Syndicates state
+  syndicates: SyndicateWithMembers[];
+  syndicatesLoading: boolean;
   // UI state
   showWinnerAlert: boolean;
   notifications: Notification[];
@@ -124,6 +129,13 @@ interface AppState {
   fetchMutualPools: (userId: string) => Promise<void>;
   // Shared wealth actions
   fetchSharedWealth: (userId: string) => Promise<void>;
+  // Syndicates actions
+  fetchSyndicates: (userId: string) => Promise<void>;
+  createSyndicate: (name: string, userId: string, description?: string, color?: string, emoji?: string) => Promise<{ data: any | null; error: string | null }>;
+  deleteSyndicate: (syndicateId: string) => Promise<{ error: string | null }>;
+  addSyndicateMember: (syndicateId: string, userId: string, currentUserId: string) => Promise<{ error: string | null }>;
+  removeSyndicateMember: (syndicateId: string, userId: string, currentUserId: string) => Promise<{ error: string | null }>;
+  leaveSyndicate: (syndicateId: string, userId: string) => Promise<{ error: string | null }>;
   // UI actions
   setWinnerAlert: (show: boolean) => void;
   triggerWinnerAlert: () => void;
@@ -156,6 +168,8 @@ export const useStore = create<AppState>((set, get) => ({
   mutualPoolsLoading: false,
   sharedWealth: 0,
   sharedWealthLoading: false,
+  syndicates: [],
+  syndicatesLoading: false,
   showWinnerAlert: false,
   notifications: [],
   unreadCount: 0,
@@ -199,6 +213,8 @@ export const useStore = create<AppState>((set, get) => ({
       mutualPoolsLoading: false,
       sharedWealth: 0,
       sharedWealthLoading: false,
+      syndicates: [],
+      syndicatesLoading: false,
       notifications: [],
       unreadCount: 0,
       notificationsLoading: false,
@@ -352,6 +368,58 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     set({ sharedWealth: data || 0, sharedWealthLoading: false });
+  },
+  // Syndicates actions
+  fetchSyndicates: async (userId) => {
+    set({ syndicatesLoading: true });
+    const { data, error } = await syndicatesService.getUserSyndicates(userId);
+    set({ syndicates: data || [], syndicatesLoading: false });
+    if (error) {
+      console.error('Failed to fetch syndicates:', error);
+    }
+  },
+  createSyndicate: async (name, userId, description?, color?, emoji?) => {
+    const { data, error } = await syndicatesService.createSyndicate(name, userId, description, color, emoji);
+    if (!error && data) {
+      // Add the new syndicate to the list with owner flag
+      set((state) => ({
+        syndicates: [{ ...data, members: [], isOwner: true }, ...state.syndicates],
+      }));
+    }
+    return { data, error };
+  },
+  deleteSyndicate: async (syndicateId) => {
+    const { error } = await syndicatesService.deleteSyndicate(syndicateId);
+    if (!error) {
+      set((state) => ({
+        syndicates: state.syndicates.filter((s) => s.id !== syndicateId),
+      }));
+    }
+    return { error };
+  },
+  addSyndicateMember: async (syndicateId, userId, currentUserId) => {
+    const { error } = await syndicatesService.addMemberToSyndicate(syndicateId, userId, currentUserId);
+    if (!error) {
+      // Refetch to get updated member list and count
+      get().fetchSyndicates(currentUserId);
+    }
+    return { error };
+  },
+  removeSyndicateMember: async (syndicateId, userId, currentUserId) => {
+    const { error } = await syndicatesService.removeMemberFromSyndicate(syndicateId, userId);
+    if (!error) {
+      get().fetchSyndicates(currentUserId);
+    }
+    return { error };
+  },
+  leaveSyndicate: async (syndicateId, userId) => {
+    const { error } = await syndicatesService.leaveSyndicate(syndicateId, userId);
+    if (!error) {
+      set((state) => ({
+        syndicates: state.syndicates.filter((s) => s.id !== syndicateId),
+      }));
+    }
+    return { error };
   },
   // UI actions
   setWinnerAlert: (showWinnerAlert) => set({ showWinnerAlert }),

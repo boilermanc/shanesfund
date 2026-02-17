@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, UserPlus, Users, Zap, ExternalLink, Trophy, TrendingUp, Check, Clock, Loader2 } from 'lucide-react';
+import { Search, UserPlus, Users, Zap, ExternalLink, Trophy, TrendingUp, Check, Clock, Loader2, Plus } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { searchUsers, type FriendWithProfile, type UserSearchResult } from '../services/friends';
+import SyndicateCard from './SyndicateCard';
 const showToast = () => useStore.getState().showToast('Coming soon!', 'info');
 
 interface FriendsViewProps {
   onOpenProfile: (friend: FriendWithProfile) => void;
   onOpenRequests: () => void;
   onOpenPool: (poolId: string) => void;
+  onOpenSyndicate: (syndicateId: string) => void;
+  onCreateSyndicate: () => void;
 }
 
-const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests, onOpenPool }) => {
+const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests, onOpenPool, onOpenSyndicate, onCreateSyndicate }) => {
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -29,21 +32,25 @@ const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests
     mutualPoolsLoading,
     sharedWealth,
     sharedWealthLoading,
+    syndicates,
+    syndicatesLoading,
     fetchFriends,
     fetchPendingRequests,
     fetchFriendActivity,
     fetchMutualPools,
     fetchSharedWealth,
+    fetchSyndicates,
     sendFriendRequest,
   } = useStore();
 
-  // Fetch friends and pending requests on mount
+  // Fetch friends, pending requests, and syndicates on mount
   useEffect(() => {
     if (user?.id) {
       fetchFriends(user.id);
       fetchPendingRequests(user.id);
+      fetchSyndicates(user.id);
     }
-  }, [user?.id, fetchFriends, fetchPendingRequests]);
+  }, [user?.id, fetchFriends, fetchPendingRequests, fetchSyndicates]);
 
   // Fetch activity feed, mutual pools, and shared wealth after friends are loaded
   useEffect(() => {
@@ -257,6 +264,56 @@ const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests
               </div>
             </div>
           </motion.section>
+
+          {/* My Syndicates */}
+          <section className="space-y-3 sm:space-y-4 relative">
+            <div className="flex items-center justify-between px-2">
+              <h3 className="text-[10px] sm:text-[11px] font-black text-[#83C5BE] uppercase tracking-[0.3em] sm:tracking-[0.4em]">My Syndicates</h3>
+              <button
+                onClick={onCreateSyndicate}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#006D77] text-white text-[9px] font-black uppercase tracking-wider shadow-lg shadow-[#006D77]/20 active:scale-95 transition-all"
+              >
+                <Plus size={12} strokeWidth={3} />
+                New
+              </button>
+            </div>
+
+            {syndicatesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 size={20} className="text-[#83C5BE] animate-spin" />
+              </div>
+            ) : syndicates.length === 0 ? (
+              <div className="px-2">
+                <div className="bg-white p-6 rounded-[2rem] border border-[#FFDDD2] text-center space-y-2">
+                  <div className="w-12 h-12 rounded-2xl bg-[#EDF6F9] flex items-center justify-center text-[#83C5BE] mx-auto">
+                    <Users size={24} />
+                  </div>
+                  <p className="text-xs font-black text-[#006D77]">No syndicates yet</p>
+                  <p className="text-[10px] font-bold text-[#83C5BE]">Create a syndicate to organize your friends into groups.</p>
+                  <button
+                    onClick={onCreateSyndicate}
+                    className="mt-2 px-4 py-2 rounded-full bg-[#006D77] text-white text-[10px] font-black uppercase tracking-wider"
+                  >
+                    Create Your First Syndicate
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="relative">
+                <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 sm:pb-6 -mx-6 px-6 scroll-smooth snap-x snap-mandatory no-scrollbar">
+                  {syndicates.map((syndicate) => (
+                    <SyndicateCard
+                      key={syndicate.id}
+                      syndicate={syndicate}
+                      onClick={() => onOpenSyndicate(syndicate.id)}
+                    />
+                  ))}
+                  <div className="min-w-[24px]" />
+                </div>
+                <div className="absolute top-0 right-0 bottom-4 sm:bottom-6 w-12 bg-gradient-to-l from-[#EDF6F9] to-transparent pointer-events-none" />
+              </div>
+            )}
+          </section>
 
           {/* Mutual Pools - Enhanced Horizontal Scroll */}
           <section className="space-y-3 sm:space-y-4 relative">

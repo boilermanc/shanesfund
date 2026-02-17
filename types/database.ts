@@ -668,6 +668,64 @@ export interface Database {
           created_at?: string;
         };
       };
+      syndicates: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          creator_id: string;
+          color: string;
+          emoji: string | null;
+          member_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          creator_id: string;
+          color?: string;
+          emoji?: string | null;
+          member_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          creator_id?: string;
+          color?: string;
+          emoji?: string | null;
+          member_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      syndicate_members: {
+        Row: {
+          id: string;
+          syndicate_id: string;
+          user_id: string;
+          role: 'owner' | 'member';
+          joined_at: string;
+        };
+        Insert: {
+          id?: string;
+          syndicate_id: string;
+          user_id: string;
+          role?: 'owner' | 'member';
+          joined_at?: string;
+        };
+        Update: {
+          id?: string;
+          syndicate_id?: string;
+          user_id?: string;
+          role?: 'owner' | 'member';
+          joined_at?: string;
+        };
+      };
     };
     Functions: {
       get_notification_counts: {
@@ -685,6 +743,16 @@ export interface Database {
           p_settings?: Json;
         };
         Returns: Database['public']['Tables']['pools']['Row'][];
+      };
+      create_syndicate_with_owner: {
+        Args: {
+          p_name: string;
+          p_creator_id: string;
+          p_description?: string | null;
+          p_color?: string;
+          p_emoji?: string | null;
+        };
+        Returns: Database['public']['Tables']['syndicates']['Row'][];
       };
     };
   };
@@ -712,6 +780,8 @@ export type AdminUser = Tables<'admin_users'>;
 export type ContactMessage = Tables<'contact_messages'>;
 export type EmailTemplate = Tables<'email_templates'>;
 export type EmailLog = Tables<'email_logs'>;
+export type Syndicate = Tables<'syndicates'>;
+export type SyndicateMember = Tables<'syndicate_members'>;
 
 // Joined query types (Supabase select with FK joins)
 
@@ -724,6 +794,10 @@ export interface TicketWithUser extends Ticket {
 }
 
 export interface FriendWithUser extends Friend {
+  users: Pick<User, 'id' | 'display_name' | 'avatar_url' | 'email'> | null;
+}
+
+export interface SyndicateMemberWithUser extends SyndicateMember {
   users: Pick<User, 'id' | 'display_name' | 'avatar_url' | 'email'> | null;
 }
 

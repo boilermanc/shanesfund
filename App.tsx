@@ -67,6 +67,8 @@ import ManualTicketEntry from './components/ManualTicketEntry';
 import WinningMoment from './components/WinningMoment';
 import ProUpgradeModal from './components/ProUpgradeModal';
 import CreatePoolWizard from './components/CreatePoolWizard';
+import CreateSyndicateModal from './components/CreateSyndicateModal';
+import SyndicateDetailView from './components/SyndicateDetailView';
 import JoinPoolScreen from './components/JoinPoolScreen';
 import SettingsModal from './components/SettingsModal';
 import ShaneWinnerAlert from './components/ShaneWinnerAlert';
@@ -125,6 +127,8 @@ const MainApp: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<FriendWithProfile | null>(null);
   const [pendingRequestToReview, setPendingRequestToReview] = useState<FriendWithProfile | null>(null);
+  const [showCreateSyndicate, setShowCreateSyndicate] = useState(false);
+  const [selectedSyndicateId, setSelectedSyndicateId] = useState<string | null>(null);
   const [jackpots, setJackpots] = useState<Record<string, number>>({});
   const [winData, setWinData] = useState<Record<string, any> | null>(null);
   // Wire up realtime notifications
@@ -260,6 +264,8 @@ const MainApp: React.FC = () => {
               }
             }}
             onOpenPool={(id) => setSelectedPoolIdForDetail(id)}
+            onOpenSyndicate={(id) => setSelectedSyndicateId(id)}
+            onCreateSyndicate={() => setShowCreateSyndicate(true)}
           />
         );
       case 'results':
@@ -385,6 +391,18 @@ const MainApp: React.FC = () => {
                 setSelectedPoolForLedger(pool);
               }
             }}
+          />
+        )}
+        {showCreateSyndicate && (
+          <CreateSyndicateModal
+            onClose={() => setShowCreateSyndicate(false)}
+            onComplete={() => setShowCreateSyndicate(false)}
+          />
+        )}
+        {selectedSyndicateId && (
+          <SyndicateDetailView
+            syndicateId={selectedSyndicateId}
+            onClose={() => setSelectedSyndicateId(null)}
           />
         )}
       </AnimatePresence>
