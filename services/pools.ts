@@ -384,11 +384,16 @@ export async function checkTicketsForDraw(
   pools: { id: string; game_type: string; status: string }[]
 ): Promise<{ wins: WinResult[]; checkedCount: number; error: string | null }> {
   try {
+    console.log(`[checkTickets] Starting for ${gameType}`, { draw: draw?.draw_date, poolCount: pools.length });
+
     if (!draw) {
+      console.log(`[checkTickets] No draw data for ${gameType}`);
       return { wins: [], checkedCount: 0, error: 'No draw data available' };
     }
 
     const matchingPools = pools.filter(p => p.game_type === gameType && p.status === 'active');
+    console.log(`[checkTickets] ${matchingPools.length} matching pools for ${gameType}:`, matchingPools.map(p => p.id));
+
     if (matchingPools.length === 0) {
       return { wins: [], checkedCount: 0, error: null };
     }
@@ -397,19 +402,23 @@ export async function checkTicketsForDraw(
     const winningBonus = draw.bonus_number;
     const prizes = PRIZE_AMOUNTS[gameType] || {};
     const jackpotAmount = draw.jackpot_amount ?? 0;
+    console.log(`[checkTickets] Draw ${draw.draw_date}: winning=${winningNumbers}, bonus=${winningBonus}`);
 
     const allWins: WinResult[] = [];
     let totalChecked = 0;
 
     for (const pool of matchingPools) {
+      console.log(`[checkTickets] Fetching unchecked tickets for pool ${pool.id}...`);
       const { data: tickets, error: ticketsError } = await getUncheckedTickets(pool.id);
 
       if (ticketsError || !tickets) {
-        console.error(`Error fetching tickets for pool ${pool.id}:`, ticketsError);
+        console.error(`[checkTickets] Error fetching tickets for pool ${pool.id}:`, ticketsError);
         continue;
       }
 
+      console.log(`[checkTickets] Pool ${pool.id}: ${tickets.length} unchecked tickets, filtering for draw ${draw.draw_date}`);
       const relevantTickets = tickets.filter(t => t.draw_date === draw.draw_date);
+      console.log(`[checkTickets] ${relevantTickets.length} tickets match draw date`);
 
       for (const ticket of relevantTickets) {
         totalChecked++;
@@ -440,9 +449,10 @@ export async function checkTicketsForDraw(
       }
     }
 
+    console.log(`[checkTickets] Done for ${gameType}: ${totalChecked} checked, ${allWins.length} wins`);
     return { wins: allWins, checkedCount: totalChecked, error: null };
   } catch (err) {
-    console.error('Error checking tickets:', err);
+    console.error('[checkTickets] Error:', err);
     return { wins: [], checkedCount: 0, error: 'Failed to check tickets' };
   }
 }

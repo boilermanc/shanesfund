@@ -155,8 +155,11 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
     setShowMatch(false);
     setCheckResults(null);
     try {
+      console.log('[handleCheckTickets] Starting...', { powerball: powerball?.draw_date, megaMillions: megaMillions?.draw_date, poolCount: pools.length });
       const pbResults = await checkTicketsForDraw('powerball', powerball, pools);
+      console.log('[handleCheckTickets] Powerball done:', pbResults);
       const mmResults = await checkTicketsForDraw('mega_millions', megaMillions, pools);
+      console.log('[handleCheckTickets] Mega Millions done:', mmResults);
       if (pbResults.error) showToast(pbResults.error, 'error');
       if (mmResults.error) showToast(mmResults.error, 'error');
       const totalWins = [...pbResults.wins, ...mmResults.wins];
