@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { Pool, PoolMember, PoolMemberWithUser, Contribution, InsertTables, UpdateTables } from '../types/database';
+import type { LotteryDraw } from './lottery';
+import { getUncheckedTickets, markTicketChecked } from './tickets';
 
 // Fire-and-forget: log a user action to activity_log for the social feed.
 // Auto-fetches pool name if pool_id is provided and pool_name isn't in details.
@@ -363,64 +365,82 @@ const TIER_MATCH_INFO: Record<string, { numbers: number; bonus: boolean }> = {
   match_bonus: { numbers: 0, bonus: true },
 };
 
-const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-wins`;
+function determinePrizeTier(mainMatches: number, bonusMatch: boolean): string | null {
+  if (mainMatches === 5 && bonusMatch) return 'jackpot';
+  if (mainMatches === 5) return 'match_5';
+  if (mainMatches === 4 && bonusMatch) return 'match_4_bonus';
+  if (mainMatches === 4) return 'match_4';
+  if (mainMatches === 3 && bonusMatch) return 'match_3_bonus';
+  if (mainMatches === 3) return 'match_3';
+  if (mainMatches === 2 && bonusMatch) return 'match_2_bonus';
+  if (mainMatches === 1 && bonusMatch) return 'match_1_bonus';
+  if (mainMatches === 0 && bonusMatch) return 'match_bonus';
+  return null;
+}
 
 export async function checkTicketsForDraw(
-  gameType: 'powerball' | 'mega_millions'
+  gameType: 'powerball' | 'mega_millions',
+  draw: LotteryDraw | null,
+  pools: { id: string; game_type: string; status: string }[]
 ): Promise<{ wins: WinResult[]; checkedCount: number; error: string | null }> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      return { wins: [], checkedCount: 0, error: 'Not authenticated' };
+    if (!draw) {
+      return { wins: [], checkedCount: 0, error: 'No draw data available' };
     }
 
-    const response = await fetch(EDGE_FUNCTION_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ game_type: gameType }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || !result.success) {
-      return { wins: [], checkedCount: 0, error: result.error || 'Win check failed' };
+    const matchingPools = pools.filter(p => p.game_type === gameType && p.status === 'active');
+    if (matchingPools.length === 0) {
+      return { wins: [], checkedCount: 0, error: null };
     }
 
-    // The edge function returns aggregate prize_tiers: { "match_3": 2, "match_bonus": 1 }
-    // Map them back to the WinResult[] shape the UI expects for display.
-    const gameResult = result.results?.find(
-      (r: any) => r.game_type === gameType
-    );
+    const winningNumbers = draw.winning_numbers;
+    const winningBonus = draw.bonus_number;
+    const prizes = PRIZE_AMOUNTS[gameType] || {};
+    const jackpotAmount = draw.jackpot_amount ?? 0;
 
-    const wins: WinResult[] = [];
-    if (gameResult?.prize_tiers) {
-      const prizes = PRIZE_AMOUNTS[gameType] || {};
-      // Use the actual jackpot amount from the draw data (returned by the edge function)
-      // instead of the static 0 in PRIZE_AMOUNTS
-      const jackpotAmount = gameResult.jackpot_amount ?? 0;
-      for (const [tier, count] of Object.entries(gameResult.prize_tiers)) {
-        const info = TIER_MATCH_INFO[tier];
-        for (let i = 0; i < (count as number); i++) {
-          wins.push({
-            ticketId: '',
-            poolId: '',
-            numbersMatched: info?.numbers ?? 0,
-            bonusMatched: info?.bonus ?? false,
-            prizeTier: tier,
-            prizeAmount: tier === 'jackpot' ? jackpotAmount : (prizes[tier] ?? 0),
+    const allWins: WinResult[] = [];
+    let totalChecked = 0;
+
+    for (const pool of matchingPools) {
+      const { data: tickets, error: ticketsError } = await getUncheckedTickets(pool.id);
+
+      if (ticketsError || !tickets) {
+        console.error(`Error fetching tickets for pool ${pool.id}:`, ticketsError);
+        continue;
+      }
+
+      const relevantTickets = tickets.filter(t => t.draw_date === draw.draw_date);
+
+      for (const ticket of relevantTickets) {
+        totalChecked++;
+
+        const ticketNumbers = ticket.numbers as number[];
+        const ticketBonus = ticket.bonus_number as number;
+
+        const mainMatches = ticketNumbers.filter((n: number) => winningNumbers.includes(n)).length;
+        const bonusMatch = ticketBonus === winningBonus;
+        const prizeTier = determinePrizeTier(mainMatches, bonusMatch);
+        const isWinner = prizeTier !== null;
+
+        // Fire-and-forget — mark ticket as checked
+        markTicketChecked(ticket.id, isWinner).catch(err =>
+          console.error(`Failed to mark ticket ${ticket.id} as checked:`, err)
+        );
+
+        if (prizeTier) {
+          allWins.push({
+            ticketId: ticket.id,
+            poolId: pool.id,
+            numbersMatched: mainMatches,
+            bonusMatched: bonusMatch,
+            prizeTier,
+            prizeAmount: prizeTier === 'jackpot' ? jackpotAmount : (prizes[prizeTier] ?? 0),
           });
         }
       }
     }
 
-    return {
-      wins,
-      checkedCount: gameResult?.tickets_checked ?? 0,
-      error: null,
-    };
+    return { wins: allWins, checkedCount: totalChecked, error: null };
   } catch (err) {
     console.error('Error checking tickets:', err);
     return { wins: [], checkedCount: 0, error: 'Failed to check tickets' };

@@ -56,6 +56,8 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
+  const resendApiKey = Deno.env.get("RESEND_API_KEY") ?? "";
+  const fromEmail = Deno.env.get("FROM_EMAIL") || "Shane's Fund <noreply@shanesfund.com>";
 
   // --- Auth: cron secret OR JWT + admin role ---
   const authHeader = req.headers.get("authorization") ?? "";
@@ -228,6 +230,8 @@ serve(async (req) => {
 
       let winsFound = 0;
       const prizeTiers: Record<string, number> = {};
+      // Track wins per pool for post-loop notifications + updates
+      const poolWins: Record<string, { totalPrize: number; winningIds: string[]; wins: Array<{ prizeTier: string; prizeAmount: number | null; ticketId: string }> }> = {};
 
       for (const ticket of tickets) {
         const ticketNumbers = ticket.numbers as number[];
@@ -242,9 +246,6 @@ serve(async (req) => {
         const prizeTier = determinePrizeTier(mainMatches, bonusMatch);
 
         if (prizeTier) {
-          // For jackpot, use the actual jackpot amount from the draw data.
-          // For non-jackpot tiers, use the fixed prize table.
-          // If jackpot amount is unknown, store null (not 0) to flag for review.
           let prizeAmount: number | null;
           if (prizeTier === "jackpot") {
             prizeAmount = draw.jackpot_amount ?? null;
@@ -275,6 +276,14 @@ serve(async (req) => {
             winsFound++;
             prizeTiers[prizeTier] = (prizeTiers[prizeTier] || 0) + 1;
 
+            // Track per-pool wins
+            if (!poolWins[ticket.pool_id]) {
+              poolWins[ticket.pool_id] = { totalPrize: 0, winningIds: [], wins: [] };
+            }
+            poolWins[ticket.pool_id].totalPrize += prizeAmount ?? 0;
+            poolWins[ticket.pool_id].winningIds.push(ticket.id);
+            poolWins[ticket.pool_id].wins.push({ prizeTier, prizeAmount, ticketId: ticket.id });
+
             // Log the win in activity_log
             const { error: activityError } = await supabase.from("activity_log").insert({
               user_id: ticket.entered_by,
@@ -303,6 +312,163 @@ serve(async (req) => {
             .eq("id", ticket.id);
           if (updateCheckError) {
             log(`WARNING: Failed to mark ticket ${ticket.id} as checked: ${updateCheckError.message}`);
+          }
+        }
+      }
+
+      // --- Post-loop: notifications, emails, pool updates per winning pool ---
+      for (const [poolId, poolWin] of Object.entries(poolWins)) {
+        // Get pool details + member count
+        const { data: poolData } = await supabase
+          .from("pools")
+          .select("name, total_winnings")
+          .eq("id", poolId)
+          .single();
+
+        const { data: members } = await supabase
+          .from("pool_members")
+          .select("user_id, users(email)")
+          .eq("pool_id", poolId);
+
+        const memberCount = members?.length ?? 1;
+        const perMemberShare = poolWin.totalPrize / memberCount;
+        const poolName = poolData?.name ?? "your pool";
+
+        // Update winnings records with share info
+        for (const winningId of poolWin.winningIds) {
+          const { error: shareError } = await supabase
+            .from("winnings")
+            .update({ per_member_share: perMemberShare, contributing_members: memberCount })
+            .eq("ticket_id", winningId);
+          if (shareError) {
+            log(`WARNING: Failed to update share for ticket ${winningId}: ${shareError.message}`);
+          }
+        }
+
+        // Update pool total_winnings
+        const newTotal = (poolData?.total_winnings ?? 0) + poolWin.totalPrize;
+        const { error: poolUpdateError } = await supabase
+          .from("pools")
+          .update({ total_winnings: newTotal })
+          .eq("id", poolId);
+        if (poolUpdateError) {
+          log(`WARNING: Failed to update pool ${poolId} total_winnings: ${poolUpdateError.message}`);
+        } else {
+          log(`Updated pool ${poolId} total_winnings: ${newTotal}`);
+        }
+
+        // Build notification message (summarize all wins for this pool)
+        const tierSummary = poolWin.wins.map(w => {
+          const tierLabel = w.prizeTier.replace(/_/g, " ");
+          return w.prizeAmount !== null ? `${tierLabel} ($${w.prizeAmount})` : `${tierLabel} (pending review)`;
+        }).join(", ");
+
+        const notifTitle = "Winner!";
+        const notifMessage = poolWin.totalPrize > 0
+          ? `${poolName} won $${poolWin.totalPrize.toLocaleString()}! Matched: ${tierSummary}`
+          : `${poolName} has a win pending review! Matched: ${tierSummary}`;
+
+        // Send notification to each pool member
+        if (members && members.length > 0) {
+          const notifications = members.map((m: any) => ({
+            user_id: m.user_id,
+            type: "win",
+            title: notifTitle,
+            message: notifMessage,
+            data: {
+              pool_id: poolId,
+              prize_amount: poolWin.totalPrize,
+              per_member_share: perMemberShare,
+              prize_tiers: poolWin.wins.map(w => w.prizeTier),
+              draw_date: draw.draw_date,
+            },
+          }));
+
+          const { error: notifError } = await supabase.from("notifications").insert(notifications);
+          if (notifError) {
+            log(`WARNING: Failed to send notifications for pool ${poolId}: ${notifError.message}`);
+          } else {
+            log(`Sent ${notifications.length} win notifications for pool ${poolId}`);
+          }
+
+          // Send emails if Resend is configured
+          if (resendApiKey) {
+            // Load the win_notification email template
+            const { data: template } = await supabase
+              .from("email_templates")
+              .select("*")
+              .eq("name", "win_notification")
+              .eq("is_active", true)
+              .single();
+
+            if (template) {
+              for (const member of members) {
+                const email = (member as any).users?.email;
+                if (!email) continue;
+
+                // Interpolate template variables
+                const vars: Record<string, string> = {
+                  pool_name: poolName,
+                  prize_amount: poolWin.totalPrize.toLocaleString(),
+                  per_member_share: perMemberShare.toFixed(2),
+                  prize_tier: tierSummary,
+                  draw_date: draw.draw_date,
+                };
+
+                let subject = template.subject;
+                let htmlBody = template.html_body;
+                for (const [key, val] of Object.entries(vars)) {
+                  const regex = new RegExp(`\\{\\{${key}\\}\\}`, "g");
+                  subject = subject.replace(regex, val);
+                  htmlBody = htmlBody.replace(regex, val);
+                }
+
+                // Call Resend API directly
+                try {
+                  const resendResponse = await fetch("https://api.resend.com/emails", {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${resendApiKey}`,
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      from: fromEmail,
+                      to: [email],
+                      subject,
+                      html: htmlBody,
+                    }),
+                  });
+
+                  const resendData = await resendResponse.json();
+                  const success = resendResponse.ok;
+
+                  // Log to email_logs
+                  await supabase.from("email_logs").insert({
+                    template_id: template.id,
+                    template_name: "win_notification",
+                    to_email: email,
+                    from_email: fromEmail,
+                    subject,
+                    html_body: htmlBody,
+                    variables: vars,
+                    resend_message_id: resendData.id || null,
+                    status: success ? "sent" : "failed",
+                    error_message: success ? null : (resendData.message || JSON.stringify(resendData)),
+                    triggered_by: "check_wins_cron",
+                  });
+
+                  if (success) {
+                    log(`Email sent to ${email} for pool ${poolId}`);
+                  } else {
+                    log(`WARNING: Email to ${email} failed: ${resendData.message}`);
+                  }
+                } catch (emailErr) {
+                  log(`WARNING: Email to ${email} threw: ${emailErr}`);
+                }
+              }
+            } else {
+              log(`WARNING: win_notification email template not found — skipping emails`);
+            }
           }
         }
       }

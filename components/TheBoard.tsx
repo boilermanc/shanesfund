@@ -118,6 +118,7 @@ const GameCard: React.FC<{
 );
 const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
   const pools = useStore((state) => state.pools);
+  const showToast = useStore((state) => state.showToast);
   const powerballPool = pools.find(p => p.game_type === 'powerball');
   const megaMillionsPool = pools.find(p => p.game_type === 'mega_millions');
   const [isChecking, setIsChecking] = useState(false);
@@ -154,14 +155,14 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
     setShowMatch(false);
     setCheckResults(null);
     try {
-      // Check both Powerball and Mega Millions
-      const pbResults = await checkTicketsForDraw('powerball');
-      const mmResults = await checkTicketsForDraw('mega_millions');
+      const pbResults = await checkTicketsForDraw('powerball', powerball, pools);
+      const mmResults = await checkTicketsForDraw('mega_millions', megaMillions, pools);
+      if (pbResults.error) showToast(pbResults.error, 'error');
+      if (mmResults.error) showToast(mmResults.error, 'error');
       const totalWins = [...pbResults.wins, ...mmResults.wins];
       const totalChecked = pbResults.checkedCount + mmResults.checkedCount;
       setCheckResults({ wins: totalWins, checkedCount: totalChecked });
       if (totalWins.length > 0) {
-        // Trigger confetti for wins!
         if (typeof window.confetti === 'function') {
           window.confetti({
             particleCount: 200,
@@ -174,6 +175,7 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
       setShowResultsModal(true);
     } catch (error) {
       console.error('Error checking tickets:', error);
+      showToast('Something went wrong checking tickets', 'error');
     } finally {
       setIsChecking(false);
     }
