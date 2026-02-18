@@ -224,35 +224,39 @@ const MainApp: React.FC = () => {
               <DashboardHeader user={user} totalPoolValue={displayPools.reduce((sum, p) => sum + (p.current_pool_value || 0), 0)} pools={displayPools} />
             )}
             <section className="space-y-4">
-              <div className="flex justify-between items-end px-2">
-                <div>
-                  <h3 className="text-xl font-black text-[#006D77] tracking-tight">Active Pools</h3>
-                  <p className="text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.2em]">Draws happening soon</p>
+              {(isLoading || displayPools.length > 0) && (
+                <div className="flex justify-between items-end px-2">
+                  <div>
+                    <h3 className="text-xl font-black text-[#006D77] tracking-tight">Active Pools</h3>
+                    <p className="text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.2em]">Draws happening soon</p>
+                  </div>
+                  <button
+                    onClick={() => setShowProUpgrade(true)}
+                    className="text-[10px] font-black text-[#E29578] uppercase tracking-widest border-b border-[#E29578]/30 pb-1"
+                  >
+                    Go Pro
+                  </button>
                 </div>
-                <button
-                  onClick={() => setShowProUpgrade(true)}
-                  className="text-[10px] font-black text-[#E29578] uppercase tracking-widest border-b border-[#E29578]/30 pb-1"
-                >
-                  Go Pro
-                </button>
-              </div>
+              )}
               {isLoading ? (
                 <SkeletonLoader type="carousel" />
               ) : (
                 <PoolCarousel pools={displayPools} onJoin={() => setShowJoinPool(true)} onPoolClick={(id) => setSelectedPoolIdForDetail(id)} />
               )}
             </section>
-            <section className="space-y-4 px-2">
-              <h3 className="text-xl font-black text-[#006D77] tracking-tight">Pools</h3>
-              {isLoading ? (
-                <>
-                  <SkeletonLoader type="card" />
-                  <SkeletonLoader type="card" />
-                </>
-              ) : (
-                <PoolList pools={displayPools} onSelectPool={(pool) => setSelectedPoolIdForDetail(pool.id)} />
-              )}
-            </section>
+            {(isLoading || displayPools.length > 0) && (
+              <section className="space-y-4 px-2">
+                <h3 className="text-xl font-black text-[#006D77] tracking-tight">Pools</h3>
+                {isLoading ? (
+                  <>
+                    <SkeletonLoader type="card" />
+                    <SkeletonLoader type="card" />
+                  </>
+                ) : (
+                  <PoolList pools={displayPools} onSelectPool={(pool) => setSelectedPoolIdForDetail(pool.id)} />
+                )}
+              </section>
+            )}
           </div>
         );
       case 'friends':
