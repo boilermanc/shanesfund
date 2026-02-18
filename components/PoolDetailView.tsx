@@ -16,6 +16,9 @@ import {
   ChevronUp,
   Archive,
   RotateCcw,
+  Clock,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getPool, unarchivePool } from '../services/pools';
@@ -92,7 +95,7 @@ function getDrawStatus(
   drawDate: string,
   drawTickets: TicketWithUser[],
   gameType: 'powerball' | 'mega_millions'
-): { color: string; label: string } {
+): { color: string; label: string; icon?: 'clock' | 'check' | 'winner' | 'miss' } {
   const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 
   if (drawDate > todayET) {
@@ -106,14 +109,14 @@ function getDrawStatus(
   // Past or closed draw
   const allChecked = drawTickets.every((t) => t.checked);
   if (!allChecked) {
-    return { color: '#F59E0B', label: 'Checking...' };
+    return { color: '#E29578', label: 'Awaiting Results', icon: 'clock' };
   }
 
   if (drawTickets.some((t) => t.is_winner)) {
-    return { color: '#10B981', label: 'Winner!' };
+    return { color: '#10B981', label: 'Winner!', icon: 'winner' };
   }
 
-  return { color: '#9CA3AF', label: 'No winners' };
+  return { color: '#9CA3AF', label: 'No Match', icon: 'miss' };
 }
 
 function groupTicketsByDraw(tickets: TicketWithUser[]): [string, TicketWithUser[]][] {
@@ -640,7 +643,10 @@ const PoolDetailView: React.FC<PoolDetailViewProps> = ({ poolId, onClose, onScan
                         <div key={drawDate}>
                           {/* Draw date header */}
                           <div className="flex items-center gap-2 mb-2.5 ml-1">
-                            {status && (
+                            {status?.icon === 'clock' && <Clock size={14} style={{ color: status.color }} className="shrink-0" />}
+                            {status?.icon === 'winner' && <Trophy size={14} style={{ color: status.color }} className="shrink-0" />}
+                            {status?.icon === 'miss' && <XCircle size={14} style={{ color: status.color }} className="shrink-0" />}
+                            {!status?.icon && status && (
                               <span
                                 className="w-2 h-2 rounded-full shrink-0"
                                 style={{ backgroundColor: status.color }}
@@ -659,28 +665,50 @@ const PoolDetailView: React.FC<PoolDetailViewProps> = ({ poolId, onClose, onScan
 
                           {/* Ticket cards */}
                           <div className="space-y-2.5">
-                            {drawTickets.map((ticket, idx) => (
+                            {drawTickets.map((ticket, idx) => {
+                              const isPast = drawDate <= new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+                              const isUnchecked = isPast && !ticket.checked;
+                              const isWinner = ticket.checked && ticket.is_winner;
+                              const isCheckedNoWin = ticket.checked && !ticket.is_winner;
+
+                              return (
                               <motion.div
                                 key={ticket.id || idx}
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: idx * 0.05 }}
-                                className="bg-white p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-[#FFDDD2]"
+                                className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border ${
+                                  isWinner
+                                    ? 'bg-[#10B981]/5 border-[#10B981]/30'
+                                    : isUnchecked
+                                    ? 'bg-[#F2E9D4]/30 border-dashed border-[#E29578]/40'
+                                    : isCheckedNoWin
+                                    ? 'bg-white border-[#EDF6F9] opacity-60'
+                                    : 'bg-white border-[#FFDDD2]'
+                                }`}
                               >
                                 {/* Number balls */}
                                 <div className="flex items-center gap-1 sm:gap-1.5 mb-2.5">
                                   {(Array.isArray(ticket.numbers) ? ticket.numbers : []).map((num: number, i: number) => (
                                     <div
                                       key={i}
-                                      className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white border-2 border-[#83C5BE] text-[#006D77] text-xs sm:text-sm font-black flex items-center justify-center"
+                                      className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full text-xs sm:text-sm font-black flex items-center justify-center ${
+                                        isWinner
+                                          ? 'bg-[#10B981]/10 border-2 border-[#10B981] text-[#10B981]'
+                                          : isUnchecked
+                                          ? 'bg-white border-2 border-dashed border-[#E29578]/40 text-[#E29578]'
+                                          : 'bg-white border-2 border-[#83C5BE] text-[#006D77]'
+                                      }`}
                                     >
                                       {num}
                                     </div>
                                   ))}
                                   <span className="text-[#83C5BE] font-bold text-xs mx-0.5">+</span>
                                   <div
-                                    className="w-8 h-8 sm:w-10 sm:h-10 rounded-full text-white text-xs sm:text-sm font-black flex items-center justify-center"
-                                    style={{ backgroundColor: isPowerball ? '#E29578' : '#006D77' }}
+                                    className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full text-white text-xs sm:text-sm font-black flex items-center justify-center ${
+                                      isWinner ? 'bg-[#10B981]' : ''
+                                    }`}
+                                    style={!isWinner ? { backgroundColor: isPowerball ? '#E29578' : '#006D77', opacity: isUnchecked ? 0.5 : 1 } : undefined}
                                   >
                                     {ticket.bonus_number}
                                   </div>
@@ -703,9 +731,29 @@ const PoolDetailView: React.FC<PoolDetailViewProps> = ({ poolId, onClose, onScan
                                   </span>
                                   <span className="text-[#83C5BE]/60">&middot;</span>
                                   <span>{getRelativeTime(ticket.created_at)}</span>
+                                  {/* Per-ticket status indicator */}
+                                  {isPast && (
+                                    <>
+                                      <span className="text-[#83C5BE]/60">&middot;</span>
+                                      {isWinner ? (
+                                        <span className="flex items-center gap-0.5 text-[#10B981] font-black">
+                                          <Trophy size={10} /> Winner
+                                        </span>
+                                      ) : isUnchecked ? (
+                                        <span className="flex items-center gap-0.5 text-[#E29578] font-bold">
+                                          <Clock size={10} /> Pending
+                                        </span>
+                                      ) : (
+                                        <span className="flex items-center gap-0.5 text-[#9CA3AF] font-bold">
+                                          <CheckCircle2 size={10} /> Checked
+                                        </span>
+                                      )}
+                                    </>
+                                  )}
                                 </div>
                               </motion.div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       );

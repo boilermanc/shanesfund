@@ -827,4 +827,5 @@ export interface DisplayPool {
   game_type: 'powerball' | 'mega_millions';
   contribution_amount: number;
   members_count: number;
+  total_winnings: number;
 }

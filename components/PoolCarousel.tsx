@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import type { DisplayPool } from '../types/database';
-import { Users, Calendar, ArrowUpRight, Lock, Plus } from 'lucide-react';
+import { Users, Calendar, ArrowUpRight, Lock, Plus, Trophy } from 'lucide-react';
 
 interface PoolCarouselProps {
   pools: DisplayPool[];
@@ -57,6 +57,14 @@ const PoolCard: React.FC<{ pool: DisplayPool; onPoolClick?: (poolId: string) => 
         <h3 className="text-xl sm:text-2xl font-black tracking-tight mb-1 text-[#006D77] leading-tight">
           {pool.name}
         </h3>
+        {pool.total_winnings > 0 && (
+          <div className="flex items-center gap-1.5 mb-2">
+            <Trophy size={12} className="text-[#10B981]" />
+            <span className="text-[10px] sm:text-[11px] font-black text-[#10B981] uppercase tracking-wider">
+              ${pool.total_winnings.toLocaleString()} Won
+            </span>
+          </div>
+        )}
         {pool.total_jackpot > 0 ? (
           <>
             <p className="text-[10px] sm:text-[11px] text-[#83C5BE] font-extrabold uppercase tracking-widest mt-1">Est. Jackpot</p>

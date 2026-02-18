@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import type { DisplayPool } from '../types/database';
-import { Users, Calendar, ArrowRight, Lock, Archive } from 'lucide-react';
+import { Users, Calendar, ArrowRight, Lock, Archive, Trophy } from 'lucide-react';
 
 interface PoolListProps {
   pools: DisplayPool[];
@@ -60,6 +60,14 @@ const PoolCard: React.FC<{ pool: DisplayPool; isArchived?: boolean; onJoin?: (po
               </>
             )}
           </div>
+          {pool.total_winnings > 0 && (
+            <div className="flex items-center gap-1.5 mt-1">
+              <Trophy size={12} className="text-[#10B981]" />
+              <span className="text-[10px] sm:text-[11px] font-black text-[#10B981] uppercase tracking-wider">
+                ${pool.total_winnings.toLocaleString()} Won
+              </span>
+            </div>
+          )}
         </div>
         <div className="px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#E29578] text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow-lg shadow-[#FFDDD2] shrink-0">
           Draw {new Date(pool.draw_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}

@@ -194,6 +194,7 @@ const MainApp: React.FC = () => {
     game_type: pool.game_type,
     contribution_amount: Number(pool.contribution_amount) || 5,
     members_count: pool.members_count || 0,
+    total_winnings: Number(pool.total_winnings) || 0,
   })), [pools, jackpots]);
   // Show loading while checking auth
   if (authLoading) {
