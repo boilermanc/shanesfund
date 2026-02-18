@@ -109,6 +109,24 @@ export const addTicket = async (
       }
     }
 
+    // Check for duplicate ticket in the same pool + draw date
+    if (ticket.draw_date) {
+      const sorted = [...ticket.numbers].sort((a, b) => a - b);
+      const { data: existing } = await supabase
+        .from('tickets')
+        .select('id, numbers, bonus_number')
+        .eq('pool_id', ticket.pool_id)
+        .eq('draw_date', ticket.draw_date)
+        .eq('bonus_number', ticket.bonus_number);
+
+      if (existing?.some(t => {
+        const tSorted = [...t.numbers].sort((a, b) => a - b);
+        return tSorted.length === sorted.length && tSorted.every((n, i) => n === sorted[i]);
+      })) {
+        return { data: null, error: 'This ticket already exists in this pool for the selected draw.' };
+      }
+    }
+
     const { data, error } = await supabase
       .from('tickets')
       .insert(ticket)

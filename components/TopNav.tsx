@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Home, Heart, ClipboardList, BarChart3, User, Plus, ScanLine, Bell } from 'lucide-react';
+import { Home, Heart, ClipboardList, BarChart3, Plus, ScanLine, Bell } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
 interface TopNavProps {
@@ -9,6 +9,7 @@ interface TopNavProps {
   onScanTicket: () => void;
   onCreatePool: () => void;
   onOpenNotifications: () => void;
+  onOpenDrawer: () => void;
   user: {
     display_name?: string | null;
     avatar_url?: string | null;
@@ -20,7 +21,6 @@ const tabs = [
   { id: 'friends', icon: Heart, label: 'Friends' },
   { id: 'results', icon: ClipboardList, label: 'Results' },
   { id: 'insights', icon: BarChart3, label: 'Insights' },
-  { id: 'profile', icon: User, label: 'Profile' },
 ];
 
 const TopNav: React.FC<TopNavProps> = ({
@@ -29,6 +29,7 @@ const TopNav: React.FC<TopNavProps> = ({
   onScanTicket,
   onCreatePool,
   onOpenNotifications,
+  onOpenDrawer,
   user,
 }: TopNavProps) => {
   const { unreadCount } = useStore();
@@ -104,8 +105,9 @@ const TopNav: React.FC<TopNavProps> = ({
               )}
             </button>
             <button
-              onClick={() => setActiveTab('profile')}
+              onClick={onOpenDrawer}
               className="w-9 h-9 rounded-full overflow-hidden border-2 border-[#83C5BE] shadow-sm bg-white flex-shrink-0"
+              aria-label="Open menu"
             >
               {user?.avatar_url ? (
                 <img src={user.avatar_url} className="w-full h-full object-cover" alt="Profile" />

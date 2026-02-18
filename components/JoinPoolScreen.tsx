@@ -478,6 +478,9 @@ const JoinPoolScreen: React.FC<JoinPoolScreenProps> = ({ onClose, onJoinSuccess 
                   <p className="text-xs sm:text-sm text-[#83C5BE] font-bold">
                     Welcome to <span className="text-[#E29578] font-black">{poolData.name}</span>
                   </p>
+                  <p className="text-[9px] sm:text-[10px] text-[#83C5BE] font-bold mt-1">
+                    Your contribution is pending captain confirmation
+                  </p>
                 </motion.div>
               </div>
 

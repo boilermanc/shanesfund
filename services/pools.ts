@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
-import type { Pool, PoolMember, PoolMemberWithUser, Contribution, InsertTables, UpdateTables } from '../types/database';
+import type { Pool, PoolMember, PoolMemberWithUser, Contribution, ContributionWithUser, InsertTables, UpdateTables } from '../types/database';
+import { sendNotification } from './notifications';
 import type { LotteryDraw } from './lottery';
 import { getUncheckedTickets, markTicketChecked } from './tickets';
 
@@ -267,7 +268,7 @@ export const removeMember = async (
   }
 };
 
-// Create a contribution record (marks user as having paid)
+// Create a contribution record (pending captain confirmation)
 export const createContribution = async (
   poolId: string,
   userId: string,
@@ -288,8 +289,8 @@ export const createContribution = async (
         pool_id: poolId,
         user_id: userId,
         amount: amount,
-        paid: true,
-        paid_at: new Date().toISOString(),
+        paid: false,
+        status: 'pending',
         draw_date: drawDate,
       })
       .select()
@@ -299,8 +300,152 @@ export const createContribution = async (
       return { data: null, error: error.message };
     }
 
-    logActivity(userId, poolId, 'contribution_made', { amount }).catch(err => console.error('[createContribution] logActivity failed:', err));
+    logActivity(userId, poolId, 'contribution_submitted', { amount }).catch(err => console.error('[createContribution] logActivity failed:', err));
+
+    // Fire-and-forget: notify the captain about pending contribution
+    notifyCaptainOfContribution(poolId, userId, amount).catch(err => console.error('[createContribution] captain notification failed:', err));
+
     return { data, error: null };
+  } catch (err) {
+    return { data: null, error: 'An unexpected error occurred' };
+  }
+};
+
+// Fire-and-forget helper: notify pool captain of a pending contribution
+async function notifyCaptainOfContribution(poolId: string, memberId: string, amount: number) {
+  const { data: pool } = await supabase
+    .from('pools')
+    .select('captain_id, name')
+    .eq('id', poolId)
+    .single();
+
+  const poolData = pool as { captain_id: string; name: string } | null;
+  if (!poolData?.captain_id) return;
+
+  const { data: member } = await supabase
+    .from('users')
+    .select('display_name, email')
+    .eq('id', memberId)
+    .single();
+
+  const memberData = member as { display_name: string | null; email: string } | null;
+  const memberName = memberData?.display_name || memberData?.email?.split('@')[0] || 'A member';
+
+  await sendNotification({
+    userId: poolData.captain_id,
+    type: 'payment',
+    title: 'Contribution Pending',
+    message: `${memberName} submitted $${amount.toFixed(2)} for ${poolData.name}`,
+    data: { pool_id: poolId, contribution_user_id: memberId },
+  });
+}
+
+// Captain confirms a pending contribution
+export const confirmContribution = async (
+  contributionId: string,
+  captainId: string
+): Promise<{ data: Contribution | null; error: string | null }> => {
+  try {
+    const { data, error } = await supabase
+      .from('contributions')
+      .update({
+        status: 'confirmed',
+        paid: true,
+        paid_at: new Date().toISOString(),
+        confirmed_by: captainId,
+        confirmed_at: new Date().toISOString(),
+      })
+      .eq('id', contributionId)
+      .eq('status', 'pending')
+      .select()
+      .single();
+
+    if (error || !data) {
+      return { data: null, error: error?.message || 'Contribution not found or already processed' };
+    }
+
+    const contrib = data as unknown as Contribution;
+
+    sendNotification({
+      userId: contrib.user_id,
+      type: 'payment',
+      title: 'Contribution Confirmed',
+      message: `Your $${contrib.amount.toFixed(2)} contribution has been confirmed!`,
+      data: { pool_id: contrib.pool_id, contribution_id: contrib.id },
+    }).catch(err => console.error('[confirmContribution] notification failed:', err));
+
+    logActivity(captainId, contrib.pool_id, 'contribution_confirmed', { amount: contrib.amount, member_id: contrib.user_id }).catch(err => console.error('[confirmContribution] logActivity failed:', err));
+
+    return { data: contrib, error: null };
+  } catch (err) {
+    return { data: null, error: 'An unexpected error occurred' };
+  }
+};
+
+// Captain rejects a pending contribution
+export const rejectContribution = async (
+  contributionId: string,
+  captainId: string
+): Promise<{ data: Contribution | null; error: string | null }> => {
+  try {
+    const { data, error } = await supabase
+      .from('contributions')
+      .update({
+        status: 'rejected',
+        paid: false,
+        confirmed_by: captainId,
+        confirmed_at: new Date().toISOString(),
+      })
+      .eq('id', contributionId)
+      .eq('status', 'pending')
+      .select()
+      .single();
+
+    if (error || !data) {
+      return { data: null, error: error?.message || 'Contribution not found or already processed' };
+    }
+
+    const contrib = data as unknown as Contribution;
+
+    sendNotification({
+      userId: contrib.user_id,
+      type: 'payment',
+      title: 'Contribution Not Confirmed',
+      message: `Your $${contrib.amount.toFixed(2)} contribution was not confirmed. Please contact your pool captain.`,
+      data: { pool_id: contrib.pool_id, contribution_id: contrib.id },
+    }).catch(err => console.error('[rejectContribution] notification failed:', err));
+
+    logActivity(captainId, contrib.pool_id, 'contribution_rejected', { amount: contrib.amount, member_id: contrib.user_id }).catch(err => console.error('[rejectContribution] logActivity failed:', err));
+
+    return { data: contrib, error: null };
+  } catch (err) {
+    return { data: null, error: 'An unexpected error occurred' };
+  }
+};
+
+// Get all contributions for a pool (with user info), optionally filtered by draw date
+export const getPoolContributions = async (
+  poolId: string,
+  drawDate?: string
+): Promise<{ data: ContributionWithUser[] | null; error: string | null }> => {
+  try {
+    let query = supabase
+      .from('contributions')
+      .select('*, users:user_id(id, display_name, avatar_url, email)')
+      .eq('pool_id', poolId)
+      .order('created_at', { ascending: false });
+
+    if (drawDate) {
+      query = query.eq('draw_date', drawDate);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return { data: null, error: error.message };
+    }
+
+    return { data: data as unknown as ContributionWithUser[], error: null };
   } catch (err) {
     return { data: null, error: 'An unexpected error occurred' };
   }

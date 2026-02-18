@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Menu } from 'lucide-react';
 
 // Error Boundary to prevent white-screen crashes
 class ErrorBoundary extends React.Component<
@@ -78,8 +79,12 @@ import NotificationBell from './components/NotificationBell';
 import NotificationPanel from './components/NotificationPanel';
 import SkeletonLoader from './components/SkeletonLoader';
 import TopNav from './components/TopNav';
+import AppDrawer from './components/AppDrawer';
 import Toast from './components/Toast';
 import LandingPage from './components/landing/LandingPage';
+const TermsOfService = React.lazy(() => import('./components/landing/TermsOfService'));
+const PrivacyPolicy = React.lazy(() => import('./components/landing/PrivacyPolicy'));
+const ContactPage = React.lazy(() => import('./components/landing/ContactPage'));
 import AdminPage from './components/admin/AdminPage';
 // Main App Content (extracted for cleaner routing)
 const MainApp: React.FC = () => {
@@ -101,6 +106,7 @@ const MainApp: React.FC = () => {
     declineFriendRequest: storeDeclineFriend,
     fetchFriends,
     fetchPendingRequests,
+    logout,
   } = useStore();
   const [activeTab, setActiveTab] = useState('home');
   // Update document.title based on active tab
@@ -131,6 +137,26 @@ const MainApp: React.FC = () => {
   const [selectedSyndicateId, setSelectedSyndicateId] = useState<string | null>(null);
   const [jackpots, setJackpots] = useState<Record<string, number>>({});
   const [winData, setWinData] = useState<Record<string, any> | null>(null);
+  const [showDrawer, setShowDrawer] = useState(false);
+  const [drawerPage, setDrawerPage] = useState<'terms' | 'privacy' | 'contact' | null>(null);
+  const handleDrawerNavigate = (page: 'profile' | 'terms' | 'privacy' | 'contact') => {
+    setShowDrawer(false);
+    if (page === 'profile') {
+      setActiveTab('profile');
+    } else {
+      setDrawerPage(page);
+    }
+  };
+  const handleLogout = async () => {
+    setShowDrawer(false);
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Unexpected error during signOut:', err);
+    } finally {
+      logout();
+    }
+  };
   // Wire up realtime notifications
   useNotifications(user?.id);
   // Sync auth state with store (setUser already sets isAuthenticated)
@@ -186,6 +212,7 @@ const MainApp: React.FC = () => {
   const displayPools: DisplayPool[] = useMemo(() => pools.map(pool => ({
     id: pool.id,
     name: pool.name,
+    captain_id: pool.captain_id,
     total_jackpot: jackpots[pool.game_type] || 0,
     current_pool_value: Number(pool.total_collected) || 0,
     participants_count: pool.members_count || 0,
@@ -293,19 +320,29 @@ const MainApp: React.FC = () => {
         onScanTicket={() => setShowScanner(true)}
         onCreatePool={() => setShowCreatePool(true)}
         onOpenNotifications={() => setShowNotifications(true)}
+        onOpenDrawer={() => setShowDrawer(true)}
         user={user}
       />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 safe-area-top">
         <div className="flex justify-between items-center pt-4 sm:pt-6 pb-3 sm:pb-4 md:hidden">
           <img src="/logo.png" alt="Shane's Retirement Fund" className="h-16 sm:h-24 w-auto" />
-          <NotificationBell
-            onClick={() => setShowNotifications(true)}
-            onWinDetected={(notification) => {
-              const data = (notification.data || {}) as Record<string, any>;
-              setWinData(data);
-              setWinnerAlert(true);
-            }}
-          />
+          <div className="flex items-center gap-2">
+            <NotificationBell
+              onClick={() => setShowNotifications(true)}
+              onWinDetected={(notification) => {
+                const data = (notification.data || {}) as Record<string, any>;
+                setWinData(data);
+                setWinnerAlert(true);
+              }}
+            />
+            <button
+              onClick={() => setShowDrawer(true)}
+              className="p-2 rounded-xl text-[#006D77] hover:bg-[#EDF6F9] transition-all"
+              aria-label="Menu"
+            >
+              <Menu size={22} />
+            </button>
+          </div>
         </div>
         <div className="md:pt-20">
           <AnimatePresence mode="wait">
@@ -409,6 +446,28 @@ const MainApp: React.FC = () => {
             syndicateId={selectedSyndicateId}
             onClose={() => setSelectedSyndicateId(null)}
           />
+        )}
+        {showDrawer && (
+          <AppDrawer
+            onClose={() => setShowDrawer(false)}
+            onNavigate={handleDrawerNavigate}
+            onLogout={handleLogout}
+            user={user}
+          />
+        )}
+        {drawerPage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-[#EDF6F9] overflow-y-auto"
+          >
+            <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-[3px] border-[#006D77] border-t-transparent rounded-full animate-spin" /></div>}>
+              {drawerPage === 'terms' && <TermsOfService onBack={() => setDrawerPage(null)} />}
+              {drawerPage === 'privacy' && <PrivacyPolicy onBack={() => setDrawerPage(null)} />}
+              {drawerPage === 'contact' && <ContactPage onBack={() => setDrawerPage(null)} />}
+            </React.Suspense>
+          </motion.div>
         )}
       </AnimatePresence>
       <FriendMiniProfile

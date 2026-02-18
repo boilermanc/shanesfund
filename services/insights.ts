@@ -115,14 +115,28 @@ export async function getUserInsights(
       (pools || []).map((p) => [p.id, { name: p.name, gameType: p.game_type }])
     );
 
-    // 4. Get user's total contributions
-    const { data: contributions, error: contribError } = await supabase
+    // 4. Get user's total contributions (only confirmed ones count)
+    // Try with status filter first; fall back without it if the column doesn't exist yet
+    let contributions: { amount: number }[] | null = null;
+    const { data: contribData, error: contribError } = await supabase
       .from('contributions')
       .select('amount')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('status', 'confirmed');
 
     if (contribError) {
-      return { data: null, error: contribError.message };
+      // status column may not exist yet — retry without the filter
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('contributions')
+        .select('amount')
+        .eq('user_id', userId);
+
+      if (fallbackError) {
+        return { data: null, error: fallbackError.message };
+      }
+      contributions = fallbackData;
+    } else {
+      contributions = contribData;
     }
 
     const totalContributed = (contributions || []).reduce(

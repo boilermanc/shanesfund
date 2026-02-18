@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Info, TrendingUp, DollarSign, Target, X, Calendar, Ticket, Star, Edit3, Check, BarChart3 } from 'lucide-react';
+import { Trophy, Info, TrendingUp, DollarSign, Target, X, Calendar, Ticket, Star, Edit3, Check, BarChart3, AlertCircle } from 'lucide-react';
 import { useInsights } from '../hooks/useInsights';
 import { updateSavingsGoal } from '../services/insights';
 import type { MonthlyWinning, WinningTicketDetail, PoolStat } from '../services/insights';
@@ -323,6 +323,24 @@ const LoadingSkeleton: React.FC = () => (
   </div>
 );
 
+const ErrorState: React.FC<{ onRetry: () => void }> = ({ onRetry }) => (
+  <div className="flex flex-col items-center justify-center py-20 sm:py-28 px-6 text-center">
+    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[1.5rem] sm:rounded-[2rem] bg-[#FFDDD2]/30 flex items-center justify-center mb-4 sm:mb-6 border border-[#FFDDD2]">
+      <AlertCircle size={28} className="text-[#E29578]" />
+    </div>
+    <h2 className="text-lg sm:text-xl font-black text-[#006D77] tracking-tight mb-2">Something Went Wrong</h2>
+    <p className="text-xs sm:text-sm font-bold text-[#83C5BE] max-w-[260px] mb-6">
+      We couldn't load your insights. Please try again.
+    </p>
+    <button
+      onClick={onRetry}
+      className="px-6 py-3 text-[10px] sm:text-xs font-black text-white uppercase tracking-[0.2em] bg-[#006D77] rounded-xl sm:rounded-2xl shadow-sm"
+    >
+      Try Again
+    </button>
+  </div>
+);
+
 const EmptyState: React.FC = () => (
   <div className="flex flex-col items-center justify-center py-20 sm:py-28 px-6 text-center">
     <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[1.5rem] sm:rounded-[2rem] bg-[#EDF6F9] flex items-center justify-center mb-4 sm:mb-6 border border-[#FFDDD2]">
@@ -341,7 +359,7 @@ const WealthInsights: React.FC = () => {
 
   const user = useStore((s) => s.user);
   const setUser = useStore((s) => s.setUser);
-  const { insights, loading } = useInsights(user?.id);
+  const { insights, loading, error, refetch } = useInsights(user?.id);
 
   const savingsGoal = user?.savings_goal ?? null;
 
@@ -352,9 +370,9 @@ const WealthInsights: React.FC = () => {
     // Optimistic update
     setUser({ ...user, savings_goal: amount });
 
-    const { error } = await updateSavingsGoal(user.id, amount);
-    if (error) {
-      console.error('Failed to save goal:', error);
+    const { error: saveError } = await updateSavingsGoal(user.id, amount);
+    if (saveError) {
+      console.error('Failed to save goal:', saveError);
       // Revert on error
       setUser(user);
     }
@@ -364,17 +382,19 @@ const WealthInsights: React.FC = () => {
     return <LoadingSkeleton />;
   }
 
-  if (!insights || (insights.totalWinnings === 0 && insights.totalContributed === 0 && insights.poolStats.length === 0)) {
-    // Still show goal setting even with no data, but only if user has pools
-    if (insights && insights.monthlyWinnings.length > 0) {
-      // User has pools but no winnings — fall through to main view
-    } else {
-      return <EmptyState />;
-    }
+  if (error) {
+    return <ErrorState onRetry={refetch} />;
   }
 
-  const { totalWinnings, personalShare, totalContributed, monthlyWinnings, winningTickets, poolStats } = insights!;
+  if (!insights || insights.monthlyWinnings.length === 0) {
+    return <EmptyState />;
+  }
 
+  const { totalWinnings, personalShare, totalContributed, monthlyWinnings, winningTickets, poolStats } = insights;
+
+  const hasWinnings = totalWinnings > 0;
+  const hasContributions = totalContributed > 0;
+  const hasROI = hasWinnings || hasContributions;
   const profit = personalShare - totalContributed;
   const profitPct = totalContributed > 0 ? Math.round((profit / totalContributed) * 100) : 0;
   const goalPercentage = savingsGoal && savingsGoal > 0 ? (totalWinnings / savingsGoal) * 100 : 0;
@@ -408,8 +428,14 @@ const WealthInsights: React.FC = () => {
       {/* Header Section */}
       <motion.section variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="text-center px-4 md:max-w-2xl md:mx-auto">
         <h2 className="text-[10px] sm:text-[11px] font-black text-[#83C5BE] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-3 sm:mb-4">Wealth Insights</h2>
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-[#006D77] tracking-tighter">{formatCurrency(totalWinnings)}</h1>
-        <p className="text-xs sm:text-sm font-bold text-[#83C5BE] mt-2">Your Personal Share: <span className="text-[#006D77]">{formatCurrency(personalShare)}</span></p>
+        {hasWinnings ? (
+          <>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-[#006D77] tracking-tighter">{formatCurrency(totalWinnings)}</h1>
+            <p className="text-xs sm:text-sm font-bold text-[#83C5BE] mt-2">Your Personal Share: <span className="text-[#006D77]">{formatCurrency(personalShare)}</span></p>
+          </>
+        ) : (
+          <p className="text-sm sm:text-base font-bold text-[#83C5BE] mt-2">No winnings yet — keep playing!</p>
+        )}
       </motion.section>
 
       {/* Goal Section */}
@@ -431,29 +457,31 @@ const WealthInsights: React.FC = () => {
         <BarChart data={monthlyWinnings} onBarClick={(month) => setSelectedMonth(month)} />
       </motion.section>
 
-      {/* ROI Section */}
-      <motion.section
-        variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
-        className="px-2"
-      >
-        <div className="rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden warm-shadow border border-[#FFDDD2] bg-white">
-          <div className="flex divide-x divide-[#FFDDD2]">
-            <div className="flex-1 p-5 sm:p-8 bg-[#EDF6F9]/50">
-              <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-1">Total Contributed</p>
-              <p className="text-lg sm:text-xl font-black text-[#006D77]">{formatCurrency(totalContributed)}</p>
+      {/* ROI Section — only show when there's actual financial data */}
+      {hasROI && (
+        <motion.section
+          variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
+          className="px-2"
+        >
+          <div className="rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden warm-shadow border border-[#FFDDD2] bg-white">
+            <div className="flex divide-x divide-[#FFDDD2]">
+              <div className="flex-1 p-5 sm:p-8 bg-[#EDF6F9]/50">
+                <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-1">Total Contributed</p>
+                <p className="text-lg sm:text-xl font-black text-[#006D77]">{formatCurrency(totalContributed)}</p>
+              </div>
+              <div className="flex-1 p-5 sm:p-8 bg-[#EDF6F9]/50">
+                <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-1">Total Returns</p>
+                <p className="text-lg sm:text-xl font-black text-[#006D77]">{formatCurrency(personalShare)}</p>
+              </div>
             </div>
-            <div className="flex-1 p-5 sm:p-8 bg-[#EDF6F9]/50">
-              <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-widest mb-1">Total Returns</p>
-              <p className="text-lg sm:text-xl font-black text-[#006D77]">{formatCurrency(personalShare)}</p>
+            <div className={`py-2.5 sm:py-3 text-center ${profit >= 0 ? 'bg-[#E29578]' : 'bg-[#006D77]'}`}>
+              <p className="text-[10px] sm:text-[11px] font-black text-white uppercase tracking-[0.2em] sm:tracking-[0.3em]">
+                {profit >= 0 ? 'Profit' : 'Loss'}: {profit >= 0 ? '+' : ''}{formatCurrency(profit)} ({profitPct}%)
+              </p>
             </div>
           </div>
-          <div className={`py-2.5 sm:py-3 text-center ${profit >= 0 ? 'bg-[#E29578]' : 'bg-[#006D77]'}`}>
-            <p className="text-[10px] sm:text-[11px] font-black text-white uppercase tracking-[0.2em] sm:tracking-[0.3em]">
-              {profit >= 0 ? 'Profit' : 'Loss'}: {profit >= 0 ? '+' : ''}{formatCurrency(profit)} ({profitPct}%)
-            </p>
-          </div>
-        </div>
-      </motion.section>
+        </motion.section>
+      )}
 
       {/* Luckiest Pools */}
       {poolStats.length > 0 && (

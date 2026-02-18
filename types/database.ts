@@ -182,6 +182,9 @@ export interface Database {
           paid: boolean;
           paid_at: string | null;
           draw_date: string;
+          status: 'pending' | 'confirmed' | 'rejected';
+          confirmed_by: string | null;
+          confirmed_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -193,6 +196,9 @@ export interface Database {
           paid?: boolean;
           paid_at?: string | null;
           draw_date: string;
+          status?: 'pending' | 'confirmed' | 'rejected';
+          confirmed_by?: string | null;
+          confirmed_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -204,6 +210,9 @@ export interface Database {
           paid?: boolean;
           paid_at?: string | null;
           draw_date?: string;
+          status?: 'pending' | 'confirmed' | 'rejected';
+          confirmed_by?: string | null;
+          confirmed_at?: string | null;
           created_at?: string;
         };
       };
@@ -801,6 +810,10 @@ export interface SyndicateMemberWithUser extends SyndicateMember {
   users: Pick<User, 'id' | 'display_name' | 'avatar_url' | 'email'> | null;
 }
 
+export interface ContributionWithUser extends Contribution {
+  users: Pick<User, 'id' | 'display_name' | 'avatar_url' | 'email'> | null;
+}
+
 export interface WinningWithTicket extends Winning {
   tickets: { numbers: number[]; bonus_number: number; game_type: string } | null;
 }
@@ -819,6 +832,7 @@ export interface Activity {
 export interface DisplayPool {
   id: string;
   name: string;
+  captain_id: string;
   total_jackpot: number;
   current_pool_value: number;
   participants_count: number;

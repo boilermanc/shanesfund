@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, ClipboardList, Users, User, BarChart3, Heart } from 'lucide-react';
+import { Home, ClipboardList, BarChart3, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
 
@@ -17,7 +17,6 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab }) => {
     { id: 'spacer', icon: null, label: '' },
     { id: 'results', icon: ClipboardList, label: 'Results' },
     { id: 'insights', icon: BarChart3, label: 'Insights' },
-    { id: 'profile', icon: User, label: 'Profile' },
   ];
 
   return (
