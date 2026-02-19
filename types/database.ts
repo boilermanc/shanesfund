@@ -677,6 +677,32 @@ export interface Database {
           created_at?: string;
         };
       };
+      contact_submissions: {
+        Row: {
+          id: string;
+          name: string;
+          email: string;
+          subject: string;
+          message: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          email: string;
+          subject: string;
+          message: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          email?: string;
+          subject?: string;
+          message?: string;
+          created_at?: string;
+        };
+      };
       syndicates: {
         Row: {
           id: string;
@@ -787,6 +813,7 @@ export type ApiLog = Tables<'api_logs'>;
 export type ApiConnection = Tables<'api_connections'>;
 export type AdminUser = Tables<'admin_users'>;
 export type ContactMessage = Tables<'contact_messages'>;
+export type ContactSubmission = Tables<'contact_submissions'>;
 export type EmailTemplate = Tables<'email_templates'>;
 export type EmailLog = Tables<'email_logs'>;
 export type Syndicate = Tables<'syndicates'>;
