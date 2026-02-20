@@ -240,7 +240,7 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
           whileTap={{ scale: 0.98 }}
           onClick={handleCheckTickets}
           disabled={isLoading || isChecking}
-          className="w-full md:max-w-md md:mx-auto py-4 sm:py-5 rounded-[2rem] sm:rounded-[2.5rem] bg-[#006D77] text-white font-black text-xs sm:text-sm uppercase tracking-[0.15em] sm:tracking-[0.2em] shadow-xl shadow-[#83C5BE]/20 flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50"
+          className="w-full md:max-w-lg md:mx-auto py-4 sm:py-5 rounded-[2rem] sm:rounded-[2.5rem] bg-[#006D77] text-white font-black text-xs sm:text-sm uppercase tracking-[0.15em] sm:tracking-[0.2em] shadow-xl shadow-[#83C5BE]/20 flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50"
         >
           {isChecking ? (
             <>
@@ -257,7 +257,7 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
       </div>
       <motion.section variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="space-y-4 sm:space-y-6">
         <h3 className="text-base sm:text-lg font-black text-[#006D77] tracking-tight ml-2">Recent Draws</h3>
-        <div className="space-y-3 sm:space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+        <div className="space-y-3 sm:space-y-4 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 md:space-y-0">
           {isLoading ? (
             Array(3).fill(0).map((_, idx) => (
               <div key={idx} className="bg-white p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[#FFDDD2] animate-pulse">

@@ -300,7 +300,7 @@ const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests
               </div>
             ) : (
               <div className="relative">
-                <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 sm:pb-6 -mx-6 px-6 scroll-smooth snap-x snap-mandatory no-scrollbar">
+                <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 sm:pb-6 -mx-6 px-6 scroll-smooth snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-2 lg:grid-cols-3 md:overflow-visible md:mx-0 md:px-2 md:pb-0">
                   {syndicates.map((syndicate) => (
                     <SyndicateCard
                       key={syndicate.id}
@@ -308,9 +308,9 @@ const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests
                       onClick={() => onOpenSyndicate(syndicate.id)}
                     />
                   ))}
-                  <div className="min-w-[24px]" />
+                  <div className="min-w-[24px] md:hidden" />
                 </div>
-                <div className="absolute top-0 right-0 bottom-4 sm:bottom-6 w-12 bg-gradient-to-l from-[#EDF6F9] to-transparent pointer-events-none" />
+                <div className="absolute top-0 right-0 bottom-4 sm:bottom-6 w-12 bg-gradient-to-l from-[#EDF6F9] to-transparent pointer-events-none md:hidden" />
               </div>
             )}
           </section>
@@ -333,7 +333,7 @@ const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests
             ) : (
               <div className="relative">
                 {/* Scroll Container */}
-                <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 sm:pb-6 -mx-6 px-6 scroll-smooth snap-x snap-mandatory no-scrollbar">
+                <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 sm:pb-6 -mx-6 px-6 scroll-smooth snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-3 lg:grid-cols-4 md:overflow-visible md:mx-0 md:px-2 md:pb-0">
                   {mutualPools.map(pool => (
                     <motion.div
                       key={pool.id}
@@ -342,7 +342,7 @@ const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPool(pool.id); } }}
                       role="button"
                       tabIndex={0}
-                      className="min-w-[140px] sm:min-w-[170px] bg-white p-4 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border border-[#FFDDD2] warm-shadow flex flex-col items-center text-center group cursor-pointer hover:border-[#83C5BE] transition-all snap-center first:ml-0"
+                      className="min-w-[140px] sm:min-w-[170px] md:min-w-0 bg-white p-4 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border border-[#FFDDD2] warm-shadow flex flex-col items-center text-center group cursor-pointer hover:border-[#83C5BE] transition-all snap-center first:ml-0"
                     >
                       <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#EDF6F9] mb-3 sm:mb-4 flex items-center justify-center text-[#E29578] group-hover:scale-110 transition-transform">
                         <Zap size={18} fill="currentColor" />
@@ -355,11 +355,11 @@ const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests
                     </motion.div>
                   ))}
                   {/* End Spacer */}
-                  <div className="min-w-[24px]" />
+                  <div className="min-w-[24px] md:hidden" />
                 </div>
 
                 {/* Right Fade Indicator */}
-                <div className="absolute top-0 right-0 bottom-4 sm:bottom-6 w-12 bg-gradient-to-l from-[#EDF6F9] to-transparent pointer-events-none" />
+                <div className="absolute top-0 right-0 bottom-4 sm:bottom-6 w-12 bg-gradient-to-l from-[#EDF6F9] to-transparent pointer-events-none md:hidden" />
               </div>
             )}
           </section>
@@ -380,7 +380,7 @@ const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests
                 <p className="text-[10px] font-bold text-[#83C5BE]">Search for people above to start building your Inner Circle!</p>
               </div>
             ) : (
-              <div className="space-y-2 sm:space-y-3 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
+              <div className="space-y-2 sm:space-y-3 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-3 md:space-y-0">
                 {friends.map(friend => (
                   <motion.div
                     key={friend.id}

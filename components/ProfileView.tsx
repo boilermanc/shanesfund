@@ -210,7 +210,7 @@ const ProfileView: React.FC = () => {
       </motion.section>
 
       {/* Stats Grid */}
-      <motion.section variants={itemVariants} className="grid grid-cols-2 gap-4">
+      <motion.section variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard value={String(activePools.length)} label="Active Pools" />
         <StatCard value={wonDisplay} label="Total Won" />
         <StatCard value={ticketsDisplay} label="Tickets Entered" />
@@ -262,7 +262,7 @@ const ProfileView: React.FC = () => {
       ) : null}
 
       {/* Settings Menu */}
-      <motion.section variants={itemVariants} className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-[#FFDDD2] shadow-sm md:max-w-2xl md:mx-auto">
+      <motion.section variants={itemVariants} className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-[#FFDDD2] shadow-sm">
         <SettingRow 
           icon={<User size={18} />} 
           title="Personal Information" 

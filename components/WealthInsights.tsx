@@ -426,7 +426,7 @@ const WealthInsights: React.FC = () => {
       </AnimatePresence>
 
       {/* Header Section */}
-      <motion.section variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="text-center px-4 md:max-w-2xl md:mx-auto">
+      <motion.section variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="text-center px-4">
         <h2 className="text-[10px] sm:text-[11px] font-black text-[#83C5BE] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-3 sm:mb-4">Wealth Insights</h2>
         {hasWinnings ? (
           <>
@@ -490,7 +490,7 @@ const WealthInsights: React.FC = () => {
             <Target size={18} className="text-[#83C5BE]" />
             Luckiest Pools
           </h3>
-          <div className="space-y-3 sm:space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+          <div className="space-y-3 sm:space-y-4 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 md:space-y-0">
             {poolStats.map((pool, idx) => {
               const winRate = pool.ticketCount > 0 ? Math.round((pool.winCount / pool.ticketCount) * 100) : 0;
               return (

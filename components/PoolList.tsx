@@ -118,7 +118,7 @@ const PoolList: React.FC<PoolListProps> = ({ pools, onJoin, onSelectPool }) => {
           <p className="text-[10px] font-bold text-[#83C5BE]">Create or join a pool to start playing together.</p>
         </div>
       ) : (
-        <div className="md:grid md:grid-cols-2 md:gap-4 lg:gap-6">
+        <div className="md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 lg:gap-6">
           {activePools.map((pool) => (
             <PoolCard key={pool.id} pool={pool} onJoin={onJoin} onSelectPool={onSelectPool} />
           ))}
@@ -132,7 +132,7 @@ const PoolList: React.FC<PoolListProps> = ({ pools, onJoin, onSelectPool }) => {
             <Archive size={16} className="text-gray-400" />
             <h4 className="text-sm sm:text-base font-black text-gray-400">Archived</h4>
           </div>
-          <div className="md:grid md:grid-cols-2 md:gap-4 lg:gap-6">
+          <div className="md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 lg:gap-6">
             {archivedPools.map((pool) => (
               <PoolCard key={pool.id} pool={pool} isArchived onJoin={onJoin} onSelectPool={onSelectPool} />
             ))}

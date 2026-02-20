@@ -165,7 +165,7 @@ const PoolCarousel: React.FC<PoolCarouselProps> = ({ pools, onJoin, onPoolClick 
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 pt-2">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 pt-2">
       {activePools.map((pool) => (
         <PoolCard key={pool.id} pool={pool} onPoolClick={onPoolClick} />
       ))}

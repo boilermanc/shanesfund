@@ -394,7 +394,7 @@ const MainApp: React.FC = () => {
         onOpenDrawer={() => setShowDrawer(true)}
         user={user}
       />
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 safe-area-top">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 safe-area-top">
         <div className="flex justify-between items-center pt-4 sm:pt-6 pb-3 sm:pb-4 md:hidden">
           <img src="/logo.png" alt="Shane's Retirement Fund" className="h-16 sm:h-24 w-auto" />
           <div className="flex items-center gap-2">
