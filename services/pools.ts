@@ -105,7 +105,9 @@ export const createPool = async (
       .single();
 
     if (error) {
-      return { data: null, error: error.message };
+      const msg = error.message;
+      const isNetworkError = msg.includes('Load failed') || msg.includes('Failed to fetch') || msg.includes('NetworkError');
+      return { data: null, error: isNetworkError ? 'Network error — please check your connection and try again.' : msg };
     }
 
     return {

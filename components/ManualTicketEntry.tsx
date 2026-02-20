@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase';
 
 interface ManualTicketEntryProps {
   onClose: () => void;
-  onCreatePool?: () => void;
+  onCreatePool?: (gameType?: 'powerball' | 'mega_millions') => void;
   preselectedGameType?: 'powerball' | 'mega_millions';
 }
 
@@ -487,7 +487,7 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
           )}
           {onCreatePool && !saveSuccess && (
             <button
-              onClick={() => { onClose(); onCreatePool(); }}
+              onClick={() => { onClose(); onCreatePool(selectedGame || undefined); }}
               className="w-full py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2rem] bg-white border-2 border-[#006D77] text-[#006D77] font-black text-sm sm:text-base flex items-center justify-center gap-2"
             >
               <Plus size={16} strokeWidth={3} />

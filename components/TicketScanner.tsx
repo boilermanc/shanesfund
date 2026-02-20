@@ -33,7 +33,7 @@ interface TicketScannerProps {
   poolId?: string;
   pool?: PoolContext;
   onCreatePool?: (gameType?: 'powerball' | 'mega_millions') => void;
-  onManualEntry?: () => void;
+  onManualEntry?: (gameType?: 'powerball' | 'mega_millions') => void;
 }
 
 type ScanPhase = 'preview' | 'processing' | 'review' | 'pool-picker';
@@ -850,7 +850,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
                 </button>
                 {onManualEntry && (
                   <button
-                    onClick={onManualEntry}
+                    onClick={() => onManualEntry(selectedGame)}
                     className="flex-1 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2rem] bg-[#EDF6F9] text-[#006D77] font-black text-xs sm:text-sm uppercase tracking-widest flex items-center justify-center gap-2 border border-[#FFDDD2]"
                   >
                     <Keyboard size={16} />

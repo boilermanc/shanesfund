@@ -123,6 +123,7 @@ const MainApp: React.FC = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [scannerPoolContext, setScannerPoolContext] = useState<{ id: string; name: string; game_type: 'powerball' | 'mega_millions' } | undefined>();
   const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualEntryGameType, setManualEntryGameType] = useState<'powerball' | 'mega_millions' | undefined>();
   const [showCreatePool, setShowCreatePool] = useState(false);
   const [createPoolGameType, setCreatePoolGameType] = useState<'powerball' | 'mega_millions' | undefined>();
   const [showJoinPool, setShowJoinPool] = useState(false);
@@ -223,6 +224,18 @@ const MainApp: React.FC = () => {
     members_count: pool.members_count || 0,
     total_winnings: Number(pool.total_winnings) || 0,
   })), [pools, jackpots]);
+
+  // Filter pools with a draw happening within the next 3 days
+  const upcomingPools = useMemo(() => {
+    const now = new Date();
+    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+    return displayPools.filter(pool => {
+      if (pool.status === 'archived') return false;
+      const nextDraw = getNextDrawDate(pool.game_type);
+      return nextDraw.getTime() - now.getTime() <= threeDaysMs;
+    });
+  }, [displayPools]);
+
   // Show loading while checking auth
   if (authLoading) {
     return (
@@ -267,8 +280,15 @@ const MainApp: React.FC = () => {
               )}
               {isLoading ? (
                 <SkeletonLoader type="carousel" />
+              ) : upcomingPools.length > 0 ? (
+                <PoolCarousel pools={upcomingPools} onJoin={() => setShowJoinPool(true)} onPoolClick={(id) => setSelectedPoolIdForDetail(id)} />
+              ) : displayPools.length > 0 ? (
+                <div className="bg-white/60 p-6 rounded-[2rem] border border-[#FFDDD2]/50 text-center mx-2">
+                  <p className="text-sm font-bold text-[#83C5BE]">No draws coming up in the next few days</p>
+                  <p className="text-[10px] text-[#83C5BE]/70 mt-1">Check back soon — your pools will appear here before each draw.</p>
+                </div>
               ) : (
-                <PoolCarousel pools={displayPools} onJoin={() => setShowJoinPool(true)} onPoolClick={(id) => setSelectedPoolIdForDetail(id)} />
+                <PoolCarousel pools={[]} onJoin={() => setShowJoinPool(true)} onPoolClick={(id) => setSelectedPoolIdForDetail(id)} />
               )}
             </section>
             {(isLoading || displayPools.length > 0) && (
@@ -384,13 +404,14 @@ const MainApp: React.FC = () => {
             onClose={() => { setShowScanner(false); setScannerPoolContext(undefined); }}
             pool={scannerPoolContext}
             onCreatePool={scannerPoolContext ? undefined : (gameType?: 'powerball' | 'mega_millions') => { setShowScanner(false); setScannerPoolContext(undefined); setCreatePoolGameType(gameType); setShowCreatePool(true); }}
-            onManualEntry={() => { setShowScanner(false); setScannerPoolContext(undefined); setShowManualEntry(true); }}
+            onManualEntry={(gameType?: 'powerball' | 'mega_millions') => { setShowScanner(false); setScannerPoolContext(undefined); setManualEntryGameType(gameType); setShowManualEntry(true); }}
           />
         )}
         {showManualEntry && (
           <ManualTicketEntry
-            onClose={() => setShowManualEntry(false)}
-            onCreatePool={() => { setShowManualEntry(false); setShowCreatePool(true); }}
+            onClose={() => { setShowManualEntry(false); setManualEntryGameType(undefined); }}
+            onCreatePool={(gameType?: 'powerball' | 'mega_millions') => { setShowManualEntry(false); setManualEntryGameType(undefined); setCreatePoolGameType(gameType); setShowCreatePool(true); }}
+            preselectedGameType={manualEntryGameType}
           />
         )}
         {showCreatePool && (
