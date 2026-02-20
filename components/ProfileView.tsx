@@ -6,7 +6,8 @@ import {
   Star,
   ChevronRight,
   LogOut,
-  Loader2
+  Loader2,
+  Mail
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { supabase } from '../lib/supabase';
@@ -63,7 +64,9 @@ const ProfileView: React.FC = () => {
   const [showEdit, setShowEdit] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [totalWon, setTotalWon] = useState<number | null>(null);
-  const [winningsLoading, setWinningsLoading] = useState(true);
+  const [ticketsScanned, setTicketsScanned] = useState<number | null>(null);
+  const [totalContributed, setTotalContributed] = useState<number | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   const activePools = useMemo(() => pools.filter(p => p.status === 'active'), [pools]);
 
@@ -86,32 +89,56 @@ const ProfileView: React.FC = () => {
     return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   }, [user?.created_at]);
 
-  // Fetch total winnings for pools this user belongs to
+  // Fetch profile stats in parallel
   useEffect(() => {
-    const fetchWinnings = async () => {
+    const fetchStats = async () => {
       const poolIds = pools.map(p => p.id);
-      if (poolIds.length === 0) {
-        setTotalWon(0);
-        setWinningsLoading(false);
-        return;
-      }
-      const { data, error } = await supabase
-        .from('winnings')
-        .select('per_member_share')
-        .in('pool_id', poolIds);
 
-      if (error) {
-        console.error('Failed to fetch winnings:', error.message);
+      // Winnings
+      const winningsPromise = poolIds.length > 0
+        ? supabase.from('winnings').select('per_member_share').in('pool_id', poolIds)
+        : Promise.resolve({ data: [] as { per_member_share: number | null }[], error: null });
+
+      // Tickets scanned by this user
+      const ticketsPromise = user?.id
+        ? supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('entered_by', user.id)
+        : Promise.resolve({ count: 0, error: null });
+
+      // Total contributed by this user
+      const contributionsPromise = user?.id
+        ? supabase.from('contributions').select('amount').eq('user_id', user.id)
+        : Promise.resolve({ data: [] as { amount: number }[], error: null });
+
+      const [winningsRes, ticketsRes, contribRes] = await Promise.all([
+        winningsPromise,
+        ticketsPromise,
+        contributionsPromise,
+      ]);
+
+      // Process winnings
+      if (winningsRes.error) {
+        console.error('Failed to fetch winnings:', winningsRes.error.message);
         setTotalWon(0);
       } else {
-        const rows = data as { per_member_share: number | null }[] | null;
-        const sum = rows?.reduce((acc, w) => acc + (w.per_member_share || 0), 0) ?? 0;
-        setTotalWon(sum);
+        const rows = winningsRes.data as { per_member_share: number | null }[] | null;
+        setTotalWon(rows?.reduce((acc, w) => acc + (w.per_member_share || 0), 0) ?? 0);
       }
-      setWinningsLoading(false);
+
+      // Process tickets count
+      setTicketsScanned(ticketsRes.error ? 0 : (ticketsRes.count ?? 0));
+
+      // Process contributions sum
+      if (contribRes.error) {
+        setTotalContributed(0);
+      } else {
+        const rows = contribRes.data as { amount: number }[] | null;
+        setTotalContributed(rows?.reduce((acc, c) => acc + (c.amount || 0), 0) ?? 0);
+      }
+
+      setStatsLoading(false);
     };
-    fetchWinnings();
-  }, [pools]);
+    fetchStats();
+  }, [pools, user?.id]);
 
   const savingsGoal = user?.savings_goal ?? null;
   const progressPercent = savingsGoal && savingsGoal > 0 && totalWon !== null
@@ -134,9 +161,15 @@ const ProfileView: React.FC = () => {
     }
   };
 
-  const wonDisplay = winningsLoading
+  const wonDisplay = statsLoading
     ? '...'
     : `$${(totalWon ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const contributedDisplay = statsLoading
+    ? '...'
+    : `$${(totalContributed ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const ticketsDisplay = statsLoading ? '...' : String(ticketsScanned ?? 0);
 
   return (
     <motion.div
@@ -164,6 +197,12 @@ const ProfileView: React.FC = () => {
           <h1 className="shane-serif text-3xl font-black text-[#4A5D4E] tracking-tighter">
             {user?.display_name?.split(' ')[0] || 'Shane'}
           </h1>
+          {user?.email && (
+            <div className="flex items-center justify-center gap-1.5 mt-2 opacity-50">
+              <Mail size={11} className="text-[#006D77]" />
+              <p className="text-[10px] font-bold text-[#006D77] tracking-wide">{user.email}</p>
+            </div>
+          )}
           <p className="text-[10px] font-black text-[#006D77] uppercase tracking-[0.3em] opacity-40 mt-1">
             {memberSince ? `Member since ${memberSince}` : 'Member'}
           </p>
@@ -171,9 +210,11 @@ const ProfileView: React.FC = () => {
       </motion.section>
 
       {/* Stats Grid */}
-      <motion.section variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <motion.section variants={itemVariants} className="grid grid-cols-2 gap-4">
         <StatCard value={String(activePools.length)} label="Active Pools" />
-        <StatCard value={wonDisplay} label="Won" />
+        <StatCard value={wonDisplay} label="Total Won" />
+        <StatCard value={ticketsDisplay} label="Tickets Entered" />
+        <StatCard value={contributedDisplay} label="Contributed" />
       </motion.section>
 
       {/* Retirement Progress — only show if user has a savings goal */}
@@ -185,7 +226,7 @@ const ProfileView: React.FC = () => {
           <div className="relative z-10">
             <h3 className="text-sm font-black text-[#006D77] uppercase tracking-[0.2em] mb-4">Retirement Progress</h3>
 
-            {winningsLoading ? (
+            {statsLoading ? (
               <div className="flex items-center gap-2 text-[#83C5BE]">
                 <Loader2 size={16} className="animate-spin" />
                 <span className="text-[11px] font-bold">Loading...</span>

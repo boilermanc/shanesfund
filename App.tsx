@@ -139,6 +139,7 @@ const MainApp: React.FC = () => {
   const [jackpots, setJackpots] = useState<Record<string, number>>({});
   const [winData, setWinData] = useState<Record<string, any> | null>(null);
   const [showDrawer, setShowDrawer] = useState(false);
+  const [poolsWithUpcomingTickets, setPoolsWithUpcomingTickets] = useState<Set<string>>(new Set());
   const [drawerPage, setDrawerPage] = useState<'terms' | 'privacy' | 'contact' | null>(null);
   const handleDrawerNavigate = (page: 'profile' | 'terms' | 'privacy' | 'contact') => {
     setShowDrawer(false);
@@ -208,6 +209,39 @@ const MainApp: React.FC = () => {
     };
     if (isAuthenticated) fetchJackpots();
   }, [isAuthenticated]);
+  // Fetch which pools have tickets for the next upcoming draw
+  useEffect(() => {
+    const fetchUpcomingTickets = async () => {
+      if (pools.length === 0) {
+        setPoolsWithUpcomingTickets(new Set());
+        return;
+      }
+
+      const poolIds = pools.map(p => p.id);
+      const nextPbDate = getNextDrawDate('powerball').toISOString().split('T')[0];
+      const nextMmDate = getNextDrawDate('mega_millions').toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('tickets')
+        .select('pool_id')
+        .in('pool_id', poolIds)
+        .in('draw_date', [nextPbDate, nextMmDate]);
+
+      if (error) {
+        console.error('Failed to fetch upcoming tickets:', error.message);
+        setPoolsWithUpcomingTickets(new Set());
+        return;
+      }
+
+      setPoolsWithUpcomingTickets(new Set((data || []).map(t => t.pool_id)));
+    };
+
+    if (isAuthenticated && pools.length > 0) {
+      fetchUpcomingTickets();
+    } else {
+      setPoolsWithUpcomingTickets(new Set());
+    }
+  }, [isAuthenticated, pools]);
   // Transform pools for display components (bridge between old and new types)
   // NOTE: This must be above early returns to maintain consistent hook call order
   const displayPools: DisplayPool[] = useMemo(() => pools.map(pool => ({
@@ -225,16 +259,13 @@ const MainApp: React.FC = () => {
     total_winnings: Number(pool.total_winnings) || 0,
   })), [pools, jackpots]);
 
-  // Filter pools with a draw happening within the next 3 days
+  // Filter pools that have at least one ticket entered for the next upcoming draw
   const upcomingPools = useMemo(() => {
-    const now = new Date();
-    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
     return displayPools.filter(pool => {
       if (pool.status === 'archived') return false;
-      const nextDraw = getNextDrawDate(pool.game_type);
-      return nextDraw.getTime() - now.getTime() <= threeDaysMs;
+      return poolsWithUpcomingTickets.has(pool.id);
     });
-  }, [displayPools]);
+  }, [displayPools, poolsWithUpcomingTickets]);
 
   // Show loading while checking auth
   if (authLoading) {

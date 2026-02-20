@@ -146,19 +146,26 @@ export const getCurrentUser = async (): Promise<AuthResponse> => {
 // Update user profile
 export const updateProfile = async (
   userId: string,
-  updates: Partial<Pick<User, 'display_name' | 'avatar_url'>>
+  updates: Partial<Pick<User, 'display_name' | 'avatar_url' | 'savings_goal'>>
 ): Promise<AuthResponse> => {
   try {
-    const { data, error } = await supabase
-      .from('users')
+    const { error } = await (supabase
+      .from('users') as any)
       .update(updates)
-      .eq('id', userId)
-      .select()
-      .single();
+      .eq('id', userId);
     if (error) {
       return { user: null, error: { message: error.message } };
     }
-    return { user: data, error: null };
+    // Fetch updated profile
+    const { data: profile, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    if (fetchError) {
+      return { user: null, error: { message: fetchError.message } };
+    }
+    return { user: profile, error: null };
   } catch (err) {
     return { user: null, error: { message: 'An unexpected error occurred' } };
   }
