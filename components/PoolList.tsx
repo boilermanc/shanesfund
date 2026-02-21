@@ -2,25 +2,28 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import type { DisplayPool } from '../types/database';
 import { Users, Calendar, ArrowRight, Lock, Archive, Trophy } from 'lucide-react';
+import { formatTimeAgo } from '../services/lottery';
 
 interface PoolListProps {
   pools: DisplayPool[];
   onJoin?: (pool: DisplayPool) => void;
   onSelectPool?: (pool: DisplayPool) => void;
+  jackpotUpdatedAt?: Record<string, string>;
 }
 
-const PoolCard: React.FC<{ pool: DisplayPool; isArchived?: boolean; onJoin?: (pool: DisplayPool) => void; onSelectPool?: (pool: DisplayPool) => void }> = ({ pool, isArchived, onJoin, onSelectPool }) => {
+const PoolCard: React.FC<{ pool: DisplayPool; isArchived?: boolean; onJoin?: (pool: DisplayPool) => void; onSelectPool?: (pool: DisplayPool) => void; jackpotUpdatedAt?: Record<string, string> }> = ({ pool, isArchived, onJoin, onSelectPool, jackpotUpdatedAt = {} }) => {
   const expectedTotal = pool.members_count * pool.contribution_amount;
   const progress = expectedTotal > 0
     ? Math.min(100, Math.max(0, (pool.current_pool_value / expectedTotal) * 100))
     : 0;
+  const isPB = pool.game_type === 'powerball';
 
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       whileInView={{ opacity: 1, scale: 1 }}
       viewport={{ once: true }}
-      className={`bg-white rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 mb-3 sm:mb-4 md:mb-0 border border-[#FFDDD2] warm-shadow flex flex-col gap-3 sm:gap-4 relative group ${isArchived ? 'opacity-60' : ''}`}
+      className={`rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 mb-3 sm:mb-4 md:mb-0 border warm-shadow flex flex-col gap-3 sm:gap-4 relative group ${isArchived ? 'opacity-60' : ''} ${isPB ? 'bg-[#FFF8F6] border-[#E29578]/30' : 'bg-[#F0FAFB] border-[#006D77]/20'}`}
     >
       <div className="flex justify-between items-start gap-2">
         <div className="space-y-1 min-w-0 flex-1">
@@ -50,6 +53,9 @@ const PoolCard: React.FC<{ pool: DisplayPool; isArchived?: boolean; onJoin?: (po
               <>
                 <p className="text-[10px] sm:text-[11px] font-black text-[#83C5BE] uppercase tracking-widest">Jackpot</p>
                 <p className="text-base sm:text-lg font-black text-[#006D77] tracking-tight">${(pool.total_jackpot / 1000000).toFixed(0)}M</p>
+                {jackpotUpdatedAt[pool.game_type] && (
+                  <p className="text-[8px] sm:text-[9px] font-bold text-[#83C5BE]/50">{formatTimeAgo(jackpotUpdatedAt[pool.game_type])}</p>
+                )}
               </>
             ) : (
               <>
@@ -69,7 +75,7 @@ const PoolCard: React.FC<{ pool: DisplayPool; isArchived?: boolean; onJoin?: (po
             </div>
           )}
         </div>
-        <div className="px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#E29578] text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow-lg shadow-[#FFDDD2] shrink-0">
+        <div className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider shrink-0 ${isPB ? 'bg-[#E29578] shadow-lg shadow-[#FFDDD2]' : 'bg-[#006D77] shadow-lg shadow-[#83C5BE]/30'}`}>
           Draw {new Date(pool.draw_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
         </div>
       </div>
@@ -82,19 +88,19 @@ const PoolCard: React.FC<{ pool: DisplayPool; isArchived?: boolean; onJoin?: (po
             ${pool.current_pool_value} / ${expectedTotal}
           </p>
         </div>
-        <div className="h-2.5 sm:h-3 w-full bg-[#EDF6F9] rounded-full overflow-hidden border border-[#FFDDD2]/30">
+        <div className={`h-2.5 sm:h-3 w-full rounded-full overflow-hidden ${isPB ? 'bg-[#FFDDD2]/30 border border-[#E29578]/20' : 'bg-[#EDF6F9] border border-[#83C5BE]/20'}`}>
           <motion.div
             initial={{ width: 0 }}
             whileInView={{ width: `${progress}%` }}
             transition={{ duration: 1.5, ease: "easeOut" }}
-            className="h-full bg-[#83C5BE] rounded-full"
+            className={`h-full rounded-full ${isPB ? 'bg-[#E29578]' : 'bg-[#83C5BE]'}`}
           />
         </div>
       </div>
 
       <button
         onClick={() => (onSelectPool || onJoin)?.(pool)}
-        className="w-full mt-1 sm:mt-2 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-[#EDF6F9] text-[#006D77] font-black text-[10px] sm:text-xs uppercase tracking-[0.15em] sm:tracking-[0.2em] flex items-center justify-center gap-2 hover:bg-[#83C5BE]/20 transition-all border border-[#83C5BE]/10"
+        className={`w-full mt-1 sm:mt-2 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-[0.15em] sm:tracking-[0.2em] flex items-center justify-center gap-2 transition-all ${isPB ? 'bg-[#FFDDD2]/40 text-[#E29578] border border-[#E29578]/15 hover:bg-[#FFDDD2]/60' : 'bg-[#EDF6F9] text-[#006D77] border border-[#83C5BE]/15 hover:bg-[#83C5BE]/20'}`}
       >
         {isArchived ? 'View History' : 'Manage Pool'} <ArrowRight size={12} />
       </button>
@@ -102,7 +108,7 @@ const PoolCard: React.FC<{ pool: DisplayPool; isArchived?: boolean; onJoin?: (po
   );
 };
 
-const PoolList: React.FC<PoolListProps> = ({ pools, onJoin, onSelectPool }) => {
+const PoolList: React.FC<PoolListProps> = ({ pools, onJoin, onSelectPool, jackpotUpdatedAt }) => {
   const activePools = pools.filter((p) => p.status !== 'archived');
   const archivedPools = pools.filter((p) => p.status === 'archived');
 
@@ -120,7 +126,7 @@ const PoolList: React.FC<PoolListProps> = ({ pools, onJoin, onSelectPool }) => {
       ) : (
         <div className="md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 lg:gap-6">
           {activePools.map((pool) => (
-            <PoolCard key={pool.id} pool={pool} onJoin={onJoin} onSelectPool={onSelectPool} />
+            <PoolCard key={pool.id} pool={pool} onJoin={onJoin} onSelectPool={onSelectPool} jackpotUpdatedAt={jackpotUpdatedAt} />
           ))}
         </div>
       )}
@@ -134,7 +140,7 @@ const PoolList: React.FC<PoolListProps> = ({ pools, onJoin, onSelectPool }) => {
           </div>
           <div className="md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 lg:gap-6">
             {archivedPools.map((pool) => (
-              <PoolCard key={pool.id} pool={pool} isArchived onJoin={onJoin} onSelectPool={onSelectPool} />
+              <PoolCard key={pool.id} pool={pool} isArchived onJoin={onJoin} onSelectPool={onSelectPool} jackpotUpdatedAt={jackpotUpdatedAt} />
             ))}
           </div>
         </div>

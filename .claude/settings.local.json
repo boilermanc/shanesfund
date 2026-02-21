@@ -35,7 +35,13 @@
       "Bash(git log:*)",
       "Bash(npx supabase secrets list:*)",
       "Bash(npx supabase secrets set:*)",
-      "Bash(npx supabase functions deploy:*)"
+      "Bash(npx supabase functions deploy:*)",
+      "Bash(supabase status:*)",
+      "WebFetch(domain:powerball.com)",
+      "WebFetch(domain:lotteriesapi.com)",
+      "WebFetch(domain:games.api.lottery.com)",
+      "WebFetch(domain:www.lotteryusa.com)",
+      "WebFetch(domain:lotterydata.io)"
     ]
   }
 }

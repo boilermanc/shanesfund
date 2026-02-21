@@ -10,12 +10,28 @@ export interface LotteryDraw {
   multiplier: number | null;
   jackpot_amount: number | null;
   created_at: string;
+  updated_at?: string;
 }
 // NY Open Data API endpoints (free, no API key required)
 const NY_OPEN_DATA = {
   powerball: 'https://data.ny.gov/resource/d6yy-54nr.json?$limit=1&$order=draw_date%20DESC',
   mega_millions: 'https://data.ny.gov/resource/5xaw-6ayf.json?$limit=1&$order=draw_date%20DESC',
 };
+// Mega Millions official JSON endpoint for jackpot data
+const MM_JACKPOT_URL = 'https://www.megamillions.com/cmspages/utilservice.asmx/GetLatestDrawData';
+
+// Best-effort client-side fetch of Mega Millions jackpot (may fail due to CORS)
+async function fetchMegaMillionsJackpot(): Promise<number | null> {
+  try {
+    const resp = await fetch(MM_JACKPOT_URL);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return data?.Jackpot?.NextPrizePool ?? data?.Jackpot?.CurrentPrizePool ?? null;
+  } catch {
+    // CORS or network error — expected when called from browser
+    return null;
+  }
+}
 async function fetchLatestFromNYOpenData(): Promise<{
   powerball: LotteryDraw | null;
   megaMillions: LotteryDraw | null;
@@ -107,6 +123,13 @@ export async function getLatestDraws(): Promise<{
     if (!powerball) powerball = apiResults.powerball;
     if (!megaMillions) megaMillions = apiResults.megaMillions;
   }
+  // If Mega Millions jackpot is missing, try fetching directly (best-effort, may fail due to CORS)
+  if (megaMillions && megaMillions.jackpot_amount === null) {
+    const mmJackpot = await fetchMegaMillionsJackpot();
+    if (mmJackpot !== null) {
+      megaMillions = { ...megaMillions, jackpot_amount: mmJackpot };
+    }
+  }
   return { powerball, megaMillions };
 }
 export async function getDrawHistory(
@@ -142,4 +165,18 @@ export function formatDrawDate(dateString: string): string {
     month: 'short',
     day: 'numeric',
   });
+}
+export function formatTimeAgo(dateString: string | undefined | null): string {
+  if (!dateString) return '';
+  const now = Date.now();
+  const then = new Date(dateString).getTime();
+  const diffMs = now - then;
+  if (diffMs < 0) return 'just now';
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }

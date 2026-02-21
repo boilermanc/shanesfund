@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Camera, Image, Trash2, User as UserIcon, Mail, Target, Lock, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { updateProfile } from '../services/auth';
+import { updateProfile, uploadAvatar } from '../services/auth';
 import { supabase } from '../lib/supabase';
 import FocusTrap from './FocusTrap';
 
@@ -22,8 +22,10 @@ const PersonalInfoEdit: React.FC<PersonalInfoEditProps> = ({ onClose }) => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showAvatarPopup, setShowAvatarPopup] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = async () => {
     if (!user) return;
@@ -81,9 +83,38 @@ const PersonalInfoEdit: React.FC<PersonalInfoEditProps> = ({ onClose }) => {
     onClose();
   };
 
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setIsUploading(true);
+    setError(null);
+    const { url, error: uploadError } = await uploadAvatar(user.id, file);
+    if (uploadError) {
+      setError(uploadError);
+      setIsUploading(false);
+      return;
+    }
+    if (url) setTempAvatar(url);
+    setIsUploading(false);
+    // Reset input so re-selecting the same file triggers onChange
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const openFilePicker = (capture?: boolean) => {
+    if (!fileInputRef.current) return;
+    // On mobile, capture="environment" opens the camera; otherwise just opens file picker
+    if (capture) {
+      fileInputRef.current.setAttribute('capture', 'environment');
+    } else {
+      fileInputRef.current.removeAttribute('capture');
+    }
+    fileInputRef.current.click();
+    setShowAvatarPopup(false);
+  };
+
   const avatarOptions = [
-    { icon: <Camera size={18} />, label: 'Take Photo', onClick: () => setShowAvatarPopup(false) },
-    { icon: <Image size={18} />, label: 'Choose from Gallery', onClick: () => setShowAvatarPopup(false) },
+    { icon: <Camera size={18} />, label: 'Take Photo', onClick: () => openFilePicker(true) },
+    { icon: <Image size={18} />, label: 'Choose from Gallery', onClick: () => openFilePicker(false) },
     { icon: <Trash2 size={18} />, label: 'Remove Photo', color: 'text-[#E29578]', onClick: () => { setTempAvatar(''); setShowAvatarPopup(false); } },
   ];
 
@@ -112,6 +143,13 @@ const PersonalInfoEdit: React.FC<PersonalInfoEditProps> = ({ onClose }) => {
       </header>
 
       <main className="flex-1 px-6 sm:px-8 pt-8 sm:pt-12 space-y-8 sm:space-y-12 overflow-y-auto">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="hidden"
+          onChange={handleFileSelected}
+        />
         {/* Avatar Section */}
         <div className="flex flex-col items-center">
           <div className="relative">
@@ -129,8 +167,8 @@ const PersonalInfoEdit: React.FC<PersonalInfoEditProps> = ({ onClose }) => {
                 className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
                 alt="Avatar"
               />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Camera className="text-white" size={22} />
+              <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${isUploading ? 'bg-black/30 opacity-100' : 'bg-black/10 opacity-0 group-hover:opacity-100'}`}>
+                {isUploading ? <Loader2 className="text-white animate-spin" size={28} /> : <Camera className="text-white" size={22} />}
               </div>
             </motion.div>
 

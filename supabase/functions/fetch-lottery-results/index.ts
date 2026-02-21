@@ -12,6 +12,69 @@ const NY_OPEN_DATA_ENDPOINTS = {
   mega_millions: "https://data.ny.gov/resource/5xaw-6ayf.json?$limit=1&$order=draw_date%20DESC",
 };
 
+// Jackpot data sources (NY Open Data doesn't include jackpot amounts)
+const MM_JACKPOT_URL = "https://www.megamillions.com/cmspages/utilservice.asmx/GetLatestDrawData";
+const PB_HOMEPAGE_URL = "https://www.powerball.com/";
+
+// Fetch current estimated jackpot amounts from official sources
+async function fetchJackpotAmounts(
+  log: (msg: string) => void
+): Promise<{ powerball: number | null; mega_millions: number | null }> {
+  const jackpots: { powerball: number | null; mega_millions: number | null } = {
+    powerball: null,
+    mega_millions: null,
+  };
+
+  // Mega Millions — official JSON endpoint (returns structured jackpot data)
+  try {
+    log("Fetching Mega Millions jackpot from megamillions.com");
+    const mmResp = await fetch(MM_JACKPOT_URL);
+    if (mmResp.ok) {
+      const mmData = await mmResp.json();
+      // NextPrizePool = estimated jackpot for the upcoming draw
+      // CurrentPrizePool = jackpot that was available for the most recent draw
+      if (mmData?.Jackpot?.NextPrizePool) {
+        jackpots.mega_millions = mmData.Jackpot.NextPrizePool;
+        log(`Mega Millions next jackpot: $${(jackpots.mega_millions! / 1_000_000).toFixed(0)}M`);
+      } else if (mmData?.Jackpot?.CurrentPrizePool) {
+        jackpots.mega_millions = mmData.Jackpot.CurrentPrizePool;
+        log(`Mega Millions current jackpot: $${(jackpots.mega_millions! / 1_000_000).toFixed(0)}M`);
+      } else {
+        log("WARNING: MM jackpot response missing prize pool fields");
+      }
+    } else {
+      log(`WARNING: MM jackpot endpoint returned HTTP ${mmResp.status}`);
+    }
+  } catch (e) {
+    log(`WARNING: Failed to fetch MM jackpot: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  // Powerball — parse from homepage HTML (no public JSON API exists)
+  try {
+    log("Fetching Powerball jackpot from powerball.com");
+    const pbResp = await fetch(PB_HOMEPAGE_URL);
+    if (pbResp.ok) {
+      const html = await pbResp.text();
+      // Page shows "Estimated Jackpot" followed by "$190 Million" or "$1.2 Billion"
+      const match = html.match(/Estimated\s+Jackpot[^$]*?\$([\d.,]+)\s*(Million|Billion)/i);
+      if (match) {
+        const num = parseFloat(match[1].replace(/,/g, ""));
+        const multiplier = match[2].toLowerCase() === "billion" ? 1_000_000_000 : 1_000_000;
+        jackpots.powerball = num * multiplier;
+        log(`Powerball next jackpot: $${(jackpots.powerball! / 1_000_000).toFixed(0)}M`);
+      } else {
+        log("WARNING: Could not parse Powerball jackpot from homepage HTML");
+      }
+    } else {
+      log(`WARNING: Powerball homepage returned HTTP ${pbResp.status}`);
+    }
+  } catch (e) {
+    log(`WARNING: Failed to fetch PB jackpot: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  return jackpots;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -88,6 +151,9 @@ serve(async (req) => {
     // Initialize Supabase client with service role
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Fetch jackpot amounts from official lottery sites (runs in parallel with number fetch setup)
+    const jackpots = await fetchJackpotAmounts(log);
+
     const results: any[] = [];
 
     for (const gameType of gameTypes) {
@@ -151,28 +217,30 @@ serve(async (req) => {
         multiplier = result.multiplier ? parseInt(result.multiplier, 10) : null;
       }
 
-      // NY Open Data does not provide jackpot amounts.
-      // Jackpot amounts must be set manually via admin panel or a secondary API.
-      // We intentionally omit jackpot_amount from the upsert so we don't overwrite
-      // manually-set values with null on subsequent cron runs.
-      log(`${gameType} parsed - Date: ${drawDate}, Numbers: ${winningNumbers}, Bonus: ${bonusNumber}, Multiplier: ${multiplier}`);
+      // Jackpot amount fetched from official lottery sites (MM JSON API, PB homepage scrape)
+      const jackpotAmount = jackpots[gameType as keyof typeof jackpots] ?? null;
+      log(`${gameType} parsed - Date: ${drawDate}, Numbers: ${winningNumbers}, Bonus: ${bonusNumber}, Multiplier: ${multiplier}, Jackpot: ${jackpotAmount ? `$${(jackpotAmount / 1_000_000).toFixed(0)}M` : "N/A"}`);
+
+      // Build upsert payload — include jackpot_amount only if we have a value
+      // so we don't overwrite a previously-set value with null
+      const upsertPayload: Record<string, unknown> = {
+        game_type: gameType,
+        draw_date: drawDate,
+        winning_numbers: winningNumbers,
+        bonus_number: bonusNumber,
+        multiplier: multiplier,
+      };
+      if (jackpotAmount !== null) {
+        upsertPayload.jackpot_amount = jackpotAmount;
+      }
 
       // Upsert into lottery_draws table
       const { error: insertError } = await supabase
         .from("lottery_draws")
-        .upsert(
-          {
-            game_type: gameType,
-            draw_date: drawDate,
-            winning_numbers: winningNumbers,
-            bonus_number: bonusNumber,
-            multiplier: multiplier,
-          },
-          {
-            onConflict: "game_type,draw_date",
-            ignoreDuplicates: false,
-          }
-        );
+        .upsert(upsertPayload, {
+          onConflict: "game_type,draw_date",
+          ignoreDuplicates: false,
+        });
 
       if (insertError) {
         log(`ERROR: Failed to save ${gameType} results: ${insertError.message}`);

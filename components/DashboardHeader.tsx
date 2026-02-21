@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { motion, useSpring, useTransform } from 'framer-motion';
 import ShaneMascot from './ShaneMascot';
 import type { DisplayPool } from '../types/database';
+import { formatTimeAgo } from '../services/lottery';
 
 const GAME_NAMES: Record<string, string> = {
   powerball: 'Powerball',
@@ -15,8 +16,9 @@ interface DashboardHeaderProps {
   } | null;
   totalPoolValue: number;
   pools?: DisplayPool[];
+  jackpotUpdatedAt?: Record<string, string>;
 }
-const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue, pools = [] }) => {
+const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue, pools = [], jackpotUpdatedAt = {} }) => {
   const springValue = useSpring(0, { stiffness: 45, damping: 20 });
   const displayValue = useTransform(springValue, (latest) =>
     new Intl.NumberFormat('en-US', {
@@ -108,9 +110,16 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue,
                 Next Drawing
               </p>
               {nextPool.total_jackpot > 0 ? (
-                <p className="text-3xl sm:text-4xl md:text-5xl font-black text-[#006D77] tracking-tight">
-                  ${(nextPool.total_jackpot / 1000000).toFixed(0)}M
-                </p>
+                <>
+                  <p className="text-3xl sm:text-4xl md:text-5xl font-black text-[#006D77] tracking-tight">
+                    ${(nextPool.total_jackpot / 1000000).toFixed(0)}M
+                  </p>
+                  {jackpotUpdatedAt[nextPool.game_type] && (
+                    <p className="text-[8px] sm:text-[9px] font-bold text-[#006D77]/40 mt-1">
+                      Updated {formatTimeAgo(jackpotUpdatedAt[nextPool.game_type])}
+                    </p>
+                  )}
+                </>
               ) : (
                 <p className="text-2xl sm:text-3xl md:text-4xl font-black text-[#006D77] tracking-tight">
                   {GAME_NAMES[nextPool.game_type] || nextPool.game_type}

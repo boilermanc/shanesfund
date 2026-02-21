@@ -137,6 +137,7 @@ const MainApp: React.FC = () => {
   const [showCreateSyndicate, setShowCreateSyndicate] = useState(false);
   const [selectedSyndicateId, setSelectedSyndicateId] = useState<string | null>(null);
   const [jackpots, setJackpots] = useState<Record<string, number>>({});
+  const [jackpotUpdatedAt, setJackpotUpdatedAt] = useState<Record<string, string>>({});
   const [winData, setWinData] = useState<Record<string, any> | null>(null);
   const [showDrawer, setShowDrawer] = useState(false);
   const [poolsWithUpcomingTickets, setPoolsWithUpcomingTickets] = useState<Set<string>>(new Set());
@@ -189,22 +190,25 @@ const MainApp: React.FC = () => {
     const fetchJackpots = async () => {
       const { data, error } = await supabase
         .from('lottery_draws')
-        .select('game_type, jackpot_amount')
+        .select('game_type, jackpot_amount, updated_at')
         .order('draw_date', { ascending: false })
         .limit(10);
       if (error) {
         console.error('Failed to fetch jackpots:', error.message);
         return;
       }
-      const draws = data as { game_type: string; jackpot_amount: number | null }[] | null;
+      const draws = data as { game_type: string; jackpot_amount: number | null; updated_at: string | null }[] | null;
       if (draws) {
-        const map: Record<string, number> = {};
+        const amountMap: Record<string, number> = {};
+        const timeMap: Record<string, string> = {};
         for (const draw of draws) {
-          if (!map[draw.game_type] && draw.jackpot_amount != null) {
-            map[draw.game_type] = draw.jackpot_amount;
+          if (!amountMap[draw.game_type] && draw.jackpot_amount != null) {
+            amountMap[draw.game_type] = draw.jackpot_amount;
+            if (draw.updated_at) timeMap[draw.game_type] = draw.updated_at;
           }
         }
-        setJackpots(map);
+        setJackpots(amountMap);
+        setJackpotUpdatedAt(timeMap);
       }
     };
     if (isAuthenticated) fetchJackpots();
@@ -312,7 +316,7 @@ const MainApp: React.FC = () => {
             {isLoading ? (
               <SkeletonLoader type="header" />
             ) : (
-              <DashboardHeader user={user} totalPoolValue={displayPools.reduce((sum, p) => sum + (p.current_pool_value || 0), 0)} pools={displayPools} />
+              <DashboardHeader user={user} totalPoolValue={displayPools.reduce((sum, p) => sum + (p.current_pool_value || 0), 0)} pools={displayPools} jackpotUpdatedAt={jackpotUpdatedAt} />
             )}
             <section className="space-y-4">
               {(isLoading || displayPools.length > 0) && (
@@ -351,7 +355,7 @@ const MainApp: React.FC = () => {
                     <SkeletonLoader type="card" />
                   </>
                 ) : (
-                  <PoolList pools={displayPools} onSelectPool={(pool) => setSelectedPoolIdForDetail(pool.id)} />
+                  <PoolList pools={displayPools} onSelectPool={(pool) => setSelectedPoolIdForDetail(pool.id)} jackpotUpdatedAt={jackpotUpdatedAt} />
                 )}
               </section>
             )}

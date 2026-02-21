@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ChevronRight, ArrowRight, Loader2, Trophy, X } from 'lucide-react';
-import { getLatestDraws, getDrawHistory, formatJackpot, formatDrawDate, LotteryDraw } from '../services/lottery';
+import { getLatestDraws, getDrawHistory, formatJackpot, formatDrawDate, formatTimeAgo, LotteryDraw } from '../services/lottery';
 import { checkTicketsForDraw, WinResult } from '../services/pools';
 import { useStore } from '../store/useStore';
 import FocusTrap from './FocusTrap';
@@ -18,6 +18,7 @@ const GameCard: React.FC<{
   game: string;
   date: string;
   jackpot: string;
+  updatedAt?: string;
   numbers: number[];
   bonus: number;
   isScanning?: boolean;
@@ -25,7 +26,9 @@ const GameCard: React.FC<{
   onClick?: () => void;
   isLoading?: boolean;
   poolAction?: string;
-}> = ({ game, date, jackpot, numbers, bonus, isScanning, showMatch, onClick, isLoading, poolAction = 'Manage Pool' }) => (
+}> = ({ game, date, jackpot, updatedAt, numbers, bonus, isScanning, showMatch, onClick, isLoading, poolAction = 'Manage Pool' }) => {
+  const isPB = game === 'Powerball';
+  return (
   <motion.div
     variants={{
       hidden: { y: 20, opacity: 0 },
@@ -35,7 +38,7 @@ const GameCard: React.FC<{
     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
     role="button"
     tabIndex={0}
-    className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-7 border border-[#83C5BE]/30 warm-shadow relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all"
+    className={`rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-7 border warm-shadow relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all ${isPB ? 'bg-[#FFF8F6] border-[#E29578]/30' : 'bg-[#F0FAFB] border-[#006D77]/20'}`}
   >
     <div className="flex justify-between items-start mb-4 sm:mb-6">
       <div className="flex items-center gap-3 sm:gap-4">
@@ -63,12 +66,15 @@ const GameCard: React.FC<{
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="text-3xl sm:text-4xl font-black text-[#E29578] tracking-tighter"
+          className={`text-3xl sm:text-4xl font-black tracking-tighter ${isPB ? 'text-[#E29578]' : 'text-[#006D77]'}`}
         >
           {jackpot}
         </motion.p>
       )}
       <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.2em] mt-1">Est. Jackpot</p>
+      {updatedAt && !isLoading && (
+        <p className="text-[8px] sm:text-[9px] font-bold text-[#83C5BE]/60 mt-0.5">Updated {formatTimeAgo(updatedAt)}</p>
+      )}
     </div>
     <div className="flex justify-center gap-2 sm:gap-3 mb-4 sm:mb-6">
       {isLoading ? (
@@ -85,7 +91,7 @@ const GameCard: React.FC<{
             className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center font-black text-sm sm:text-base border-2 relative overflow-hidden
               ${isScanning ? 'animate-pulse bg-[#FFDDD2] border-[#E29578] text-[#E29578]' :
                 showMatch && i === 2 ? 'bg-[#006D77] border-[#006D77] text-white' :
-                'bg-white border-[#FFDDD2] text-[#006D77]'}`}
+                isPB ? 'bg-white border-[#E29578]/30 text-[#E29578]' : 'bg-white border-[#006D77]/30 text-[#006D77]'}`}
           >
             {num.toString().padStart(2, '0')}
           </motion.div>
@@ -115,7 +121,8 @@ const GameCard: React.FC<{
       </motion.div>
     )}
   </motion.div>
-);
+  );
+};
 const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
   const pools = useStore((state) => state.pools);
   const showToast = useStore((state) => state.showToast);
@@ -202,6 +209,7 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
             game="Powerball"
             date={powerball ? formatDrawDate(powerball.draw_date) : 'Loading...'}
             jackpot={powerball ? formatJackpot(powerball.jackpot_amount) : 'Loading...'}
+            updatedAt={powerball?.updated_at}
             numbers={powerball?.winning_numbers || [0, 0, 0, 0, 0]}
             bonus={powerball?.bonus_number || 0}
             isScanning={isChecking}
@@ -220,6 +228,7 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
             game="Mega Millions"
             date={megaMillions ? formatDrawDate(megaMillions.draw_date) : 'Loading...'}
             jackpot={megaMillions ? formatJackpot(megaMillions.jackpot_amount) : 'Loading...'}
+            updatedAt={megaMillions?.updated_at}
             numbers={megaMillions?.winning_numbers || [0, 0, 0, 0, 0]}
             bonus={megaMillions?.bonus_number || 0}
             isScanning={isChecking}
@@ -284,7 +293,7 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
                 role="button"
                 tabIndex={0}
                 aria-label={`${draw.game_type === 'powerball' ? 'Powerball' : 'Mega Millions'} draw on ${formatDrawDate(draw.draw_date)}`}
-                className="bg-white p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[#FFDDD2] flex items-center justify-between group cursor-pointer active:scale-95 transition-all"
+                className={`p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border flex items-center justify-between group cursor-pointer active:scale-95 transition-all ${draw.game_type === 'powerball' ? 'bg-[#FFF8F6] border-[#E29578]/25' : 'bg-[#F0FAFB] border-[#006D77]/15'}`}
               >
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">

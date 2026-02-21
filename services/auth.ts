@@ -170,6 +170,45 @@ export const updateProfile = async (
     return { user: null, error: { message: 'An unexpected error occurred' } };
   }
 };
+// Upload avatar image to Supabase Storage
+export const uploadAvatar = async (
+  userId: string,
+  file: File
+): Promise<{ url: string | null; error: string | null }> => {
+  const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return { url: null, error: 'Please select a JPEG, PNG, WebP, or GIF image.' };
+  }
+  if (file.size > MAX_SIZE) {
+    return { url: null, error: 'Image too large. Maximum size is 5MB.' };
+  }
+
+  try {
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const filePath = `${userId}/avatar.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      return { url: null, error: uploadError.message };
+    }
+
+    const { data } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+
+    // Append cache-buster so the browser shows the new image immediately
+    const url = `${data.publicUrl}?t=${Date.now()}`;
+    return { url, error: null };
+  } catch (err) {
+    return { url: null, error: 'An unexpected error occurred during upload.' };
+  }
+};
+
 // Reset password
 export const resetPassword = async (email: string): Promise<{ error: AuthError | null }> => {
   try {
