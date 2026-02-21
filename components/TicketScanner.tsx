@@ -700,9 +700,9 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
             </div>
             <div className="flex flex-col items-center gap-2">
               <p className="text-white font-black text-sm sm:text-base">
-                Analyzing ticket...
+                Sage is scanning your ticket...
               </p>
-              <p className="text-white/50 text-xs font-bold">Powered by Gemini AI</p>
+              <p className="text-white/50 text-xs font-bold">Powered by AI</p>
             </div>
           </motion.div>
         </div>

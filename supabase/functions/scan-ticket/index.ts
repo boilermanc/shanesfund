@@ -17,24 +17,37 @@ function getCorsHeaders(req: Request) {
   };
 }
 
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-2.5-flash";
 
-const PROMPT = `You are reading a photo of a US lottery ticket. Extract ALL plays printed on it.
+const PROMPT = `You are an expert OCR system for US lottery tickets. Your job is to extract EVERY play printed on the ticket with 100% accuracy.
+
+TICKET LAYOUT:
+- Tickets have one or more play rows, labeled A, B, C, D, E (up to 5 plays per slip).
+- Each play row contains a set of main numbers followed by a bonus ball number.
+- Powerball tickets: 5 main numbers (1-69) + 1 Powerball (1-26). The Powerball is often marked "PB" or appears after a gap/separator.
+- Mega Millions tickets: 5 main numbers (1-70) + 1 Mega Ball (1-25). The Mega Ball is often marked "MB" or appears after a gap/separator.
+- Numbers may be printed with leading spaces (e.g., " 7" for single digits).
+- "QP" means Quick Pick — the numbers are still printed, read them.
+- The multiplier (Power Play / Megaplier) is typically shown once for the whole ticket, not per play.
+
+INSTRUCTIONS:
+1. Identify the game type from the ticket header/logo.
+2. Read EACH play row independently. Do not mix numbers between rows.
+3. For each row, read the numbers LEFT to RIGHT exactly as printed.
+4. Count carefully: you MUST have exactly 5 main numbers and exactly 1 bonus number per play.
+5. If a number looks ambiguous (e.g., could be 6 or 8), look at the print style and context to decide.
+6. Look for the draw date — usually near the top or bottom of the ticket.
+
+DOUBLE CHECK: After reading, verify each play has exactly 5 main numbers + 1 bonus. If you have 4 or 6 main numbers, re-read that row.
 
 For each play return:
-- gameType: exactly "powerball" or "mega_millions" (determine from the ticket header/logo)
+- gameType: exactly "powerball" or "mega_millions"
 - numbers: array of exactly 5 main numbers (integers)
-- bonusNumber: the Powerball or Mega Ball number (single integer)
-- multiplier: the Power Play or Megaplier value as integer, or null if not shown
-- drawDate: draw date as "YYYY-MM-DD", or null if not readable
+- bonusNumber: the Powerball or Mega Ball (single integer)
+- multiplier: Power Play or Megaplier value as integer, or null
+- drawDate: "YYYY-MM-DD" or null if not readable
 
-Rules:
-- Read the EXACT numbers printed on the ticket. Do not guess.
-- Mega Millions: 5 numbers 1-70, Mega Ball 1-25
-- Powerball: 5 numbers 1-69, Powerball 1-26
-- If the ticket shows "QP" that means Quick Pick — still read the numbers.
-
-Return ONLY valid JSON, no markdown fences, no explanation:
+Return ONLY valid JSON, no markdown, no explanation:
 {"plays":[{"gameType":"...","numbers":[1,2,3,4,5],"bonusNumber":6,"multiplier":null,"drawDate":null}]}`;
 
 serve(async (req) => {
