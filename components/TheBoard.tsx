@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ChevronRight, ArrowRight, Loader2, Trophy, X } from 'lucide-react';
-import { getLatestDraws, getDrawHistory, formatJackpot, formatDrawDate, formatTimeAgo, LotteryDraw } from '../services/lottery';
+import { getLatestDraws, getDrawHistory, formatJackpot, formatDrawDate, formatTimeAgo, getNextDrawDate, LotteryDraw } from '../services/lottery';
 import { checkTicketsForDraw, WinResult } from '../services/pools';
 import { useStore } from '../store/useStore';
 import FocusTrap from './FocusTrap';
@@ -17,6 +17,7 @@ const GameLogo: React.FC<{ game: string }> = ({ game }) => (
 const GameCard: React.FC<{
   game: string;
   date: string;
+  lastDrawDate?: string;
   jackpot: string;
   updatedAt?: string;
   numbers: number[];
@@ -26,7 +27,7 @@ const GameCard: React.FC<{
   onClick?: () => void;
   isLoading?: boolean;
   poolAction?: string;
-}> = ({ game, date, jackpot, updatedAt, numbers, bonus, isScanning, showMatch, onClick, isLoading, poolAction = 'Manage Pool' }) => {
+}> = ({ game, date, lastDrawDate, jackpot, updatedAt, numbers, bonus, isScanning, showMatch, onClick, isLoading, poolAction = 'Manage Pool' }) => {
   const isPB = game === 'Powerball';
   return (
   <motion.div
@@ -45,7 +46,7 @@ const GameCard: React.FC<{
         <GameLogo game={game} />
         <div>
           <h3 className="text-base sm:text-lg font-black text-[#006D77] tracking-tight">{game}</h3>
-          <p className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest leading-none mt-0.5 ${isPB ? 'text-[#E29578]/70' : 'text-[#83C5BE]'}`}>Official Result</p>
+          <p className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest leading-none mt-0.5 ${isPB ? 'text-[#E29578]/70' : 'text-[#83C5BE]'}`}>Next Draw</p>
         </div>
       </div>
       <div className="flex flex-col items-end gap-1">
@@ -76,6 +77,11 @@ const GameCard: React.FC<{
         <p className={`text-[8px] sm:text-[9px] font-bold mt-0.5 ${isPB ? 'text-[#E29578]/40' : 'text-[#006D77]/40'}`}>Updated {formatTimeAgo(updatedAt)}</p>
       )}
     </div>
+    {lastDrawDate && !isLoading && (
+      <p className={`text-center text-[8px] sm:text-[9px] font-bold uppercase tracking-widest mb-2 ${isPB ? 'text-[#E29578]/50' : 'text-[#006D77]/40'}`}>
+        Last Result · {lastDrawDate}
+      </p>
+    )}
     <div className="flex justify-center gap-2 sm:gap-3 mb-4 sm:mb-6">
       {isLoading ? (
         Array(5).fill(0).map((_, i) => (
@@ -207,7 +213,8 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
         <div className="md:grid md:grid-cols-2 md:gap-6 space-y-4 sm:space-y-6 md:space-y-0">
           <GameCard
             game="Powerball"
-            date={powerball ? formatDrawDate(powerball.draw_date) : 'Loading...'}
+            date={formatDrawDate(getNextDrawDate('powerball'))}
+            lastDrawDate={powerball ? formatDrawDate(powerball.draw_date) : undefined}
             jackpot={powerball ? formatJackpot(powerball.jackpot_amount) : 'Loading...'}
             updatedAt={powerball?.updated_at}
             numbers={powerball?.winning_numbers || [0, 0, 0, 0, 0]}
@@ -226,7 +233,8 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
           />
           <GameCard
             game="Mega Millions"
-            date={megaMillions ? formatDrawDate(megaMillions.draw_date) : 'Loading...'}
+            date={formatDrawDate(getNextDrawDate('mega_millions'))}
+            lastDrawDate={megaMillions ? formatDrawDate(megaMillions.draw_date) : undefined}
             jackpot={megaMillions ? formatJackpot(megaMillions.jackpot_amount) : 'Loading...'}
             updatedAt={megaMillions?.updated_at}
             numbers={megaMillions?.winning_numbers || [0, 0, 0, 0, 0]}

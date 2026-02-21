@@ -173,6 +173,25 @@ export function formatDrawDate(dateString: string): string {
     day: 'numeric',
   });
 }
+export function getNextDrawDate(gameType: 'powerball' | 'mega_millions'): string {
+  const now = new Date();
+  // Powerball: Mon(1), Wed(3), Sat(6); Mega Millions: Tue(2), Fri(5)
+  const drawDays = gameType === 'powerball' ? [1, 3, 6] : [2, 5];
+
+  for (let i = 0; i <= 7; i++) {
+    const check = new Date(now);
+    check.setDate(now.getDate() + i);
+    if (drawDays.includes(check.getDay())) {
+      const y = check.getFullYear();
+      const m = String(check.getMonth() + 1).padStart(2, '0');
+      const d = String(check.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+  }
+
+  return now.toISOString().split('T')[0];
+}
+
 export function formatTimeAgo(dateString: string | undefined | null): string {
   if (!dateString) return '';
   const now = Date.now();
