@@ -128,6 +128,7 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
     if (!selectedGame) return;
 
     const rules = GAME_RULES[selectedGame];
+    if (!rules) return;
     const newErrors: Record<string, string> = {};
     const newDupes = new Set<number>();
 
@@ -607,7 +608,7 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
                     ) : duplicateIndices.has(i) ? (
                       <span className="text-[8px] text-red-600 font-bold mt-1">Duplicate</span>
                     ) : (
-                      <span className="text-[8px] text-[#83C5BE] font-bold mt-1">1-{GAME_RULES[selectedGame].mainMax}</span>
+                      <span className="text-[8px] text-[#83C5BE] font-bold mt-1">1-{GAME_RULES[selectedGame]?.mainMax ?? 69}</span>
                     )}
                   </motion.div>
                 ))}
@@ -617,7 +618,7 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
             {/* Bonus Number */}
             <div>
               <label className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.3em] mb-3 block">
-                {GAME_RULES[selectedGame].bonusName}
+                {GAME_RULES[selectedGame]?.bonusName ?? 'Bonus'}
               </label>
               <div className="flex justify-center">
                 <div className="flex flex-col items-center">
@@ -642,7 +643,7 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
                   {fieldErrors['bonus'] ? (
                     <span className="text-[8px] text-red-600 font-bold mt-1">{fieldErrors['bonus']}</span>
                   ) : (
-                    <span className="text-[8px] text-[#83C5BE] font-bold mt-1">1-{GAME_RULES[selectedGame].bonusMax}</span>
+                    <span className="text-[8px] text-[#83C5BE] font-bold mt-1">1-{GAME_RULES[selectedGame]?.bonusMax ?? 26}</span>
                   )}
                 </div>
               </div>
@@ -651,10 +652,10 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
             {/* Multiplier Toggle */}
             <div>
               <label className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.3em] mb-3 block">
-                {MULTIPLIER_OPTIONS[selectedGame].label}
+                {MULTIPLIER_OPTIONS[selectedGame]?.label ?? 'Multiplier'}
               </label>
               <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2">
-                {MULTIPLIER_OPTIONS[selectedGame].values.map((val) => (
+                {(MULTIPLIER_OPTIONS[selectedGame]?.values ?? []).map((val) => (
                   <button
                     key={val}
                     onClick={() => setMultiplier(val)}

@@ -40,6 +40,10 @@ export function validateTicketNumbers(
   const errors: string[] = [];
   const rules = GAME_RULES[gameType];
 
+  if (!rules) {
+    return { valid: false, errors: [`Unknown game type: ${gameType}`] };
+  }
+
   // Check main number count
   if (numbers.length !== 5) {
     errors.push(`Expected 5 main numbers, got ${numbers.length}.`);
