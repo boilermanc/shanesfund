@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu } from 'lucide-react';
@@ -169,22 +169,23 @@ const MainApp: React.FC = () => {
       setLoading(false);
     }
   }, [authUser, authLoading, setUser, setLoading]);
+  // Reusable pool refresh — called on auth and after ticket saves
+  const refreshPools = useCallback(async () => {
+    if (user?.id) {
+      const { data, error } = await getUserPools(user.id);
+      if (data && !error) {
+        setPools(data);
+      }
+    }
+  }, [user?.id, setPools]);
+
   // Load pools when authenticated
   useEffect(() => {
-    const loadPools = async () => {
-      if (user?.id) {
-        setLoading(true);
-        const { data, error } = await getUserPools(user.id);
-        if (data && !error) {
-          setPools(data);
-        }
-        setLoading(false);
-      }
-    };
     if (isAuthenticated && user?.id) {
-      loadPools();
+      setLoading(true);
+      refreshPools().finally(() => setLoading(false));
     }
-  }, [isAuthenticated, user?.id, setPools, setLoading]);
+  }, [isAuthenticated, user?.id, refreshPools, setLoading]);
   // Fetch latest jackpot amounts from lottery_draws
   useEffect(() => {
     const fetchJackpots = async () => {
@@ -456,7 +457,7 @@ const MainApp: React.FC = () => {
         )}
         {showScanner && (
           <TicketScanner
-            onClose={() => { setShowScanner(false); setScannerPoolContext(undefined); }}
+            onClose={() => { setShowScanner(false); setScannerPoolContext(undefined); refreshPools(); }}
             pool={scannerPoolContext}
             onCreatePool={scannerPoolContext ? undefined : (gameType?: 'powerball' | 'mega_millions') => { setShowScanner(false); setScannerPoolContext(undefined); setCreatePoolGameType(gameType); setShowCreatePool(true); }}
             onManualEntry={(gameType?: 'powerball' | 'mega_millions') => { setShowScanner(false); setScannerPoolContext(undefined); setManualEntryGameType(gameType); setShowManualEntry(true); }}
@@ -464,7 +465,7 @@ const MainApp: React.FC = () => {
         )}
         {showManualEntry && (
           <ManualTicketEntry
-            onClose={() => { setShowManualEntry(false); setManualEntryGameType(undefined); }}
+            onClose={() => { setShowManualEntry(false); setManualEntryGameType(undefined); refreshPools(); }}
             onCreatePool={(gameType?: 'powerball' | 'mega_millions') => { setShowManualEntry(false); setManualEntryGameType(undefined); setCreatePoolGameType(gameType); setShowCreatePool(true); }}
             preselectedGameType={manualEntryGameType}
           />
