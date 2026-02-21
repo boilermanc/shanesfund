@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Camera, Zap, RefreshCw, Keyboard, ChevronDown, Loader2, AlertCircle, ImagePlus, AlertTriangle, Lock, ArrowRight, ArrowLeft, Users, Sparkles, Plus } from 'lucide-react';
+import { X, Check, Camera, Zap, RefreshCw, Keyboard, Loader2, AlertCircle, ImagePlus, AlertTriangle, Lock, ArrowRight, ArrowLeft, Users, Sparkles, Plus } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { addTicket, addTicketBatch, uploadTicketImage } from '../services/tickets';
 import { captureFrame, captureFrameFromImage } from '../lib/imagePreprocess';
@@ -67,7 +67,6 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
   const [selectedPlayIndex, setSelectedPlayIndex] = useState(0);
   const [editableNumbers, setEditableNumbers] = useState(['', '', '', '', '']);
   const [editableBonus, setEditableBonus] = useState('');
-  const [debugText, setDebugText] = useState('');
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [editedPlays, setEditedPlays] = useState<Map<number, { numbers: string[]; bonus: string }>>(new Map());
 
@@ -192,12 +191,12 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
       if (firstDrawDate && /^\d{4}-\d{2}-\d{2}$/.test(firstDrawDate)) {
         setDrawDate(firstDrawDate);
       }
-      setDebugText(JSON.stringify(result, null, 2));
+
     } else {
       setParsedPlays([]);
       setEditableNumbers(['', '', '', '', '']);
       setEditableBonus('');
-      setDebugText(JSON.stringify(result, null, 2));
+
     }
   };
 
@@ -207,7 +206,6 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
 
     setScanPhase('processing');
     setError(null);
-    setDebugText('');
 
     try {
       // 1. Capture raw frame for display + upload
@@ -243,7 +241,6 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
     setParsedPlays([]);
     setEditableNumbers(['', '', '', '', '']);
     setEditableBonus('');
-    setDebugText('');
     setError(null);
     setScanPhase('preview');
   };
@@ -258,7 +255,6 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
 
     setScanPhase('processing');
     setError(null);
-    setDebugText('');
     stopCamera();
 
     try {
@@ -790,19 +786,6 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* Debug info (collapsible) */}
-            {debugText && (
-              <details className="mb-4">
-                <summary className="text-[10px] font-black text-[#83C5BE] uppercase tracking-widest cursor-pointer flex items-center gap-1 select-none">
-                  AI Response
-                  <ChevronDown size={12} className="inline" />
-                </summary>
-                <pre className="mt-2 p-3 rounded-xl bg-[#EDF6F9] border border-[#FFDDD2] text-[10px] text-[#006D77] font-mono whitespace-pre-wrap overflow-x-auto max-h-32 overflow-y-auto">
-                  {debugText}
-                </pre>
-              </details>
             )}
 
             {/* Game type toggle + draw date */}
