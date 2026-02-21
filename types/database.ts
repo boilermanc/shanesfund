@@ -139,6 +139,7 @@ export interface Database {
           entry_method: 'scan' | 'manual';
           checked: boolean;
           is_winner: boolean;
+          ticket_group_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -154,6 +155,7 @@ export interface Database {
           entry_method: 'scan' | 'manual';
           checked?: boolean;
           is_winner?: boolean;
+          ticket_group_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -169,6 +171,7 @@ export interface Database {
           entry_method?: 'scan' | 'manual';
           checked?: boolean;
           is_winner?: boolean;
+          ticket_group_id?: string | null;
           created_at?: string;
         };
       };

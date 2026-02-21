@@ -148,6 +148,149 @@ export const addTicket = async (
     return { data: null, error: 'An unexpected error occurred' };
   }
 };
+// Add multiple plays from a single physical ticket slip
+interface BatchPlay {
+  numbers: number[];
+  bonus_number: number;
+}
+
+interface BatchTicketParams {
+  pool_id: string;
+  game_type: 'powerball' | 'mega_millions';
+  draw_date: string;
+  multiplier: number | null;
+  entered_by: string;
+  entry_method: 'scan' | 'manual';
+  plays: BatchPlay[];
+}
+
+export const addTicketBatch = async (
+  params: BatchTicketParams,
+  poolGameType?: 'powerball' | 'mega_millions'
+): Promise<{ data: Ticket[] | null; error: string | null }> => {
+  try {
+    if (params.plays.length === 0) {
+      return { data: null, error: 'No plays provided' };
+    }
+
+    // Check if pool is archived
+    const { data: poolData } = await supabase
+      .from('pools')
+      .select('status')
+      .eq('id', params.pool_id)
+      .single();
+    if (poolData?.status === 'archived') {
+      return { data: null, error: 'This pool is archived. No new tickets can be added.' };
+    }
+
+    // Validate game type matches pool
+    if (poolGameType) {
+      const poolCheck = validateTicketForPool(poolGameType, params.game_type);
+      if (!poolCheck.valid) {
+        return { data: null, error: poolCheck.error! };
+      }
+    }
+
+    // Validate draw date
+    if (params.draw_date) {
+      const drawCheck = validateDrawDate(params.game_type, params.draw_date);
+      if (!drawCheck.valid) {
+        return { data: null, error: drawCheck.error! };
+      }
+    }
+
+    // Validate each play's numbers
+    for (let i = 0; i < params.plays.length; i++) {
+      const play = params.plays[i];
+      const label = params.plays.length > 1
+        ? `Play ${String.fromCharCode(65 + i)}: `
+        : '';
+      const numbersCheck = validateNumbers(
+        params.game_type,
+        play.numbers,
+        play.bonus_number
+      );
+      if (!numbersCheck.valid) {
+        return { data: null, error: `${label}${numbersCheck.errors.join(' ')}` };
+      }
+    }
+
+    // Check for duplicates against existing tickets in pool + draw
+    const { data: existing } = await supabase
+      .from('tickets')
+      .select('id, numbers, bonus_number')
+      .eq('pool_id', params.pool_id)
+      .eq('draw_date', params.draw_date);
+
+    for (let i = 0; i < params.plays.length; i++) {
+      const play = params.plays[i];
+      const sorted = [...play.numbers].sort((a, b) => a - b);
+      const label = params.plays.length > 1
+        ? `Play ${String.fromCharCode(65 + i)}: `
+        : '';
+
+      // Check against existing DB tickets
+      if (existing?.some(t => {
+        const tSorted = [...t.numbers].sort((a, b) => a - b);
+        return t.bonus_number === play.bonus_number
+          && tSorted.length === sorted.length
+          && tSorted.every((n, idx) => n === sorted[idx]);
+      })) {
+        return { data: null, error: `${label}This ticket already exists in this pool for the selected draw.` };
+      }
+
+      // Check against other plays in the same batch
+      for (let j = 0; j < i; j++) {
+        const other = params.plays[j];
+        const otherSorted = [...other.numbers].sort((a, b) => a - b);
+        if (other.bonus_number === play.bonus_number
+          && otherSorted.length === sorted.length
+          && otherSorted.every((n, idx) => n === sorted[idx])) {
+          return { data: null, error: `${label}Duplicate of Play ${String.fromCharCode(65 + j)}.` };
+        }
+      }
+    }
+
+    // Generate group ID only for multi-play slips
+    const ticketGroupId = params.plays.length > 1 ? crypto.randomUUID() : null;
+
+    // Build insert array
+    const insertRows = params.plays.map(play => ({
+      pool_id: params.pool_id,
+      game_type: params.game_type,
+      draw_date: params.draw_date,
+      multiplier: params.multiplier,
+      entered_by: params.entered_by,
+      entry_method: params.entry_method,
+      numbers: play.numbers,
+      bonus_number: play.bonus_number,
+      ticket_group_id: ticketGroupId,
+    }));
+
+    const { data, error } = await supabase
+      .from('tickets')
+      .insert(insertRows)
+      .select();
+
+    if (error) {
+      return { data: null, error: error.message };
+    }
+
+    // Fire-and-forget activity log
+    supabase.from('activity_log').insert({
+      user_id: params.entered_by,
+      pool_id: params.pool_id,
+      action: 'ticket_scanned',
+      details: { entry_method: params.entry_method, play_count: params.plays.length },
+    }).then(({ error }) => { if (error) console.error('[addTicketBatch] activity log failed:', error.message); })
+      .catch(err => console.error('[addTicketBatch] activity log failed:', err));
+
+    return { data: data as Ticket[], error: null };
+  } catch (err) {
+    return { data: null, error: 'An unexpected error occurred' };
+  }
+};
+
 // Update a ticket
 export const updateTicket = async (
   ticketId: string,

@@ -129,6 +129,41 @@ function groupTicketsByDraw(tickets: TicketWithUser[]): [string, TicketWithUser[
   return Array.from(groups.entries());
 }
 
+interface TicketSlipGroup {
+  groupId: string | null;
+  tickets: TicketWithUser[];
+}
+
+function subGroupBySlip(drawTickets: TicketWithUser[]): TicketSlipGroup[] {
+  const grouped = new Map<string, TicketWithUser[]>();
+  const ungrouped: TicketWithUser[] = [];
+
+  for (const ticket of drawTickets) {
+    if (ticket.ticket_group_id) {
+      if (!grouped.has(ticket.ticket_group_id)) {
+        grouped.set(ticket.ticket_group_id, []);
+      }
+      grouped.get(ticket.ticket_group_id)!.push(ticket);
+    } else {
+      ungrouped.push(ticket);
+    }
+  }
+
+  const result: TicketSlipGroup[] = [];
+
+  // Grouped slips first
+  for (const [groupId, tickets] of grouped) {
+    result.push({ groupId, tickets });
+  }
+
+  // Ungrouped tickets as individual items
+  for (const ticket of ungrouped) {
+    result.push({ groupId: null, tickets: [ticket] });
+  }
+
+  return result;
+}
+
 const PoolDetailView: React.FC<PoolDetailViewProps> = ({ poolId, onClose, onScanTicket, onManualEntry, onOpenLedger }) => {
   const { user } = useStore();
   const [pool, setPool] = useState<PoolWithMembers | null>(null);
@@ -664,20 +699,122 @@ const PoolDetailView: React.FC<PoolDetailViewProps> = ({ poolId, onClose, onScan
                             )}
                           </div>
 
-                          {/* Ticket cards */}
+                          {/* Ticket cards (grouped by slip when applicable) */}
                           <div className="space-y-2.5">
-                            {drawTickets.map((ticket, idx) => {
+                            {subGroupBySlip(drawTickets).map((group, groupIdx) => {
                               const isPast = drawDate <= new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+                              const isMultiPlay = group.tickets.length > 1;
+
+                              if (isMultiPlay) {
+                                // Grouped slip card — multiple plays from one physical ticket
+                                const hasWinner = group.tickets.some(t => t.checked && t.is_winner);
+                                const hasUnchecked = group.tickets.some(t => isPast && !t.checked);
+                                const allCheckedNoWin = group.tickets.every(t => t.checked && !t.is_winner);
+                                const firstTicket = group.tickets[0];
+
+                                return (
+                                  <motion.div
+                                    key={group.groupId || groupIdx}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: groupIdx * 0.05 }}
+                                    className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border ${
+                                      hasWinner
+                                        ? 'bg-[#10B981]/5 border-[#10B981]/30'
+                                        : hasUnchecked
+                                        ? 'bg-[#F2E9D4]/30 border-dashed border-[#E29578]/40'
+                                        : allCheckedNoWin
+                                        ? 'bg-white border-[#EDF6F9] opacity-60'
+                                        : 'bg-white border-[#FFDDD2]'
+                                    }`}
+                                  >
+                                    {/* Slip header */}
+                                    <div className="flex items-center gap-2 mb-3">
+                                      <span className="px-2 py-0.5 rounded-full bg-[#EDF6F9] border border-[#FFDDD2] text-[9px] sm:text-[10px] font-black text-[#006D77] uppercase tracking-wider">
+                                        Slip &middot; {group.tickets.length} plays
+                                      </span>
+                                      {firstTicket.multiplier && firstTicket.multiplier > 1 && (
+                                        <span className="px-1.5 py-0.5 rounded-full bg-[#E29578] text-white text-[9px] sm:text-[10px] font-black">
+                                          x{firstTicket.multiplier}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Number rows — one per play */}
+                                    <div className="space-y-2">
+                                      {group.tickets.map((ticket, playIdx) => {
+                                        const ticketIsWinner = ticket.checked && ticket.is_winner;
+                                        const ticketIsUnchecked = isPast && !ticket.checked;
+                                        const ticketIsCheckedNoWin = ticket.checked && !ticket.is_winner;
+
+                                        return (
+                                          <div key={ticket.id} className={playIdx > 0 ? 'pt-2 border-t border-[#EDF6F9]' : ''}>
+                                            <div className="flex items-center gap-1 sm:gap-1.5">
+                                              <span className="text-[9px] font-black text-[#83C5BE] w-4 shrink-0">
+                                                {String.fromCharCode(65 + playIdx)}
+                                              </span>
+                                              {(Array.isArray(ticket.numbers) ? ticket.numbers : []).map((num: number, i: number) => (
+                                                <div
+                                                  key={i}
+                                                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full text-[10px] sm:text-xs font-black flex items-center justify-center ${
+                                                    ticketIsWinner
+                                                      ? 'bg-[#10B981]/10 border-2 border-[#10B981] text-[#10B981]'
+                                                      : ticketIsUnchecked
+                                                      ? 'bg-white border-2 border-dashed border-[#E29578]/40 text-[#E29578]'
+                                                      : 'bg-white border-2 border-[#83C5BE] text-[#006D77]'
+                                                  }`}
+                                                >
+                                                  {num}
+                                                </div>
+                                              ))}
+                                              <span className="text-[#83C5BE] font-bold text-[10px] mx-0.5">+</span>
+                                              <div
+                                                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full text-white text-[10px] sm:text-xs font-black flex items-center justify-center ${
+                                                  ticketIsWinner ? 'bg-[#10B981]' : ''
+                                                }`}
+                                                style={!ticketIsWinner ? { backgroundColor: isPowerball ? '#E29578' : '#006D77', opacity: ticketIsUnchecked ? 0.5 : 1 } : undefined}
+                                              >
+                                                {ticket.bonus_number}
+                                              </div>
+                                              {/* Per-play status icon */}
+                                              {isPast && ticketIsWinner && <Trophy size={10} className="text-[#10B981] ml-1 shrink-0" />}
+                                              {isPast && ticketIsUnchecked && <Clock size={10} className="text-[#E29578] ml-1 shrink-0" />}
+                                              {isPast && ticketIsCheckedNoWin && <CheckCircle2 size={10} className="text-[#9CA3AF] ml-1 shrink-0" />}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+
+                                    {/* Shared metadata row */}
+                                    <div className="flex items-center gap-2 text-[9px] sm:text-[10px] text-[#83C5BE] mt-2.5">
+                                      {firstTicket.entry_method === 'scan' ? (
+                                        <Camera size={12} />
+                                      ) : (
+                                        <Keyboard size={12} />
+                                      )}
+                                      <span className="font-bold">
+                                        by {firstTicket.users?.display_name || 'Unknown'}
+                                      </span>
+                                      <span className="text-[#83C5BE]/60">&middot;</span>
+                                      <span>{getRelativeTime(firstTicket.created_at)}</span>
+                                    </div>
+                                  </motion.div>
+                                );
+                              }
+
+                              // Single ticket card (unchanged from original)
+                              const ticket = group.tickets[0];
                               const isUnchecked = isPast && !ticket.checked;
                               const isWinner = ticket.checked && ticket.is_winner;
                               const isCheckedNoWin = ticket.checked && !ticket.is_winner;
 
                               return (
                               <motion.div
-                                key={ticket.id || idx}
+                                key={ticket.id || groupIdx}
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: idx * 0.05 }}
+                                transition={{ delay: groupIdx * 0.05 }}
                                 className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border ${
                                   isWinner
                                     ? 'bg-[#10B981]/5 border-[#10B981]/30'

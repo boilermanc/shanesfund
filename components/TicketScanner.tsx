@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Camera, Zap, RefreshCw, Keyboard, ChevronDown, Loader2, AlertCircle, ImagePlus, AlertTriangle, Lock, ArrowRight, ArrowLeft, Users, Sparkles, Plus } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { addTicket, uploadTicketImage } from '../services/tickets';
+import { addTicket, addTicketBatch, uploadTicketImage } from '../services/tickets';
 import { captureFrame, captureFrameFromImage } from '../lib/imagePreprocess';
 import { validateTicketForPool, validateTicketNumbers, validateDrawDate } from '../utils/ticketValidation';
 import { supabase } from '../lib/supabase';
@@ -57,6 +57,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
   const [matchingPools, setMatchingPools] = useState<PoolOption[]>([]);
   const [poolsLoading, setPoolsLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
 
   // Scan mode state
   const [scanPhase, setScanPhase] = useState<ScanPhase>('preview');
@@ -68,6 +69,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
   const [editableBonus, setEditableBonus] = useState('');
   const [debugText, setDebugText] = useState('');
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [editedPlays, setEditedPlays] = useState<Map<number, { numbers: string[]; bonus: string }>>(new Map());
 
   // Start/stop camera
   const startCamera = useCallback(async () => {
@@ -295,13 +297,25 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
     }
   };
 
-  // Select a different parsed play
+  // Select a different parsed play (preserving edits across tab switches)
   const handleSelectPlay = (index: number) => {
+    // Save current play's edits before switching
+    const updated = new Map<number, { numbers: string[]; bonus: string }>(editedPlays);
+    updated.set(selectedPlayIndex, { numbers: [...editableNumbers], bonus: editableBonus });
+    setEditedPlays(updated);
+
+    // Load target play (from edits if available, otherwise from parsed)
     setSelectedPlayIndex(index);
-    const play = parsedPlays[index];
-    setEditableNumbers(play.numbers.map(n => n.toString()));
-    setEditableBonus(play.bonusNumber.toString());
-    if (play.gameType) setSelectedGame(play.gameType);
+    const saved = updated.get(index);
+    if (saved) {
+      setEditableNumbers(saved.numbers);
+      setEditableBonus(saved.bonus);
+    } else {
+      const play = parsedPlays[index];
+      setEditableNumbers(play.numbers.map(n => n.toString()));
+      setEditableBonus(play.bonusNumber.toString());
+    }
+    if (parsedPlays[index].gameType) setSelectedGame(parsedPlays[index].gameType!);
   };
 
   // Save ticket (called from pool picker step or manual entry)
@@ -396,6 +410,106 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
     }
 
     // Brief success state before closing
+    setTimeout(() => onClose(), 1200);
+  };
+
+  // Save all plays from a multi-play ticket slip
+  const handleSaveAllPlays = async () => {
+    if (!user?.id) {
+      setError('You must be logged in');
+      return;
+    }
+    if (!selectedPoolId) {
+      showValidationBanner('Please select a pool');
+      return;
+    }
+
+    // Determine pool game type
+    const poolGameType = pool?.game_type
+      || matchingPools.find(p => p.id === selectedPoolId)?.game_type
+      || pools.find(p => p.id === selectedPoolId)?.game_type as 'powerball' | 'mega_millions' | undefined;
+
+    // Collect final edits for all plays (save current play's edits first)
+    const allEdited = new Map<number, { numbers: string[]; bonus: string }>(editedPlays);
+    allEdited.set(selectedPlayIndex, { numbers: [...editableNumbers], bonus: editableBonus });
+
+    // Build plays array from edits (falling back to parsed values)
+    const plays = parsedPlays.map((p, i) => {
+      const edited = allEdited.get(i);
+      if (edited) {
+        return {
+          numbers: edited.numbers.map(n => parseInt(n)).filter(n => !isNaN(n)),
+          bonus_number: parseInt(edited.bonus),
+        };
+      }
+      return { numbers: p.numbers, bonus_number: p.bonusNumber };
+    });
+
+    // Quick validation that all plays have full numbers
+    for (let i = 0; i < plays.length; i++) {
+      if (plays[i].numbers.length !== 5 || isNaN(plays[i].bonus_number)) {
+        showValidationBanner(`Play ${String.fromCharCode(65 + i)}: Please enter all 6 numbers`);
+        return;
+      }
+    }
+
+    setIsSaving(true);
+    setError(null);
+    setValidationError(null);
+
+    // Use multiplier from first play (shared across physical slip)
+    const multiplier = parsedPlays[0]?.multiplier ?? null;
+
+    const { data: tickets, error: saveError } = await addTicketBatch({
+      pool_id: selectedPoolId,
+      game_type: selectedGame,
+      draw_date: drawDate,
+      multiplier,
+      entered_by: user.id,
+      entry_method: 'scan',
+      plays,
+    }, poolGameType);
+
+    if (saveError || !tickets || tickets.length === 0) {
+      showValidationBanner(saveError || 'Failed to save tickets');
+      setIsSaving(false);
+      return;
+    }
+
+    // Upload image once, link to all tickets in the group
+    if (capturedBlob && tickets.length > 0) {
+      const firstTicketId = tickets[0].id;
+      const file = new File([capturedBlob], `ticket-${firstTicketId}.jpg`, { type: 'image/jpeg' });
+      uploadTicketImage(selectedPoolId, firstTicketId, file)
+        .then(({ url }) => {
+          if (url && tickets.length > 1) {
+            // Update remaining tickets with same image URL (fire-and-forget)
+            const otherIds = tickets.slice(1).map(t => t.id);
+            // Link shared image to remaining tickets (Supabase types are broken for .update — see pre-existing TS issues)
+            (supabase.from('tickets') as any)
+              .update({ image_url: url })
+              .in('id', otherIds)
+              .then(({ error: linkErr }: { error: any }) => {
+                if (linkErr) console.error('[handleSaveAllPlays] image link failed:', linkErr.message);
+              });
+          }
+        })
+        .catch(err => console.error('Image upload failed:', err));
+    }
+
+    setIsSaving(false);
+    setSavedCount(tickets.length);
+    setSaveSuccess(true);
+
+    if (typeof window.confetti === 'function') {
+      window.confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#E29578', '#FFDDD2', '#006D77', '#83C5BE']
+      });
+    }
+
     setTimeout(() => onClose(), 1200);
   };
 
@@ -808,12 +922,12 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
                     className="w-full py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] bg-green-500 text-white font-black text-base sm:text-lg flex items-center justify-center gap-2"
                   >
                     <Check size={20} strokeWidth={3} />
-                    Saved!
+                    {savedCount > 1 ? `${savedCount} plays saved!` : 'Saved!'}
                   </motion.div>
                 ) : (
                   <motion.button
                     whileTap={{ scale: 0.98 }}
-                    onClick={handleSaveTicket}
+                    onClick={parsedPlays.length > 1 ? handleSaveAllPlays : handleSaveTicket}
                     disabled={isSaving}
                     className="w-full py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] bg-[#E29578] text-white font-black text-base sm:text-lg shadow-xl shadow-[#FFDDD2] btn-shimmer flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50"
                   >
@@ -824,7 +938,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
                       </>
                     ) : (
                       <>
-                        Confirm & Save
+                        {parsedPlays.length > 1 ? `Save All ${parsedPlays.length} Plays` : 'Confirm & Save'}
                         <Check size={18} strokeWidth={3} />
                       </>
                     )}
@@ -1001,12 +1115,12 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
                   className="w-full py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] bg-green-500 text-white font-black text-base sm:text-lg flex items-center justify-center gap-2"
                 >
                   <Check size={20} strokeWidth={3} />
-                  Saved!
+                  {savedCount > 1 ? `${savedCount} plays saved!` : 'Saved!'}
                 </motion.div>
               ) : (
                 <motion.button
                   whileTap={{ scale: 0.98 }}
-                  onClick={handleSaveTicket}
+                  onClick={parsedPlays.length > 1 ? handleSaveAllPlays : handleSaveTicket}
                   disabled={isSaving || !selectedPoolId}
                   className="w-full py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] bg-[#E29578] text-white font-black text-base sm:text-lg shadow-xl shadow-[#FFDDD2] btn-shimmer flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50"
                 >
@@ -1017,7 +1131,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
                     </>
                   ) : (
                     <>
-                      Save to Pool
+                      {parsedPlays.length > 1 ? `Save All ${parsedPlays.length} Plays` : 'Save to Pool'}
                       <Check size={18} strokeWidth={3} />
                     </>
                   )}
