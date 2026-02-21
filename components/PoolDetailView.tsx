@@ -334,6 +334,7 @@ const PoolDetailView: React.FC<PoolDetailViewProps> = ({ poolId, onClose, onScan
         aria-modal="true"
         aria-label="Pool details"
       >
+      <div className="w-full max-w-3xl mx-auto flex flex-col flex-1 min-h-0">
         {/* Fixed Header */}
         <header
           className="px-4 sm:px-6 pb-3 sm:pb-4 flex items-center gap-3 bg-white border-b border-[#EDF6F9] safe-area-top"
@@ -1018,6 +1019,7 @@ const PoolDetailView: React.FC<PoolDetailViewProps> = ({ poolId, onClose, onScan
             </div>
           </>
         )}
+      </div>
       </motion.div>
 
       {/* Archive confirmation modal */}

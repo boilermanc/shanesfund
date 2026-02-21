@@ -38,19 +38,19 @@ const GameCard: React.FC<{
     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
     role="button"
     tabIndex={0}
-    className={`rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-7 border warm-shadow relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all ${isPB ? 'bg-[#FFF8F6] border-[#E29578]/30' : 'bg-[#F0FAFB] border-[#006D77]/20'}`}
+    className={`rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-7 border-2 warm-shadow relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all ${isPB ? 'bg-gradient-to-br from-[#FFF8F6] to-[#FFDDD2]/40 border-[#E29578]/50' : 'bg-gradient-to-br from-[#F0FAFB] to-[#83C5BE]/20 border-[#006D77]/40'}`}
   >
     <div className="flex justify-between items-start mb-4 sm:mb-6">
       <div className="flex items-center gap-3 sm:gap-4">
         <GameLogo game={game} />
         <div>
           <h3 className="text-base sm:text-lg font-black text-[#006D77] tracking-tight">{game}</h3>
-          <p className="text-[8px] sm:text-[9px] font-black text-[#83C5BE] uppercase tracking-widest leading-none mt-0.5">Official Result</p>
+          <p className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest leading-none mt-0.5 ${isPB ? 'text-[#E29578]/70' : 'text-[#83C5BE]'}`}>Official Result</p>
         </div>
       </div>
       <div className="flex flex-col items-end gap-1">
-        <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-widest">{date}</p>
-        <div className="flex items-center gap-1 text-[#E29578] opacity-0 group-hover:opacity-100 transition-opacity">
+        <p className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest ${isPB ? 'text-[#E29578]/70' : 'text-[#006D77]/60'}`}>{date}</p>
+        <div className={`flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ${isPB ? 'text-[#E29578]' : 'text-[#006D77]'}`}>
           <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-tighter">{poolAction}</span>
           <ArrowRight size={10} />
         </div>
@@ -71,15 +71,15 @@ const GameCard: React.FC<{
           {jackpot}
         </motion.p>
       )}
-      <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.2em] mt-1">Est. Jackpot</p>
+      <p className={`text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] mt-1 ${isPB ? 'text-[#E29578]/60' : 'text-[#006D77]/50'}`}>Est. Jackpot</p>
       {updatedAt && !isLoading && (
-        <p className="text-[8px] sm:text-[9px] font-bold text-[#83C5BE]/60 mt-0.5">Updated {formatTimeAgo(updatedAt)}</p>
+        <p className={`text-[8px] sm:text-[9px] font-bold mt-0.5 ${isPB ? 'text-[#E29578]/40' : 'text-[#006D77]/40'}`}>Updated {formatTimeAgo(updatedAt)}</p>
       )}
     </div>
     <div className="flex justify-center gap-2 sm:gap-3 mb-4 sm:mb-6">
       {isLoading ? (
         Array(5).fill(0).map((_, i) => (
-          <div key={i} className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#EDF6F9] animate-pulse" />
+          <div key={i} className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full animate-pulse ${isPB ? 'bg-[#FFDDD2]/50' : 'bg-[#EDF6F9]'}`} />
         ))
       ) : (
         numbers.map((num, i) => (
@@ -98,7 +98,7 @@ const GameCard: React.FC<{
         ))
       )}
       {isLoading ? (
-        <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#FFDDD2] animate-pulse" />
+        <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full animate-pulse ${isPB ? 'bg-[#E29578]/40' : 'bg-[#006D77]/30'}`} />
       ) : (
         <motion.div
           initial={{ scale: 0 }}
@@ -268,18 +268,18 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
         <h3 className="text-base sm:text-lg font-black text-[#006D77] tracking-tight ml-2">Recent Draws</h3>
         <div className="space-y-3 sm:space-y-4 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 md:space-y-0">
           {isLoading ? (
-            Array(3).fill(0).map((_, idx) => (
-              <div key={idx} className="bg-white p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[#FFDDD2] animate-pulse">
-                <div className="h-4 bg-[#EDF6F9] rounded w-1/4 mb-2" />
+            [true, false, true].map((isPB, idx) => (
+              <div key={idx} className={`p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border animate-pulse ${isPB ? 'bg-[#FFF8F6] border-[#E29578]/20' : 'bg-[#F0FAFB] border-[#006D77]/15'}`}>
+                <div className={`h-4 rounded w-1/4 mb-2 ${isPB ? 'bg-[#FFDDD2]/50' : 'bg-[#EDF6F9]'}`} />
                 <div className="flex gap-1.5">
                   {Array(6).fill(0).map((_, i) => (
-                    <div key={i} className="w-6 h-6 rounded-full bg-[#EDF6F9]" />
+                    <div key={i} className={`w-6 h-6 rounded-full ${isPB ? 'bg-[#FFDDD2]/40' : 'bg-[#EDF6F9]'}`} />
                   ))}
                 </div>
               </div>
             ))
           ) : history.length === 0 ? (
-            <div className="bg-white p-6 rounded-[1.5rem] border border-[#FFDDD2] text-center">
+            <div className="bg-[#EDF6F9]/50 p-6 rounded-[1.5rem] border border-[#83C5BE]/20 text-center">
               <p className="text-sm text-[#83C5BE] font-medium">No draw history yet</p>
             </div>
           ) : (
@@ -300,13 +300,13 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
                     <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${draw.game_type === 'powerball' ? 'bg-[#FFDDD2] text-[#E29578]' : 'bg-[#EDF6F9] text-[#006D77]'}`}>
                       {draw.game_type === 'powerball' ? 'PB' : 'MM'}
                     </span>
-                    <span className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-widest">
+                    <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest ${draw.game_type === 'powerball' ? 'text-[#E29578]/60' : 'text-[#006D77]/50'}`}>
                       {formatDrawDate(draw.draw_date)}
                     </span>
                   </div>
                   <div className="flex gap-1 sm:gap-1.5 mt-1">
                     {draw.winning_numbers.map((n, i) => (
-                      <div key={i} className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#EDF6F9] border border-[#FFDDD2] flex items-center justify-center text-[9px] sm:text-[10px] font-bold text-[#006D77]">
+                      <div key={i} className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border flex items-center justify-center text-[9px] sm:text-[10px] font-bold ${draw.game_type === 'powerball' ? 'bg-[#FFF8F6] border-[#E29578]/30 text-[#E29578]' : 'bg-[#F0FAFB] border-[#006D77]/25 text-[#006D77]'}`}>
                         {n}
                       </div>
                     ))}
@@ -316,12 +316,12 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs sm:text-sm font-black text-[#83C5BE]">
+                  <p className={`text-xs sm:text-sm font-black ${draw.game_type === 'powerball' ? 'text-[#E29578]' : 'text-[#006D77]'}`}>
                     {formatJackpot(draw.jackpot_amount)}
                   </p>
-                  <div className="flex items-center gap-1 justify-end mt-1">
-                    <span className="text-[7px] sm:text-[8px] font-black text-[#83C5BE] uppercase tracking-widest">{drawPool ? 'View Pool' : 'Join Pool'}</span>
-                    <ChevronRight size={12} className="text-[#83C5BE]" />
+                  <div className={`flex items-center gap-1 justify-end mt-1 ${draw.game_type === 'powerball' ? 'text-[#E29578]/50' : 'text-[#006D77]/50'}`}>
+                    <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest">{drawPool ? 'View Pool' : 'Join Pool'}</span>
+                    <ChevronRight size={12} />
                   </div>
                 </div>
               </div>

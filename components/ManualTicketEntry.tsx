@@ -351,6 +351,7 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
         transition={{ type: 'spring', damping: 25, stiffness: 150 }}
         className="fixed inset-0 z-[200] bg-white flex flex-col"
       >
+      <div className="w-full max-w-xl mx-auto flex flex-col flex-1 min-h-0">
         {/* Header */}
         <div className="px-4 sm:px-6 flex items-center gap-3 border-b border-[#FFDDD2]" style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top, 1.5rem))', paddingBottom: '1rem' }}>
           <motion.button
@@ -495,6 +496,7 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
             </button>
           )}
         </div>
+      </div>
       </motion.div>
     );
   }
@@ -510,6 +512,7 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
       transition={{ type: 'spring', damping: 25, stiffness: 150 }}
       className="fixed inset-0 z-[200] bg-white flex flex-col"
     >
+      <div className="w-full max-w-xl mx-auto flex flex-col flex-1 min-h-0">
       {/* Header */}
       <div className="px-4 sm:px-6 flex items-center gap-3 border-b border-[#FFDDD2]" style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top, 1.5rem))', paddingBottom: '1rem' }}>
         <motion.button
@@ -711,6 +714,7 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
           Next: Choose Pool
           <ArrowRight size={18} strokeWidth={3} />
         </motion.button>
+      </div>
       </div>
     </motion.div>
   );

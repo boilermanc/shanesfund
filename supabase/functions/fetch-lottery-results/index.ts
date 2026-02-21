@@ -25,28 +25,39 @@ async function fetchJackpotAmounts(
     mega_millions: null,
   };
 
-  // Mega Millions — official JSON endpoint (returns structured jackpot data)
+  // Mega Millions — JSON API (homepage uses JS-rendered content, can't scrape)
   try {
-    log("Fetching Mega Millions jackpot from megamillions.com");
-    const mmResp = await fetch(MM_JACKPOT_URL);
+    log("Fetching Mega Millions jackpot from JSON API");
+    const mmResp = await fetch(MM_JACKPOT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
     if (mmResp.ok) {
-      const mmData = await mmResp.json();
-      // NextPrizePool = estimated jackpot for the upcoming draw
-      // CurrentPrizePool = jackpot that was available for the most recent draw
-      if (mmData?.Jackpot?.NextPrizePool) {
-        jackpots.mega_millions = mmData.Jackpot.NextPrizePool;
-        log(`Mega Millions next jackpot: $${(jackpots.mega_millions! / 1_000_000).toFixed(0)}M`);
-      } else if (mmData?.Jackpot?.CurrentPrizePool) {
-        jackpots.mega_millions = mmData.Jackpot.CurrentPrizePool;
-        log(`Mega Millions current jackpot: $${(jackpots.mega_millions! / 1_000_000).toFixed(0)}M`);
+      const mmRaw = await mmResp.json();
+      // ASMX services wrap response in {"d": "<json string>"}
+      const mmInner = mmRaw?.d ?? mmRaw;
+      const mmData = typeof mmInner === "string" ? JSON.parse(mmInner) : mmInner;
+      log(`MM JSON API raw response: ${JSON.stringify(mmData).slice(0, 500)}`);
+      const mmJackpot = mmData?.Jackpot?.NextPrizePool
+        ?? mmData?.Jackpot?.CurrentPrizePool
+        ?? mmData?.NextPrizePool
+        ?? mmData?.CurrentPrizePool
+        ?? null;
+      // Sanity check: MM jackpot minimum is $20M
+      if (mmJackpot !== null && mmJackpot >= 20_000_000) {
+        jackpots.mega_millions = mmJackpot;
+        log(`MM jackpot: $${(jackpots.mega_millions! / 1_000_000).toFixed(0)}M`);
+      } else if (mmJackpot !== null) {
+        log(`WARNING: MM jackpot $${mmJackpot} seems too low, ignoring`);
       } else {
-        log("WARNING: MM jackpot response missing prize pool fields");
+        log("WARNING: MM JSON API response missing valid jackpot fields");
       }
     } else {
-      log(`WARNING: MM jackpot endpoint returned HTTP ${mmResp.status}`);
+      log(`WARNING: MM JSON API returned HTTP ${mmResp.status}`);
     }
   } catch (e) {
-    log(`WARNING: Failed to fetch MM jackpot: ${e instanceof Error ? e.message : String(e)}`);
+    log(`WARNING: MM JSON API failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 
   // Powerball — parse from homepage HTML (no public JSON API exists)

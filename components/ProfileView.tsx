@@ -65,6 +65,7 @@ const ProfileView: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [totalWon, setTotalWon] = useState<number | null>(null);
   const [ticketsScanned, setTicketsScanned] = useState<number | null>(null);
+  const [activeTickets, setActiveTickets] = useState<number | null>(null);
   const [totalContributed, setTotalContributed] = useState<number | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
 
@@ -104,14 +105,22 @@ const ProfileView: React.FC = () => {
         ? supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('entered_by', user.id)
         : Promise.resolve({ count: 0, error: null });
 
+      // Active tickets: entered by this user, not yet checked, for upcoming draws
+      const today = new Date().toISOString().split('T')[0];
+      const activeTicketsPromise = user?.id
+        ? supabase.from('tickets').select('id', { count: 'exact', head: true })
+            .eq('entered_by', user.id).eq('checked', false).gte('draw_date', today)
+        : Promise.resolve({ count: 0, error: null });
+
       // Total contributed by this user
       const contributionsPromise = user?.id
         ? supabase.from('contributions').select('amount').eq('user_id', user.id)
         : Promise.resolve({ data: [] as { amount: number }[], error: null });
 
-      const [winningsRes, ticketsRes, contribRes] = await Promise.all([
+      const [winningsRes, ticketsRes, activeTicketsRes, contribRes] = await Promise.all([
         winningsPromise,
         ticketsPromise,
+        activeTicketsPromise,
         contributionsPromise,
       ]);
 
@@ -126,6 +135,7 @@ const ProfileView: React.FC = () => {
 
       // Process tickets count
       setTicketsScanned(ticketsRes.error ? 0 : (ticketsRes.count ?? 0));
+      setActiveTickets(activeTicketsRes.error ? 0 : (activeTicketsRes.count ?? 0));
 
       // Process contributions sum
       if (contribRes.error) {
@@ -170,6 +180,7 @@ const ProfileView: React.FC = () => {
     : `$${(totalContributed ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const ticketsDisplay = statsLoading ? '...' : String(ticketsScanned ?? 0);
+  const activeTicketsDisplay = statsLoading ? '...' : String(activeTickets ?? 0);
 
   return (
     <motion.div
@@ -210,8 +221,9 @@ const ProfileView: React.FC = () => {
       </motion.section>
 
       {/* Stats Grid */}
-      <motion.section variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <motion.section variants={itemVariants} className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <StatCard value={String(activePools.length)} label="Active Pools" />
+        <StatCard value={activeTicketsDisplay} label="Active Tickets" />
         <StatCard value={wonDisplay} label="Total Won" />
         <StatCard value={ticketsDisplay} label="Tickets Entered" />
         <StatCard value={contributedDisplay} label="Contributed" />
@@ -262,7 +274,7 @@ const ProfileView: React.FC = () => {
       ) : null}
 
       {/* Settings Menu */}
-      <motion.section variants={itemVariants} className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-[#FFDDD2] shadow-sm">
+      <motion.section variants={itemVariants} className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-[#FFDDD2] shadow-sm md:max-w-xl md:mx-auto">
         <SettingRow 
           icon={<User size={18} />} 
           title="Personal Information" 

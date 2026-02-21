@@ -23,9 +23,15 @@ const MM_JACKPOT_URL = 'https://www.megamillions.com/cmspages/utilservice.asmx/G
 // Best-effort client-side fetch of Mega Millions jackpot (may fail due to CORS)
 async function fetchMegaMillionsJackpot(): Promise<number | null> {
   try {
-    const resp = await fetch(MM_JACKPOT_URL);
+    const resp = await fetch(MM_JACKPOT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
     if (!resp.ok) return null;
-    const data = await resp.json();
+    const raw = await resp.json();
+    const inner = raw?.d ?? raw;
+    const data = typeof inner === 'string' ? JSON.parse(inner) : inner;
     return data?.Jackpot?.NextPrizePool ?? data?.Jackpot?.CurrentPrizePool ?? null;
   } catch {
     // CORS or network error — expected when called from browser
@@ -93,6 +99,7 @@ export async function getLatestDraws(): Promise<{
   megaMillions: LotteryDraw | null;
 }> {
   // Try Supabase first (primary source) — fetch both in parallel
+  // Use maybeSingle() instead of single() to avoid 406 errors when 0 rows
   const [pbResult, mmResult] = await Promise.all([
     supabase
       .from('lottery_draws')
@@ -100,19 +107,19 @@ export async function getLatestDraws(): Promise<{
       .eq('game_type', 'powerball')
       .order('draw_date', { ascending: false })
       .limit(1)
-      .single(),
+      .maybeSingle(),
     supabase
       .from('lottery_draws')
       .select('*')
       .eq('game_type', 'mega_millions')
       .order('draw_date', { ascending: false })
       .limit(1)
-      .single(),
+      .maybeSingle(),
   ]);
-  if (pbResult.error && pbResult.error.code !== 'PGRST116') {
+  if (pbResult.error) {
     console.error('Error fetching Powerball:', pbResult.error);
   }
-  if (mmResult.error && mmResult.error.code !== 'PGRST116') {
+  if (mmResult.error) {
     console.error('Error fetching Mega Millions:', mmResult.error);
   }
   let powerball = pbResult.data as LotteryDraw | null;
@@ -149,7 +156,7 @@ export async function getDrawHistory(
   return data as LotteryDraw[];
 }
 export function formatJackpot(amount: number | null): string {
-  if (amount === null || amount === undefined) return 'TBD';
+  if (amount === null || amount === undefined) return 'Jackpot Pending';
   if (amount >= 1_000_000_000) {
     return `$${(amount / 1_000_000_000).toFixed(1)} BILLION`;
   } else if (amount >= 1_000_000) {

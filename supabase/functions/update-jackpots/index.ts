@@ -73,44 +73,73 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const updated: string[] = [];
 
-    // --- Mega Millions jackpot (official JSON API) ---
+    // --- Mega Millions jackpot ---
+    // JSON API is the only reliable source (homepage uses JS-rendered content)
     try {
-      log("Fetching Mega Millions jackpot");
-      const mmResp = await fetch(MM_JACKPOT_URL);
-      if (mmResp.ok) {
-        const mmData = await mmResp.json();
-        const mmJackpot = mmData?.Jackpot?.NextPrizePool ?? mmData?.Jackpot?.CurrentPrizePool ?? null;
-        if (mmJackpot !== null) {
-          // Get the latest MM draw date so we can update the right row
-          const { data: latestMm } = await supabase
-            .from("lottery_draws")
-            .select("draw_date")
-            .eq("game_type", "mega_millions")
-            .order("draw_date", { ascending: false })
-            .limit(1)
-            .single();
+      let mmJackpot: number | null = null;
 
-          if (latestMm) {
-            const { error } = await supabase
-              .from("lottery_draws")
-              .update({ jackpot_amount: mmJackpot })
-              .eq("game_type", "mega_millions")
-              .eq("draw_date", latestMm.draw_date);
-
-            if (error) {
-              log(`ERROR: Failed to update MM jackpot: ${error.message}`);
-            } else {
-              log(`Updated MM jackpot: $${(mmJackpot / 1_000_000).toFixed(0)}M on ${latestMm.draw_date}`);
-              updated.push("mega_millions");
-            }
+      try {
+        log("Fetching MM jackpot from JSON API");
+        const mmResp = await fetch(MM_JACKPOT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
+        if (mmResp.ok) {
+          const mmRaw = await mmResp.json();
+          // ASMX services wrap response in {"d": "<json string>"}
+          const mmInner = mmRaw?.d ?? mmRaw;
+          const mmData = typeof mmInner === "string" ? JSON.parse(mmInner) : mmInner;
+          log(`MM JSON API raw response: ${JSON.stringify(mmData).slice(0, 500)}`);
+          // Try multiple paths — API response structure may vary
+          mmJackpot = mmData?.Jackpot?.NextPrizePool
+            ?? mmData?.Jackpot?.CurrentPrizePool
+            ?? mmData?.NextPrizePool
+            ?? mmData?.CurrentPrizePool
+            ?? null;
+          // Sanity check: MM jackpot minimum is $20M
+          if (mmJackpot !== null && mmJackpot < 20_000_000) {
+            log(`WARNING: MM jackpot $${mmJackpot} seems too low, ignoring`);
+            mmJackpot = null;
+          }
+          if (mmJackpot !== null) {
+            log(`MM jackpot: $${(mmJackpot / 1_000_000).toFixed(0)}M`);
           } else {
-            log("WARNING: No MM draw record found to update");
+            log("WARNING: MM JSON API response missing valid jackpot fields");
           }
         } else {
-          log("WARNING: MM response missing jackpot fields");
+          log(`WARNING: MM JSON API returned HTTP ${mmResp.status}`);
         }
-      } else {
-        log(`WARNING: MM endpoint returned HTTP ${mmResp.status}`);
+      } catch (e) {
+        log(`WARNING: MM JSON API failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+
+      // Update DB if we got a valid jackpot
+      if (mmJackpot !== null) {
+        const { data: latestMm } = await supabase
+          .from("lottery_draws")
+          .select("draw_date")
+          .eq("game_type", "mega_millions")
+          .order("draw_date", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (latestMm) {
+          const { error } = await supabase
+            .from("lottery_draws")
+            .update({ jackpot_amount: mmJackpot })
+            .eq("game_type", "mega_millions")
+            .eq("draw_date", latestMm.draw_date);
+
+          if (error) {
+            log(`ERROR: Failed to update MM jackpot: ${error.message}`);
+          } else {
+            log(`Updated MM jackpot: $${(mmJackpot / 1_000_000).toFixed(0)}M on ${latestMm.draw_date}`);
+            updated.push("mega_millions");
+          }
+        } else {
+          log("WARNING: No MM draw record found to update");
+        }
       }
     } catch (e) {
       log(`WARNING: MM jackpot fetch failed: ${e instanceof Error ? e.message : String(e)}`);

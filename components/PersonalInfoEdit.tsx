@@ -130,6 +130,7 @@ const PersonalInfoEdit: React.FC<PersonalInfoEditProps> = ({ onClose }) => {
         aria-modal="true"
         aria-label="Edit profile"
       >
+      <div className="w-full max-w-xl mx-auto flex flex-col flex-1 min-h-0">
       {/* Header */}
       <header className="px-4 sm:px-6 pt-10 sm:pt-14 pb-4 sm:pb-6 flex items-center justify-between bg-white/40 backdrop-blur-md border-b border-[#FFDDD2]">
         <button
@@ -313,6 +314,7 @@ const PersonalInfoEdit: React.FC<PersonalInfoEditProps> = ({ onClose }) => {
             <>Save Changes</>
           )}
         </motion.button>
+      </div>
       </div>
 
       {/* Glassmorphism Avatar Popup */}
