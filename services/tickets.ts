@@ -6,6 +6,42 @@ import {
   validateDrawDate,
 } from '../utils/ticketValidation';
 
+// Fire-and-forget: notify pool members that a ticket was added
+async function notifyPoolOfNewTicket(poolId: string, enteredBy: string, playCount: number) {
+  try {
+    // Look up pool name + who added it
+    const [poolRes, userRes] = await Promise.all([
+      supabase.from('pools').select('name').eq('id', poolId).single(),
+      supabase.from('users').select('display_name').eq('id', enteredBy).single(),
+    ]);
+    const poolName = poolRes.data?.name || 'your pool';
+    const userName = userRes.data?.display_name || 'Someone';
+    const ticketLabel = playCount > 1 ? `${playCount} plays` : 'a ticket';
+
+    // Get all pool members EXCEPT the person who added the ticket
+    const { data: members } = await supabase
+      .from('pool_members')
+      .select('user_id')
+      .eq('pool_id', poolId)
+      .neq('user_id', enteredBy);
+
+    if (!members?.length) return;
+
+    const notifications = members.map(m => ({
+      user_id: m.user_id,
+      type: 'pool_update' as const,
+      title: 'New Ticket Added',
+      message: `${userName} added ${ticketLabel} to ${poolName}`,
+      data: { pool_id: poolId },
+    }));
+
+    const { error } = await supabase.from('notifications').insert(notifications);
+    if (error) console.error('[notifyPoolOfNewTicket] failed:', error.message);
+  } catch (err) {
+    console.error('[notifyPoolOfNewTicket] failed:', err);
+  }
+}
+
 // Get all tickets for a pool
 export const getPoolTickets = async (
   poolId: string
@@ -135,7 +171,7 @@ export const addTicket = async (
     if (error) {
       return { data: null, error: error.message };
     }
-    // Fire-and-forget activity log
+    // Fire-and-forget activity log + pool notification
     supabase.from('activity_log').insert({
       user_id: ticket.entered_by,
       pool_id: ticket.pool_id,
@@ -143,6 +179,7 @@ export const addTicket = async (
       details: { entry_method: ticket.entry_method },
     }).then(({ error }) => { if (error) console.error('[addTicket] activity log failed:', error.message); })
       .catch(err => console.error('[addTicket] activity log failed:', err));
+    notifyPoolOfNewTicket(ticket.pool_id, ticket.entered_by, 1);
     return { data, error: null };
   } catch (err) {
     return { data: null, error: 'An unexpected error occurred' };
@@ -276,7 +313,7 @@ export const addTicketBatch = async (
       return { data: null, error: error.message };
     }
 
-    // Fire-and-forget activity log
+    // Fire-and-forget activity log + pool notification
     supabase.from('activity_log').insert({
       user_id: params.entered_by,
       pool_id: params.pool_id,
@@ -284,6 +321,7 @@ export const addTicketBatch = async (
       details: { entry_method: params.entry_method, play_count: params.plays.length },
     }).then(({ error }) => { if (error) console.error('[addTicketBatch] activity log failed:', error.message); })
       .catch(err => console.error('[addTicketBatch] activity log failed:', err));
+    notifyPoolOfNewTicket(params.pool_id, params.entered_by, params.plays.length);
 
     return { data: data as Ticket[], error: null };
   } catch (err) {
