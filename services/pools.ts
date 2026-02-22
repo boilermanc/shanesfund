@@ -603,3 +603,96 @@ export async function checkTicketsForDraw(
     return { wins: [], checkedCount: 0, error: 'Failed to check tickets' };
   }
 }
+
+/**
+ * Check ALL unchecked tickets across all pools for a game type, matching each
+ * ticket to its corresponding draw by date. This catches tickets from ANY past
+ * draw, not just the single latest one.
+ *
+ * @param latestDraw - Optional latest draw from the API (may not be in DB yet).
+ *                     Included so tickets can still be checked if the cron
+ *                     hasn't ingested the draw into Supabase yet.
+ */
+export async function checkAllUncheckedTickets(
+  gameType: 'powerball' | 'mega_millions',
+  pools: { id: string; game_type: string; status: string }[],
+  latestDraw?: LotteryDraw | null
+): Promise<{ wins: WinResult[]; checkedCount: number; error: string | null }> {
+  try {
+    const matchingPools = pools.filter(p => p.game_type === gameType && p.status === 'active');
+    if (matchingPools.length === 0) {
+      return { wins: [], checkedCount: 0, error: null };
+    }
+
+    // 1. Gather all unchecked tickets across matching pools
+    const allTickets: { id: string; pool_id: string; draw_date: string; numbers: number[]; bonus_number: number }[] = [];
+    for (const pool of matchingPools) {
+      const { data: tickets, error: ticketsError } = await getUncheckedTickets(pool.id);
+      if (ticketsError || !tickets) continue;
+      allTickets.push(...tickets.map(t => ({
+        id: t.id,
+        pool_id: t.pool_id,
+        draw_date: t.draw_date,
+        numbers: t.numbers as number[],
+        bonus_number: t.bonus_number as number,
+      })));
+    }
+
+    if (allTickets.length === 0) {
+      return { wins: [], checkedCount: 0, error: null };
+    }
+
+    // 2. Fetch draw results for every unique draw date these tickets reference
+    const drawDates = [...new Set(allTickets.map(t => t.draw_date))];
+    const { getDrawsByDates } = await import('./lottery');
+    const draws = await getDrawsByDates(gameType, drawDates);
+
+    // Build lookup: draw_date -> draw
+    const drawMap = new Map<string, LotteryDraw>();
+    for (const draw of draws) {
+      drawMap.set(draw.draw_date, draw);
+    }
+
+    // Include the API-sourced latest draw if it's not already in the map
+    if (latestDraw && latestDraw.game_type === gameType && !drawMap.has(latestDraw.draw_date)) {
+      drawMap.set(latestDraw.draw_date, latestDraw);
+    }
+
+    // 3. Check each ticket against its matching draw
+    const prizes = PRIZE_AMOUNTS[gameType] || {};
+    const allWins: WinResult[] = [];
+    let totalChecked = 0;
+
+    for (const ticket of allTickets) {
+      const draw = drawMap.get(ticket.draw_date);
+      if (!draw) continue; // No results for this date yet — skip
+
+      totalChecked++;
+      const mainMatches = ticket.numbers.filter((n: number) => draw.winning_numbers.includes(n)).length;
+      const bonusMatch = ticket.bonus_number === draw.bonus_number;
+      const prizeTier = determinePrizeTier(mainMatches, bonusMatch);
+      const isWinner = prizeTier !== null;
+
+      markTicketChecked(ticket.id, isWinner).catch(err =>
+        console.error(`Failed to mark ticket ${ticket.id} as checked:`, err)
+      );
+
+      if (prizeTier) {
+        const jackpotAmount = draw.jackpot_amount ?? 0;
+        allWins.push({
+          ticketId: ticket.id,
+          poolId: ticket.pool_id,
+          numbersMatched: mainMatches,
+          bonusMatched: bonusMatch,
+          prizeTier,
+          prizeAmount: prizeTier === 'jackpot' ? jackpotAmount : (prizes[prizeTier] ?? 0),
+        });
+      }
+    }
+
+    return { wins: allWins, checkedCount: totalChecked, error: null };
+  } catch (err) {
+    console.error('[checkAllUncheckedTickets] Error:', err);
+    return { wins: [], checkedCount: 0, error: 'Failed to check tickets' };
+  }
+}

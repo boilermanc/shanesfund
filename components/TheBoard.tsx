@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ChevronRight, ArrowRight, Loader2, Trophy, X } from 'lucide-react';
 import { getLatestDraws, getDrawHistory, formatJackpot, formatDrawDate, formatTimeAgo, getNextDrawDate, LotteryDraw } from '../services/lottery';
-import { checkTicketsForDraw, WinResult } from '../services/pools';
+import { checkAllUncheckedTickets, WinResult } from '../services/pools';
 import { useStore } from '../store/useStore';
 import FocusTrap from './FocusTrap';
 interface TheBoardProps {
@@ -151,7 +151,15 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
         setMegaMillions(latest.megaMillions);
         const pbHistory = await getDrawHistory('powerball', 5);
         const mmHistory = await getDrawHistory('mega_millions', 5);
-        const combined = [...pbHistory, ...mmHistory]
+        // Supplement history with latest API draws if not already present
+        const allDraws = [...pbHistory, ...mmHistory];
+        if (latest.powerball && !allDraws.some(d => d.draw_date === latest.powerball!.draw_date && d.game_type === 'powerball')) {
+          allDraws.push(latest.powerball);
+        }
+        if (latest.megaMillions && !allDraws.some(d => d.draw_date === latest.megaMillions!.draw_date && d.game_type === 'mega_millions')) {
+          allDraws.push(latest.megaMillions);
+        }
+        const combined = allDraws
           .sort((a, b) => new Date(b.draw_date).getTime() - new Date(a.draw_date).getTime())
           .slice(0, 5);
         setHistory(combined);
@@ -169,9 +177,9 @@ const TheBoard: React.FC<TheBoardProps> = ({ onOpenPool, onJoinPool }) => {
     setCheckResults(null);
     try {
       console.log('[handleCheckTickets] Starting...', { powerball: powerball?.draw_date, megaMillions: megaMillions?.draw_date, poolCount: pools.length });
-      const pbResults = await checkTicketsForDraw('powerball', powerball, pools);
+      const pbResults = await checkAllUncheckedTickets('powerball', pools, powerball);
       console.log('[handleCheckTickets] Powerball done:', pbResults);
-      const mmResults = await checkTicketsForDraw('mega_millions', megaMillions, pools);
+      const mmResults = await checkAllUncheckedTickets('mega_millions', pools, megaMillions);
       console.log('[handleCheckTickets] Mega Millions done:', mmResults);
       if (pbResults.error) showToast(pbResults.error, 'error');
       if (mmResults.error) showToast(mmResults.error, 'error');

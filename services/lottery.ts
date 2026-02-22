@@ -94,13 +94,25 @@ async function fetchLatestFromNYOpenData(): Promise<{
   }
   return results;
 }
+// Pick whichever draw has the newer draw_date. Ties go to the first arg
+// (Supabase, which typically has jackpot data).
+function pickNewerDraw(
+  a: LotteryDraw | null,
+  b: LotteryDraw | null
+): LotteryDraw | null {
+  if (!a) return b;
+  if (!b) return a;
+  if (new Date(b.draw_date) > new Date(a.draw_date)) return b;
+  return a;
+}
+
 export async function getLatestDraws(): Promise<{
   powerball: LotteryDraw | null;
   megaMillions: LotteryDraw | null;
 }> {
-  // Try Supabase first (primary source) — fetch both in parallel
-  // Use maybeSingle() instead of single() to avoid 406 errors when 0 rows
-  const [pbResult, mmResult] = await Promise.all([
+  // Fetch from BOTH Supabase and NY Open Data API in parallel so we always
+  // show the freshest results even if the cron job hasn't run yet.
+  const [pbResult, mmResult, apiResults] = await Promise.all([
     supabase
       .from('lottery_draws')
       .select('*')
@@ -115,6 +127,7 @@ export async function getLatestDraws(): Promise<{
       .order('draw_date', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    fetchLatestFromNYOpenData(),
   ]);
   if (pbResult.error) {
     console.error('Error fetching Powerball:', pbResult.error);
@@ -122,14 +135,14 @@ export async function getLatestDraws(): Promise<{
   if (mmResult.error) {
     console.error('Error fetching Mega Millions:', mmResult.error);
   }
-  let powerball = pbResult.data as LotteryDraw | null;
-  let megaMillions = mmResult.data as LotteryDraw | null;
-  // Fallback to NY Open Data API if Supabase has no data
-  if (!powerball || !megaMillions) {
-    const apiResults = await fetchLatestFromNYOpenData();
-    if (!powerball) powerball = apiResults.powerball;
-    if (!megaMillions) megaMillions = apiResults.megaMillions;
-  }
+
+  const sbPowerball = pbResult.data as LotteryDraw | null;
+  const sbMegaMillions = mmResult.data as LotteryDraw | null;
+
+  // Use whichever source has the more recent draw for each game
+  let powerball = pickNewerDraw(sbPowerball, apiResults.powerball);
+  let megaMillions = pickNewerDraw(sbMegaMillions, apiResults.megaMillions);
+
   // If Mega Millions jackpot is missing, try fetching directly (best-effort, may fail due to CORS)
   if (megaMillions && megaMillions.jackpot_amount === null) {
     const mmJackpot = await fetchMegaMillionsJackpot();
@@ -155,6 +168,24 @@ export async function getDrawHistory(
   }
   return data as LotteryDraw[];
 }
+// Fetch draws by specific dates for a game type (used by ticket checker)
+export async function getDrawsByDates(
+  gameType: 'powerball' | 'mega_millions',
+  dates: string[]
+): Promise<LotteryDraw[]> {
+  if (dates.length === 0) return [];
+  const { data, error } = await supabase
+    .from('lottery_draws')
+    .select('*')
+    .eq('game_type', gameType)
+    .in('draw_date', dates);
+  if (error) {
+    console.error('Error fetching draws by dates:', error);
+    return [];
+  }
+  return data as LotteryDraw[];
+}
+
 export function formatJackpot(amount: number | null): string {
   if (amount === null || amount === undefined) return 'Jackpot Pending';
   if (amount >= 1_000_000_000) {

@@ -50,6 +50,7 @@ import { getNextDrawDate } from './utils/drawSchedule';
 import type { DisplayPool } from './types/database';
 // Components
 import DashboardHeader from './components/DashboardHeader';
+import DrawResultsBanner from './components/DrawResultsBanner';
 import PoolCarousel from './components/PoolCarousel';
 import QuickActions from './components/QuickActions';
 import BottomNav from './components/BottomNav';
@@ -318,6 +319,9 @@ const MainApp: React.FC = () => {
               <SkeletonLoader type="header" />
             ) : (
               <DashboardHeader user={user} totalPoolValue={displayPools.reduce((sum, p) => sum + (p.current_pool_value || 0), 0)} pools={displayPools} jackpotUpdatedAt={jackpotUpdatedAt} />
+            )}
+            {!isLoading && (
+              <DrawResultsBanner pools={pools} onPoolClick={(id) => setSelectedPoolIdForDetail(id)} />
             )}
             <section className="space-y-4">
               {(isLoading || displayPools.length > 0) && (
