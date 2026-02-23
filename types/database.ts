@@ -709,6 +709,41 @@ export interface Database {
           created_at?: string;
         };
       };
+      config_settings: {
+        Row: {
+          id: string;
+          category: string;
+          key: string;
+          value: string | null;
+          data_type: string;
+          description: string | null;
+          is_sensitive: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          category: string;
+          key: string;
+          value?: string | null;
+          data_type?: string;
+          description?: string | null;
+          is_sensitive?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          category?: string;
+          key?: string;
+          value?: string | null;
+          data_type?: string;
+          description?: string | null;
+          is_sensitive?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       syndicates: {
         Row: {
           id: string;
@@ -824,6 +859,7 @@ export type EmailTemplate = Tables<'email_templates'>;
 export type EmailLog = Tables<'email_logs'>;
 export type Syndicate = Tables<'syndicates'>;
 export type SyndicateMember = Tables<'syndicate_members'>;
+export type ConfigSetting = Tables<'config_settings'>;
 
 // Joined query types (Supabase select with FK joins)
 

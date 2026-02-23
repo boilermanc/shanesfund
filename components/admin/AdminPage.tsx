@@ -4,6 +4,7 @@ import AdminDashboard from './AdminDashboard';
 import ApiTester from './ApiTester';
 import EmailSection from './EmailSection';
 import AdminNotifications from './AdminNotifications';
+import AdminSettings from './AdminSettings';
 import { useAdminTheme, getAdminTheme } from '../../hooks/useAdminTheme';
 
 // Placeholder section component with theme support
@@ -50,13 +51,7 @@ const LogsSection = () => (
   />
 );
 
-const SettingsSection = () => (
-  <PlaceholderSection
-    title="Settings"
-    description="Configure system settings and feature flags"
-    message="Settings panel coming soon..."
-  />
-);
+const SettingsSection = () => <AdminSettings />;
 
 const AdminPage: React.FC = () => {
   const [activeSection, setActiveSection] = useState<AdminSection>('dashboard');
