@@ -134,7 +134,7 @@ serve(async (req) => {
         ],
         generationConfig: {
           temperature: 0,
-          maxOutputTokens: 1024,
+          maxOutputTokens: 2048,
         },
       }),
     });
@@ -165,13 +165,37 @@ serve(async (req) => {
       );
     }
 
-    // Strip markdown code fences if present
-    const jsonStr = rawText
-      .replace(/```json\s*/gi, "")
-      .replace(/```\s*/g, "")
-      .trim();
+    // Log raw Gemini response for debugging
+    console.log("Raw Gemini response:", rawText);
 
-    const parsed = JSON.parse(jsonStr);
+    // Strip markdown code fences if present (Gemini often wraps JSON in ```json ... ```)
+    let cleaned = rawText.trim();
+    if (cleaned.startsWith("```")) {
+      cleaned = cleaned
+        .replace(/^```(?:json)?\s*\n?/, "")
+        .replace(/\n?```\s*$/, "");
+    }
+    cleaned = cleaned.trim();
+
+    // Parse the cleaned JSON
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch (parseErr) {
+      console.error("Failed to parse Gemini response:", rawText);
+      console.error("Cleaned text:", cleaned);
+      console.error("Parse error:", parseErr);
+      return new Response(
+        JSON.stringify({
+          error: "Couldn't read ticket. Try again with better lighting or enter numbers manually.",
+          plays: [],
+        }),
+        {
+          status: 200,
+          headers: { ...cors, "Content-Type": "application/json" },
+        }
+      );
+    }
 
     return new Response(JSON.stringify(parsed), {
       status: 200,
@@ -181,7 +205,7 @@ serve(async (req) => {
     console.error("scan-ticket error:", err);
     return new Response(
       JSON.stringify({
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: "Couldn't read ticket. Try again or enter numbers manually.",
       }),
       { status: 500, headers: { ...cors, "Content-Type": "application/json" } }
     );

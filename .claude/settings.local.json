@@ -41,7 +41,9 @@
       "WebFetch(domain:lotteriesapi.com)",
       "WebFetch(domain:games.api.lottery.com)",
       "WebFetch(domain:www.lotteryusa.com)",
-      "WebFetch(domain:lotterydata.io)"
+      "WebFetch(domain:lotterydata.io)",
+      "Bash(openssl rand:*)",
+      "Bash(npx supabase:*)"
     ]
   }
 }

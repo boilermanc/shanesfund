@@ -224,12 +224,23 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
       // 2. Send full image to Gemini (no cropping needed — AI understands context)
       const base64 = dataUrl.split(',')[1];
       const result = await scanWithGemini(base64);
+      console.log('Scan result:', result);
+
+      // Edge function returns { error, plays: [] } on parse failure (status 200)
+      if (result.error && (!result.plays || result.plays.length === 0)) {
+        setError(result.error);
+        setParsedPlays([]);
+        setEditableNumbers(['', '', '', '', '']);
+        setEditableBonus('');
+        setScanPhase('review');
+        return;
+      }
 
       applyGeminiResults(result);
       setScanPhase('review');
     } catch (err) {
       console.error('Scan failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to process ticket. Try again or enter manually.');
+      setError("Couldn't read ticket. Try again with better lighting or enter numbers manually.");
       setScanPhase('review');
     }
   };
