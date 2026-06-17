@@ -17,27 +17,6 @@ const NY_OPEN_DATA = {
   powerball: 'https://data.ny.gov/resource/d6yy-54nr.json?$limit=1&$order=draw_date%20DESC',
   mega_millions: 'https://data.ny.gov/resource/5xaw-6ayf.json?$limit=1&$order=draw_date%20DESC',
 };
-// Mega Millions official JSON endpoint for jackpot data
-const MM_JACKPOT_URL = 'https://www.megamillions.com/cmspages/utilservice.asmx/GetLatestDrawData';
-
-// Best-effort client-side fetch of Mega Millions jackpot (may fail due to CORS)
-async function fetchMegaMillionsJackpot(): Promise<number | null> {
-  try {
-    const resp = await fetch(MM_JACKPOT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: '{}',
-    });
-    if (!resp.ok) return null;
-    const raw = await resp.json();
-    const inner = raw?.d ?? raw;
-    const data = typeof inner === 'string' ? JSON.parse(inner) : inner;
-    return data?.Jackpot?.NextPrizePool ?? data?.Jackpot?.CurrentPrizePool ?? null;
-  } catch {
-    // CORS or network error — expected when called from browser
-    return null;
-  }
-}
 async function fetchLatestFromNYOpenData(): Promise<{
   powerball: LotteryDraw | null;
   megaMillions: LotteryDraw | null;
@@ -139,17 +118,12 @@ export async function getLatestDraws(): Promise<{
   const sbPowerball = pbResult.data as LotteryDraw | null;
   const sbMegaMillions = mmResult.data as LotteryDraw | null;
 
-  // Use whichever source has the more recent draw for each game
-  let powerball = pickNewerDraw(sbPowerball, apiResults.powerball);
-  let megaMillions = pickNewerDraw(sbMegaMillions, apiResults.megaMillions);
+  // Use whichever source has the more recent draw for each game.
+  // Jackpot amounts come from Supabase (populated by the update-jackpots
+  // edge function/cron) — a browser-side fetch is blocked by CORS.
+  const powerball = pickNewerDraw(sbPowerball, apiResults.powerball);
+  const megaMillions = pickNewerDraw(sbMegaMillions, apiResults.megaMillions);
 
-  // If Mega Millions jackpot is missing, try fetching directly (best-effort, may fail due to CORS)
-  if (megaMillions && megaMillions.jackpot_amount === null) {
-    const mmJackpot = await fetchMegaMillionsJackpot();
-    if (mmJackpot !== null) {
-      megaMillions = { ...megaMillions, jackpot_amount: mmJackpot };
-    }
-  }
   return { powerball, megaMillions };
 }
 export async function getDrawHistory(

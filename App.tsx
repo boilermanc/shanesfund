@@ -229,18 +229,11 @@ const MainApp: React.FC = () => {
       const nextPbDate = nextPbRaw.toISOString().split('T')[0];
       const nextMmDate = nextMmRaw.toISOString().split('T')[0];
 
-      console.log('[upcomingTickets] pool IDs:', poolIds);
-      console.log('[upcomingTickets] getNextDrawDate powerball raw:', nextPbRaw, '→', nextPbDate);
-      console.log('[upcomingTickets] getNextDrawDate mega_millions raw:', nextMmRaw, '→', nextMmDate);
-      console.log('[upcomingTickets] querying tickets with draw_date IN', [nextPbDate, nextMmDate]);
-
       const { data, error } = await supabase
         .from('tickets')
         .select('pool_id, draw_date, game_type')
         .in('pool_id', poolIds)
         .in('draw_date', [nextPbDate, nextMmDate]);
-
-      console.log('[upcomingTickets] query result — data:', data, 'error:', error);
 
       if (error) {
         console.error('Failed to fetch upcoming tickets:', error.message);
@@ -248,17 +241,7 @@ const MainApp: React.FC = () => {
         return;
       }
 
-      // Also fetch ALL tickets for these pools to see what draw_dates exist
-      const { data: allTickets } = await supabase
-        .from('tickets')
-        .select('pool_id, draw_date, game_type')
-        .in('pool_id', poolIds)
-        .order('draw_date', { ascending: false })
-        .limit(20);
-      console.log('[upcomingTickets] all recent tickets for comparison:', allTickets);
-
       const matchedPoolIds = new Set((data || []).map(t => t.pool_id));
-      console.log('[upcomingTickets] matched pool IDs:', [...matchedPoolIds]);
       setPoolsWithUpcomingTickets(matchedPoolIds);
     };
 
