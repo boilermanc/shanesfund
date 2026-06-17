@@ -125,6 +125,7 @@ const MainApp: React.FC = () => {
   const [scannerPoolContext, setScannerPoolContext] = useState<{ id: string; name: string; game_type: 'powerball' | 'mega_millions' } | undefined>();
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualEntryGameType, setManualEntryGameType] = useState<'powerball' | 'mega_millions' | undefined>();
+  const [manualEntryPoolId, setManualEntryPoolId] = useState<string | undefined>();
   const [showCreatePool, setShowCreatePool] = useState(false);
   const [createPoolGameType, setCreatePoolGameType] = useState<'powerball' | 'mega_millions' | undefined>();
   const [showJoinPool, setShowJoinPool] = useState(false);
@@ -447,14 +448,15 @@ const MainApp: React.FC = () => {
             onClose={() => { setShowScanner(false); setScannerPoolContext(undefined); refreshPools(); }}
             pool={scannerPoolContext}
             onCreatePool={scannerPoolContext ? undefined : (gameType?: 'powerball' | 'mega_millions') => { setShowScanner(false); setScannerPoolContext(undefined); setCreatePoolGameType(gameType); setShowCreatePool(true); }}
-            onManualEntry={(gameType?: 'powerball' | 'mega_millions') => { setShowScanner(false); setScannerPoolContext(undefined); setManualEntryGameType(gameType); setShowManualEntry(true); }}
+            onManualEntry={(gameType?: 'powerball' | 'mega_millions') => { setManualEntryPoolId(scannerPoolContext?.id); setShowScanner(false); setScannerPoolContext(undefined); setManualEntryGameType(gameType); setShowManualEntry(true); }}
           />
         )}
         {showManualEntry && (
           <ManualTicketEntry
-            onClose={() => { setShowManualEntry(false); setManualEntryGameType(undefined); refreshPools(); }}
-            onCreatePool={(gameType?: 'powerball' | 'mega_millions') => { setShowManualEntry(false); setManualEntryGameType(undefined); setCreatePoolGameType(gameType); setShowCreatePool(true); }}
+            onClose={() => { setShowManualEntry(false); setManualEntryGameType(undefined); setManualEntryPoolId(undefined); refreshPools(); }}
+            onCreatePool={(gameType?: 'powerball' | 'mega_millions') => { setShowManualEntry(false); setManualEntryGameType(undefined); setManualEntryPoolId(undefined); setCreatePoolGameType(gameType); setShowCreatePool(true); }}
             preselectedGameType={manualEntryGameType}
+            preselectedPoolId={manualEntryPoolId}
           />
         )}
         {showCreatePool && (
@@ -490,7 +492,7 @@ const MainApp: React.FC = () => {
               setScannerPoolContext(poolCtx);
               setShowScanner(true);
             }}
-            onManualEntry={() => setShowManualEntry(true)}
+            onManualEntry={(poolCtx: { id: string; name: string; game_type: 'powerball' | 'mega_millions' }) => { setManualEntryGameType(poolCtx.game_type); setManualEntryPoolId(poolCtx.id); setShowManualEntry(true); }}
             onOpenLedger={() => {
               const pool = displayPools.find(p => p.id === selectedPoolIdForDetail);
               if (pool) {

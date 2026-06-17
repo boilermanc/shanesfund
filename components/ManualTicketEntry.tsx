@@ -5,12 +5,13 @@ import { useStore } from '../store/useStore';
 import { addTicket } from '../services/tickets';
 import { validateTicketNumbers, validateTicketForPool, validateDrawDate } from '../utils/ticketValidation';
 import { formatDrawDate, isDrawClosed } from '../utils/drawSchedule';
-import { supabase } from '../lib/supabase';
 
 interface ManualTicketEntryProps {
   onClose: () => void;
   onCreatePool?: (gameType?: 'powerball' | 'mega_millions') => void;
   preselectedGameType?: 'powerball' | 'mega_millions';
+  // When launched from inside a pool, pre-select that pool in Step 2
+  preselectedPoolId?: string;
 }
 
 interface PoolOption {
@@ -63,7 +64,7 @@ function getUpcomingDrawDates(gameType: GameType, count: number): Date[] {
   return dates;
 }
 
-const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreatePool, preselectedGameType }) => {
+const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreatePool, preselectedGameType, preselectedPoolId }) => {
   const { user, pools } = useStore();
 
   // Step state
@@ -94,9 +95,8 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
   const [duplicateIndices, setDuplicateIndices] = useState<Set<number>>(new Set());
 
   // Pool picker (Step 2)
-  const [selectedPoolId, setSelectedPoolId] = useState('');
+  const [selectedPoolId, setSelectedPoolId] = useState(preselectedPoolId || '');
   const [matchingPools, setMatchingPools] = useState<PoolOption[]>([]);
-  const [poolsLoading, setPoolsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -218,23 +218,15 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
     return true;
   };
 
-  // Fetch matching pools for Step 2
-  const fetchMatchingPools = useCallback(async (gameType: GameType) => {
-    setPoolsLoading(true);
-    try {
-      const { data } = await supabase
-        .from('pools')
-        .select('id, name, game_type, members_count')
-        .eq('game_type', gameType)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
-      setMatchingPools((data as PoolOption[]) || []);
-    } catch {
-      setMatchingPools([]);
-    } finally {
-      setPoolsLoading(false);
-    }
-  }, []);
+  // Filter the user's pools matching the selected game type (from the Zustand
+  // store, which already has members_count — a derived field, not a real
+  // column, so querying `pools` for it would fail).
+  const fetchMatchingPools = useCallback((gameType: GameType) => {
+    const matched = pools
+      .filter(p => p.game_type === gameType && p.status === 'active')
+      .map(p => ({ id: p.id, name: p.name, game_type: p.game_type, members_count: p.members_count || 0 }));
+    setMatchingPools(matched);
+  }, [pools]);
 
   // Transition to Step 2
   const handleGoToStep2 = () => {
@@ -404,11 +396,7 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
 
         {/* Pool list */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-2">
-          {poolsLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 size={24} className="text-[#83C5BE] animate-spin" />
-            </div>
-          ) : matchingPools.length === 0 ? (
+          {matchingPools.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <div className="w-14 h-14 rounded-2xl bg-[#EDF6F9] flex items-center justify-center mb-4 border border-[#FFDDD2]">
                 <Sparkles size={24} className="text-[#83C5BE]" />
@@ -553,28 +541,39 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
           <label className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.3em] mb-2 block">
             Game Type
           </label>
-          <div className="flex gap-2 sm:gap-3">
-            <button
-              onClick={() => { setSelectedGame('powerball'); setMultiplier(0); }}
-              className={`flex-1 py-3 sm:py-3.5 rounded-[1.5rem] sm:rounded-[2rem] font-black text-xs sm:text-sm transition-all ${
-                selectedGame === 'powerball'
-                  ? 'bg-[#E29578] text-white shadow-lg shadow-[#FFDDD2]'
-                  : 'bg-[#EDF6F9] border border-[#FFDDD2] text-[#006D77]'
+          {preselectedPoolId ? (
+            // Launched from a pool — game type is locked to the pool's game
+            <div
+              className={`w-full py-3 sm:py-3.5 rounded-[1.5rem] sm:rounded-[2rem] font-black text-xs sm:text-sm text-white shadow-lg flex items-center justify-center ${
+                selectedGame === 'powerball' ? 'bg-[#E29578] shadow-[#FFDDD2]' : 'bg-[#006D77] shadow-[#83C5BE]/30'
               }`}
             >
-              Powerball
-            </button>
-            <button
-              onClick={() => { setSelectedGame('mega_millions'); setMultiplier(0); }}
-              className={`flex-1 py-3 sm:py-3.5 rounded-[1.5rem] sm:rounded-[2rem] font-black text-xs sm:text-sm transition-all ${
-                selectedGame === 'mega_millions'
-                  ? 'bg-[#006D77] text-white shadow-lg shadow-[#83C5BE]/30'
-                  : 'bg-[#EDF6F9] border border-[#FFDDD2] text-[#006D77]'
-              }`}
-            >
-              Mega Millions
-            </button>
-          </div>
+              {selectedGame === 'powerball' ? 'Powerball' : 'Mega Millions'}
+            </div>
+          ) : (
+            <div className="flex gap-2 sm:gap-3">
+              <button
+                onClick={() => { setSelectedGame('powerball'); setMultiplier(0); }}
+                className={`flex-1 py-3 sm:py-3.5 rounded-[1.5rem] sm:rounded-[2rem] font-black text-xs sm:text-sm transition-all ${
+                  selectedGame === 'powerball'
+                    ? 'bg-[#E29578] text-white shadow-lg shadow-[#FFDDD2]'
+                    : 'bg-[#EDF6F9] border border-[#FFDDD2] text-[#006D77]'
+                }`}
+              >
+                Powerball
+              </button>
+              <button
+                onClick={() => { setSelectedGame('mega_millions'); setMultiplier(0); }}
+                className={`flex-1 py-3 sm:py-3.5 rounded-[1.5rem] sm:rounded-[2rem] font-black text-xs sm:text-sm transition-all ${
+                  selectedGame === 'mega_millions'
+                    ? 'bg-[#006D77] text-white shadow-lg shadow-[#83C5BE]/30'
+                    : 'bg-[#EDF6F9] border border-[#FFDDD2] text-[#006D77]'
+                }`}
+              >
+                Mega Millions
+              </button>
+            </div>
+          )}
         </div>
 
         {selectedGame && (

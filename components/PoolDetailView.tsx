@@ -46,7 +46,7 @@ interface PoolDetailViewProps {
   poolId: string;
   onClose: () => void;
   onScanTicket?: (poolContext: { id: string; name: string; game_type: 'powerball' | 'mega_millions' }) => void;
-  onManualEntry?: () => void;
+  onManualEntry?: (poolContext: { id: string; name: string; game_type: 'powerball' | 'mega_millions' }) => void;
   onOpenLedger?: () => void;
 }
 
@@ -1133,7 +1133,7 @@ const PoolDetailView: React.FC<PoolDetailViewProps> = ({ poolId, onClose, onScan
                         Manual Entry
                       </span>
                       <button
-                        onClick={() => { setFabOpen(false); onManualEntry?.(); }}
+                        onClick={() => { setFabOpen(false); if (pool) onManualEntry?.({ id: pool.id, name: pool.name, game_type: pool.game_type }); }}
                         className="w-11 h-11 rounded-full bg-[#006D77] text-white shadow-lg flex items-center justify-center"
                       >
                         <Keyboard size={20} />
