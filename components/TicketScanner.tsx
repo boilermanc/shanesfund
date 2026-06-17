@@ -560,9 +560,29 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
                   </p>
                 )}
                 {cameraError && (
-                  <div className="flex flex-col items-center gap-3 px-6">
+                  <div className="flex flex-col items-center gap-4 px-6 pointer-events-auto">
                     <AlertCircle size={24} className="text-[#E29578]" />
                     <p className="text-white/70 text-xs sm:text-sm font-bold text-center">{cameraError}</p>
+                    <div className="flex justify-center gap-3 w-full max-w-[420px]">
+                      <motion.button
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex-1 max-w-[200px] py-3.5 rounded-2xl bg-[#E29578] text-white font-black shadow-xl flex items-center justify-center gap-2"
+                      >
+                        <ImagePlus size={18} />
+                        Upload Photo
+                      </motion.button>
+                      {onManualEntry && (
+                        <motion.button
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => onManualEntry()}
+                          className="flex-1 max-w-[200px] py-3.5 rounded-2xl bg-white text-[#006D77] font-black shadow-xl flex items-center justify-center gap-2"
+                        >
+                          <Keyboard size={18} />
+                          Enter Manually
+                        </motion.button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -671,30 +691,6 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
             </div>
           </motion.button>
           <div className="w-[54px]" /> {/* Spacer to keep capture button centered */}
-        </div>
-      )}
-
-      {/* Camera error fallback buttons */}
-      {scanPhase === 'preview' && cameraError && (
-        <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-3 px-6 pb-10 safe-area-bottom z-[420]">
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => fileInputRef.current?.click()}
-            className="flex-1 max-w-[200px] py-4 rounded-2xl bg-[#E29578] text-white font-black shadow-xl flex items-center justify-center gap-2"
-          >
-            <ImagePlus size={18} />
-            Upload Photo
-          </motion.button>
-          {onManualEntry && (
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => onManualEntry()}
-              className="flex-1 max-w-[200px] py-4 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-white font-black shadow-xl flex items-center justify-center gap-2"
-            >
-              <Keyboard size={18} />
-              Enter Manually
-            </motion.button>
-          )}
         </div>
       )}
 
