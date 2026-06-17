@@ -83,7 +83,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue,
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-pearl rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 md:p-10 lg:p-12 warm-shadow border border-white/40 overflow-hidden relative"
+        className="bg-gradient-to-br from-[#F0FAFB]/95 to-[#EDF6F9]/95 backdrop-blur-xl rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 md:p-10 lg:p-12 warm-shadow border border-[#83C5BE]/30 overflow-hidden relative"
       >
         {/* Decorative elements */}
         <div className="absolute -top-12 -right-12 w-24 sm:w-32 h-24 sm:h-32 bg-white/20 rounded-full blur-2xl" />
@@ -115,7 +115,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, totalPoolValue,
                     ${(nextPool.total_jackpot / 1000000).toFixed(0)}M
                   </p>
                   {jackpotUpdatedAt[nextPool.game_type] && (
-                    <p className="text-[8px] sm:text-[9px] font-bold text-[#006D77]/40 mt-1">
+                    <p className="text-[8px] sm:text-[9px] font-bold text-[#006D77]/60 mt-1">
                       Updated {formatTimeAgo(jackpotUpdatedAt[nextPool.game_type])}
                     </p>
                   )}

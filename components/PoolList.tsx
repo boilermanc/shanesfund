@@ -27,10 +27,10 @@ const PoolCard: React.FC<{ pool: DisplayPool; isArchived?: boolean; onJoin?: (po
     >
       <div className="flex justify-between items-start gap-2">
         <div className="space-y-1 min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-0.5">
-            <h3 className="text-lg sm:text-xl font-black text-[#006D77] tracking-tight group-hover:text-[#E29578] transition-colors truncate">
-              {pool.name}
-            </h3>
+          <h3 className="text-lg sm:text-xl font-black text-[#006D77] tracking-tight group-hover:text-[#E29578] transition-colors truncate min-w-0">
+            {pool.name}
+          </h3>
+          <div className="flex items-center flex-wrap gap-1.5 mb-0.5">
             <span
               className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-white shrink-0 ${
                 pool.game_type === 'powerball' ? 'bg-[#E29578]' : 'bg-[#006D77]'
