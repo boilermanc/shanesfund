@@ -594,7 +594,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
         {scanPhase === 'preview' && onManualEntry && (
           <motion.button
             whileHover={{ scale: 1.05 }}
-            onClick={onManualEntry}
+            onClick={() => onManualEntry()}
             className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 sm:gap-2"
           >
             <Keyboard size={14} />
@@ -688,7 +688,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ onClose, poolId: initialP
           {onManualEntry && (
             <motion.button
               whileTap={{ scale: 0.95 }}
-              onClick={onManualEntry}
+              onClick={() => onManualEntry()}
               className="flex-1 max-w-[200px] py-4 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-white font-black shadow-xl flex items-center justify-center gap-2"
             >
               <Keyboard size={18} />

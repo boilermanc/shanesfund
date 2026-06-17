@@ -69,8 +69,12 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
   // Step state
   const [step, setStep] = useState<1 | 2>(1);
 
-  // Game type
-  const [selectedGame, setSelectedGame] = useState<GameType | null>(preselectedGameType || null);
+  // Game type — guard against a non-GameType value being passed in
+  const initialGame: GameType | null =
+    preselectedGameType === 'powerball' || preselectedGameType === 'mega_millions'
+      ? preselectedGameType
+      : null;
+  const [selectedGame, setSelectedGame] = useState<GameType | null>(initialGame);
 
   // Number entry
   const [numbers, setNumbers] = useState(['', '', '', '', '']);
