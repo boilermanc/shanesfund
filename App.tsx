@@ -448,7 +448,7 @@ const MainApp: React.FC = () => {
             onClose={() => { setShowScanner(false); setScannerPoolContext(undefined); refreshPools(); }}
             pool={scannerPoolContext}
             onCreatePool={scannerPoolContext ? undefined : (gameType?: 'powerball' | 'mega_millions') => { setShowScanner(false); setScannerPoolContext(undefined); setCreatePoolGameType(gameType); setShowCreatePool(true); }}
-            onManualEntry={(gameType?: 'powerball' | 'mega_millions') => { setManualEntryPoolId(scannerPoolContext?.id); setShowScanner(false); setScannerPoolContext(undefined); setManualEntryGameType(gameType); setShowManualEntry(true); }}
+            onManualEntry={(gameType?: 'powerball' | 'mega_millions') => { setManualEntryPoolId(scannerPoolContext?.id); setManualEntryGameType(gameType ?? scannerPoolContext?.game_type); setShowScanner(false); setScannerPoolContext(undefined); setShowManualEntry(true); }}
           />
         )}
         {showManualEntry && (

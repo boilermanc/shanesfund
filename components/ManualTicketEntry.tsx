@@ -541,7 +541,7 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
           <label className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-[0.3em] mb-2 block">
             Game Type
           </label>
-          {preselectedPoolId ? (
+          {preselectedPoolId && selectedGame ? (
             // Launched from a pool — game type is locked to the pool's game
             <div
               className={`w-full py-3 sm:py-3.5 rounded-[1.5rem] sm:rounded-[2rem] font-black text-xs sm:text-sm text-white shadow-lg flex items-center justify-center ${
