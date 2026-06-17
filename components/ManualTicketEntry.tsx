@@ -354,7 +354,7 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 150 }}
-        className="fixed inset-0 z-[200] bg-white flex flex-col"
+        className="fixed inset-0 z-[600] bg-white flex flex-col"
       >
       <div className="w-full max-w-xl mx-auto flex flex-col flex-1 min-h-0">
         {/* Header */}
@@ -515,7 +515,7 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', damping: 25, stiffness: 150 }}
-      className="fixed inset-0 z-[200] bg-white flex flex-col"
+      className="fixed inset-0 z-[600] bg-white flex flex-col"
     >
       <div className="w-full max-w-xl mx-auto flex flex-col flex-1 min-h-0">
       {/* Header */}
