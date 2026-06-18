@@ -161,9 +161,15 @@ export function subscribeToNotifications(
         if (onDelete) onDelete(payload);
       }
     )
-    .subscribe((status) => {
-      if (status === 'CHANNEL_ERROR') {
-        console.error('Notification channel error for user:', userId);
+    .subscribe((status, err) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('Notification channel subscribed for user:', userId);
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        // Transient drop (network blip, backgrounded tab, token rotation).
+        // realtime-js auto-reconnects and rejoins, so this is not fatal.
+        console.warn('Notification channel dropped, will auto-reconnect:', status, err?.message);
+      } else if (status === 'CLOSED') {
+        console.log('Notification channel closed for user:', userId);
       }
     });
 
