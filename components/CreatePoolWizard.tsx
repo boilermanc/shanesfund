@@ -152,12 +152,12 @@ const CreatePoolWizard: React.FC<CreatePoolWizardProps> = ({ onClose, onComplete
             aria-valuemin={0}
             aria-valuemax={100}
             aria-label="Pool creation wizard progress"
-            className="absolute top-0 left-0 right-0 h-1 sm:h-1.5 bg-[#EDF6F9]"
+            className="absolute top-3 left-1/2 -translate-x-1/2 w-28 sm:w-36 h-1.5 rounded-full bg-[#EDF6F9] overflow-hidden"
           >
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
-              className="h-full bg-[#83C5BE]"
+              className="h-full rounded-full bg-[#83C5BE]"
             />
           </div>
         )}

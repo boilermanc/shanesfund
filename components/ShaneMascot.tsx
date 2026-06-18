@@ -44,7 +44,7 @@ const ShaneMascot: React.FC<ShaneMascotProps> = ({ size = 'md', animate = false,
       {!hasError ? (
         <img
           src={imageSrc}
-          className="w-full h-full object-cover scale-[1.35] translate-y-[-5%]"
+          className="w-full h-full object-cover scale-[1.1] translate-y-[2%]"
           alt={`Shane ${expression}`}
           onError={() => setHasError(true)}
         />
