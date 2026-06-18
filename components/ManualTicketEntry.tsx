@@ -256,6 +256,35 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
     fetchMatchingPools(selectedGame);
   };
 
+  // When launched from inside a pool, the pool is already known — validate
+  // Step 1 the same way handleGoToStep2 does, then save directly (skip the
+  // redundant pool picker).
+  const handleSaveFromStep1 = () => {
+    if (!selectedGame) return;
+
+    const nums = numbers.map(n => parseInt(n)).filter(n => !isNaN(n));
+    const bonus = parseInt(bonusNumber);
+
+    if (nums.length !== 5 || isNaN(bonus)) {
+      showValidationBanner('Please enter all 6 numbers');
+      return;
+    }
+
+    const numbersCheck = validateTicketNumbers(selectedGame, nums, bonus);
+    if (!numbersCheck.valid) {
+      showValidationBanner(numbersCheck.errors[0]);
+      return;
+    }
+
+    const drawCheck = validateDrawDate(selectedGame, selectedDrawDate);
+    if (!drawCheck.valid) {
+      showValidationBanner(drawCheck.error!);
+      return;
+    }
+
+    handleSaveTicket();
+  };
+
   // Save ticket
   const handleSaveTicket = async () => {
     if (!user?.id || !selectedGame) {
@@ -709,15 +738,48 @@ const ManualTicketEntry: React.FC<ManualTicketEntryProps> = ({ onClose, onCreate
 
       {/* Bottom CTA */}
       <div className="p-4 sm:p-6 border-t border-[#FFDDD2] safe-area-bottom">
-        <motion.button
-          whileTap={{ scale: 0.98 }}
-          onClick={handleGoToStep2}
-          disabled={!isStep1Valid()}
-          className="w-full py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] bg-[#E29578] text-white font-black text-base sm:text-lg shadow-xl shadow-[#FFDDD2] btn-shimmer flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50 disabled:shadow-none"
-        >
-          Next: Choose Pool
-          <ArrowRight size={18} strokeWidth={3} />
-        </motion.button>
+        {preselectedPoolId ? (
+          // Launched from inside a pool — pool is already known, save directly
+          saveSuccess ? (
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="w-full py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] bg-green-500 text-white font-black text-base sm:text-lg flex items-center justify-center gap-2"
+            >
+              <Check size={20} strokeWidth={3} />
+              Saved!
+            </motion.div>
+          ) : (
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={handleSaveFromStep1}
+              disabled={!isStep1Valid() || isSaving}
+              className="w-full py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] bg-[#E29578] text-white font-black text-base sm:text-lg shadow-xl shadow-[#FFDDD2] btn-shimmer flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50 disabled:shadow-none"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  Save Ticket
+                  <Check size={18} strokeWidth={3} />
+                </>
+              )}
+            </motion.button>
+          )
+        ) : (
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            onClick={handleGoToStep2}
+            disabled={!isStep1Valid()}
+            className="w-full py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] bg-[#E29578] text-white font-black text-base sm:text-lg shadow-xl shadow-[#FFDDD2] btn-shimmer flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50 disabled:shadow-none"
+          >
+            Next: Choose Pool
+            <ArrowRight size={18} strokeWidth={3} />
+          </motion.button>
+        )}
       </div>
       </div>
     </motion.div>
