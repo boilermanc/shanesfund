@@ -248,8 +248,8 @@ const DrawResultsBanner: React.FC<DrawResultsBannerProps> = ({ pools, onPoolClic
                   </>
                 ) : (
                   <>
-                    <p className="text-base sm:text-lg font-black text-[#006D77]/80">No matches this draw</p>
-                    <p className="text-[9px] sm:text-[10px] font-bold text-[#83C5BE] mt-1">
+                    <p className="text-xl sm:text-2xl font-black text-[#006D77]">No matches this draw</p>
+                    <p className="text-xs sm:text-sm font-bold text-[#006D77]/70 mt-1.5">
                       Better luck next time — keep playing!
                     </p>
                   </>
@@ -258,26 +258,26 @@ const DrawResultsBanner: React.FC<DrawResultsBannerProps> = ({ pools, onPoolClic
 
               {/* Winning numbers */}
               <div className="mb-4">
-                <p className={`text-center text-[7px] sm:text-[8px] font-black uppercase tracking-widest mb-2 ${
-                  isPB ? 'text-[#E29578]/50' : 'text-[#006D77]/40'
+                <p className={`text-center text-[10px] sm:text-xs font-black uppercase tracking-widest mb-2.5 ${
+                  isPB ? 'text-[#E29578]' : 'text-[#006D77]'
                 }`}>
                   Winning Numbers
                 </p>
-                <div className="flex justify-center gap-1.5 sm:gap-2">
+                <div className="flex justify-center gap-2 sm:gap-2.5">
                   {draw.winning_numbers.map((num, i) => (
                     <div
                       key={i}
-                      className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-black text-xs sm:text-sm border-2 ${
+                      className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center font-black text-sm sm:text-base border-2 ${
                         isPB
-                          ? 'bg-white border-[#E29578]/30 text-[#E29578]'
-                          : 'bg-white border-[#006D77]/30 text-[#006D77]'
+                          ? 'bg-white border-[#E29578]/40 text-[#E29578]'
+                          : 'bg-white border-[#006D77]/40 text-[#006D77]'
                       }`}
                     >
                       {num.toString().padStart(2, '0')}
                     </div>
                   ))}
                   <div
-                    className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-black text-xs sm:text-sm border-2 text-white ${
+                    className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center font-black text-sm sm:text-base border-2 text-white ${
                       isPB ? 'bg-[#E29578] border-[#E29578]' : 'bg-[#006D77] border-[#006D77]'
                     }`}
                   >
@@ -288,12 +288,12 @@ const DrawResultsBanner: React.FC<DrawResultsBannerProps> = ({ pools, onPoolClic
 
               {/* Footer — tap to view */}
               <div className={`flex items-center justify-center gap-1 ${
-                isPB ? 'text-[#E29578]/60' : 'text-[#006D77]/50'
+                isPB ? 'text-[#E29578]' : 'text-[#006D77]'
               }`}>
-                <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest">
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest">
                   View Pool Details
                 </span>
-                <ChevronRight size={12} />
+                <ChevronRight size={14} />
               </div>
             </motion.div>
           );

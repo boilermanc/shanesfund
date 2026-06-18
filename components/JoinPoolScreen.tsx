@@ -390,14 +390,14 @@ const JoinPoolScreen: React.FC<JoinPoolScreenProps> = ({ onClose, onJoinSuccess 
                   <h3 className="text-xl sm:text-2xl font-black text-[#006D77] tracking-tight">
                     Contribute to the Pool
                   </h3>
-                  <p className="text-xs sm:text-sm text-[#83C5BE] font-bold max-w-[260px]">
+                  <p className="text-sm sm:text-base text-[#006D77]/70 font-bold max-w-[280px]">
                     Pay the captain <span className="text-[#006D77] font-black">${poolData.contribution_amount}</span> for the next draw
                   </p>
 
                   <div className="bg-[#EDF6F9] p-4 sm:p-5 rounded-2xl border border-[#FFDDD2] mt-4">
-                    <p className="text-[9px] sm:text-[10px] font-black text-[#83C5BE] uppercase tracking-wider mb-2">Amount Due</p>
+                    <p className="text-[10px] sm:text-xs font-black text-[#006D77]/70 uppercase tracking-wider mb-2">Amount Due</p>
                     <p className="text-4xl sm:text-5xl font-black text-[#006D77] tracking-tighter">${poolData.contribution_amount}</p>
-                    <p className="text-[9px] sm:text-[10px] text-[#83C5BE] font-bold mt-2">
+                    <p className="text-xs sm:text-sm text-[#006D77]/60 font-bold mt-2">
                       Pay via Venmo, Zelle, or Cash
                     </p>
                   </div>
@@ -437,7 +437,7 @@ const JoinPoolScreen: React.FC<JoinPoolScreenProps> = ({ onClose, onJoinSuccess 
                 </button>
                 <button
                   onClick={handleSkipPayment}
-                  className="w-full py-3 text-[#83C5BE] font-black text-[10px] sm:text-xs uppercase tracking-widest"
+                  className="w-full py-3 text-[#006D77]/70 font-black text-xs sm:text-sm uppercase tracking-widest"
                 >
                   I'll pay later
                 </button>
