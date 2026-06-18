@@ -737,3 +737,22 @@ export const getSharedWealth = async (
     return { data: 0, error: 'An unexpected error occurred' };
   }
 };
+
+// Get total winnings across the user's whole Inner Circle (self + accepted friends' pools)
+// via the get_inner_circle_wealth RPC (SECURITY DEFINER, bypasses RLS safely).
+export const getInnerCircleWealth = async (): Promise<{
+  data: number;
+  error: string | null;
+}> => {
+  try {
+    const { data, error } = await supabase.rpc('get_inner_circle_wealth');
+
+    if (error) {
+      return { data: 0, error: error.message };
+    }
+
+    return { data: (data as number) ?? 0, error: null };
+  } catch (err) {
+    return { data: 0, error: 'An unexpected error occurred' };
+  }
+};
