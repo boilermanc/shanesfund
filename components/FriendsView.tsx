@@ -4,7 +4,28 @@ import { Search, UserPlus, Users, Zap, ExternalLink, Trophy, TrendingUp, Check, 
 import { useStore } from '../store/useStore';
 import { searchUsers, type FriendWithProfile, type UserSearchResult } from '../services/friends';
 import SyndicateCard from './SyndicateCard';
-const showToast = () => useStore.getState().showToast('Coming soon!', 'info');
+const handleInvite = async () => {
+  const shareUrl = 'https://shanesfund.vercel.app';
+  const shareData = {
+    title: "Shane's Retirement Fund",
+    text: "Join my Inner Circle on Shane's Retirement Fund — let's pool tickets and chase that retirement juice together!",
+    url: shareUrl,
+  };
+  if (navigator.share) {
+    try {
+      await navigator.share(shareData);
+      return;
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(`${shareData.text} ${shareUrl}`);
+    useStore.getState().showToast('Invite link copied to clipboard!', 'success');
+  } catch {
+    useStore.getState().showToast('Could not copy link. Please try again.', 'error');
+  }
+};
 
 interface FriendsViewProps {
   onOpenProfile: (friend: FriendWithProfile) => void;
@@ -146,7 +167,7 @@ const FriendsView: React.FC<FriendsViewProps> = ({ onOpenProfile, onOpenRequests
             />
           </div>
           <button
-            onClick={showToast}
+            onClick={handleInvite}
             className="bg-[#E29578] text-white px-4 sm:px-6 rounded-[1.5rem] sm:rounded-[2rem] font-black text-[9px] sm:text-xs uppercase tracking-widest flex items-center gap-1.5 sm:gap-2 shadow-lg shadow-[#E29578]/20 active:scale-95 transition-all whitespace-nowrap"
           >
             <ExternalLink size={14} />
